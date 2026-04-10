@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Syndic Ledger High-End</title>
+    <style>
+      :root{
+        --bg:#f4f7fb;--panel:#fff;--line:#d8e0ea;--text:#17212b;--muted:#5c6b7a;
+        --primary:#1e5eff;--primary-dark:#16324f;--success:#1f8a5b;--warning:#d98e04;--danger:#c43d3d;
+        --shadow:0 18px 42px rgba(22,50,79,.08)
+      }
+      *{box-sizing:border-box} html,body{height:100%}
+      body{margin:0;font-family:Inter,Manrope,Arial,sans-serif;background:
+        radial-gradient(circle at top left,rgba(30,94,255,.08),transparent 28%),
+        linear-gradient(180deg,#f8fbff 0%,var(--bg) 100%);color:var(--text)}
+      .hidden{display:none!important}
+      .boot,.login{min-height:100vh;display:grid;place-items:center;padding:24px}
+      .card-boot,.card-login{width:min(100%,480px);background:rgba(255,255,255,.94);border:1px solid rgba(215,222,231,.9);border-radius:28px;box-shadow:var(--shadow);padding:28px}
+      .brand{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+      .brand-mark{width:52px;height:52px;border-radius:18px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:grid;place-items:center;color:#fff;font-weight:800}
+      .brand small{display:block;color:var(--muted);margin-top:4px}
+      .hero-title{margin:0 0 10px;font-size:1.6rem}
+      .sub{color:var(--muted);line-height:1.55}
+      .grid{display:grid;gap:14px}
+      .field label{display:block;font-size:.88rem;font-weight:600;margin-bottom:6px;color:var(--primary-dark)}
+      .field input,.field select,.field textarea{
+        width:100%;min-height:46px;border:1px solid var(--line);border-radius:16px;padding:12px 14px;font:inherit;
+        outline:none;transition:.2s all ease;background:#fff
+      }
+      .field textarea{min-height:110px;resize:vertical}
+      .field input:focus,.field select:focus,.field textarea:focus{border-color:rgba(30,94,255,.55);box-shadow:0 0 0 4px rgba(30,94,255,.12)}
+      .row{display:flex;gap:10px;flex-wrap:wrap}
+      button{border:0;border-radius:16px;min-height:46px;padding:0 16px;font:inherit;font-weight:700;cursor:pointer;transition:transform .12s ease, box-shadow .2s ease, opacity .2s ease}
+      button:hover{transform:translateY(-1px)} button:active{transform:scale(.97)} button:disabled{opacity:.65;cursor:not-allowed}
+      .b1{background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;box-shadow:0 14px 24px rgba(30,94,255,.18)}
+      .b2{background:#eef3ff;color:var(--primary-dark)}
+      .b3{background:#eef2f6;color:var(--text)}
+      .bd{background:#fff1f1;color:var(--danger)}
+      .shell{min-height:100vh;display:grid;grid-template-columns:290px 1fr}
+      .sidebar{background:rgba(255,255,255,.92);border-right:1px solid rgba(215,222,231,.75);padding:22px 18px;position:sticky;top:0;height:100vh;overflow:auto;backdrop-filter:blur(18px)}
+      .nav{display:grid;gap:6px;margin-top:14px}
+      .nav button{width:100%;display:flex;justify-content:flex-start;background:transparent;color:var(--text);padding:12px 14px;border-radius:16px}
+      .nav button.active{background:linear-gradient(135deg,rgba(22,50,79,.95),rgba(30,94,255,.95));color:#fff}
+      .main{padding:22px}
+      .top{background:rgba(255,255,255,.9);border:1px solid rgba(215,222,231,.9);border-radius:24px;box-shadow:var(--shadow);padding:18px 20px;display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:18px}
+      .content{display:grid;gap:18px}
+      .content.animate{animation:tabIn 220ms ease-out}
+      .card{background:rgba(255,255,255,.94);border:1px solid rgba(215,222,231,.9);border-radius:24px;box-shadow:var(--shadow);padding:18px}
+      .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+      .chips{display:flex;gap:10px;flex-wrap:wrap}
+      .chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;font-size:.78rem;font-weight:700;background:#eef2f6}
+      .cp{background:#eef3ff;color:var(--primary-dark)} .cs{background:#eef9f3;color:var(--success)} .cw{background:#fff6e5;color:var(--warning)} .cd{background:#fff2f2;color:var(--danger)}
+      .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+      .kpi{border:1px solid var(--line);border-radius:20px;padding:16px;background:linear-gradient(180deg,#fff,#f8fbff)}
+      .kpi .v{margin-top:10px;font-size:1.85rem;font-weight:800}
+      .split{display:grid;grid-template-columns:1.2fr 1fr;gap:18px}
+      .toolbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+      .filters{display:flex;gap:10px;flex-wrap:wrap}
+      .table-wrap{width:100%;overflow:auto;border-radius:18px;border:1px solid var(--line);background:#fff}
+      table{width:100%;border-collapse:collapse;min-width:1080px}
+      th,td{padding:12px 14px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:.93rem}
+      th{background:#f8fafc;color:var(--primary-dark);font-size:.82rem;text-transform:uppercase;letter-spacing:.04em}
+      .empty{padding:30px 18px;border:1px dashed var(--line);border-radius:18px;color:var(--muted);text-align:center;background:#fbfdff}
+      .modal-backdrop{position:fixed;inset:0;background:rgba(13,22,34,.42);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
+      .modal-backdrop.show{display:flex}
+      .modal{width:min(860px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:26px;box-shadow:0 30px 80px rgba(17,30,48,.25);padding:22px;animation:slideUp 260ms cubic-bezier(.22,1,.36,1)}
+      .modal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+      .span-2{grid-column:span 2}
+      .toasts{position:fixed;right:18px;bottom:18px;display:grid;gap:10px;z-index:60}
+      .toast{min-width:260px;max-width:420px;padding:13px 14px;border-radius:16px;box-shadow:var(--shadow);border:1px solid rgba(215,222,231,.85);background:#fff}
+      .progress{height:4px;border-radius:999px;overflow:hidden;background:rgba(30,94,255,.08);margin-top:14px}
+      .progress span{display:block;width:42%;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--primary-dark),var(--primary));animation:slide 1.2s infinite ease-in-out}
+      .save-btn{position:relative;min-width:150px}
+      .save-btn.loading .label{opacity:0}
+      .spinner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+      .spinner i{width:18px;height:18px;border-radius:999px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;display:block;animation:spin .8s linear infinite}
+      .money-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+      .stat-box{border:1px solid var(--line);border-radius:18px;padding:14px;background:#f8fafc}
+      @keyframes slide{0%{transform:translateX(-120%)}100%{transform:translateX(330%)}}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      @keyframes slideUp{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+      @keyframes tabIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+      @media (max-width:1100px){.shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--line)}.split{grid-template-columns:1fr}}
+      @media (max-width:720px){.main{padding:14px}.top{flex-direction:column;align-items:flex-start}.modal-grid{grid-template-columns:1fr}.span-2{grid-column:span 1}.money-grid{grid-template-columns:1fr}}
+    </style>
+  </head>
+  <body>
+    <div id="boot" class="boot">
+      <div class="card-boot">
+        <div class="brand"><div class="brand-mark">SL</div><div><strong>Syndic Ledger High-End</strong><small>En étude · Assurance habitation</small></div></div>
+        <h2 class="hero-title">Initialisation de la plateforme</h2>
+        <p class="sub">Préparation des feuilles, des cohérences type de dossier / équipe, du pointage et des accès.</p>
+        <div class="progress"><span></span></div>
+      </div>
+    </div>
+
+    <div id="login" class="login hidden">
+      <div class="card-login">
+        <div class="brand"><div class="brand-mark">SL</div><div><strong>Syndic Ledger High-End</strong><small>Module En étude</small></div></div>
+        <h1 class="hero-title">Connexion</h1>
+        <p class="sub">Gestion des En étude, calcul de solvabilité, cohérences depuis la feuille et pointage.</p>
+        <form id="loginForm" class="grid">
+          <div class="field"><label>Identifiant</label><input id="loginInput" autocomplete="username" placeholder="superadmin"></div>
+          <div class="field"><label>Mot de passe</label><input id="passwordInput" type="password" autocomplete="current-password" placeholder="••••••••••••"></div>
+          <div class="row">
+            <button type="submit" class="b1 save-btn" id="loginBtn"><span class="label">Se connecter</span></button>
+            <button type="button" class="b2" onclick="fillAdmin()">Préremplir l’admin</button>
+          </div>
+        </form>
+        <p id="hint" class="sub"></p>
+      </div>
+    </div>
+
+    <div id="app" class="shell hidden">
+      <aside class="sidebar">
+        <div class="brand"><div class="brand-mark">SL</div><div><strong>Syndic Ledger High-End</strong><small>Module En étude</small></div></div>
+        <div class="card" id="profileCard" style="padding:16px;margin-bottom:16px;"></div>
+        <nav class="nav" id="nav"></nav>
+        <div class="row" style="margin-top:18px;">
+          <button class="b2" onclick="refreshView()">Actualiser</button>
+          <button class="bd" onclick="logout()">Se déconnecter</button>
+        </div>
+      </aside>
+      <main class="main">
+        <div class="top">
+          <div><h1 id="title" style="margin:0 0 6px;"></h1><p id="subtitle" class="sub" style="margin:0;"></p></div>
+          <div class="row" id="topActions"></div>
+        </div>
+        <div class="content" id="view"></div>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="modalBackdrop">
+      <div class="modal">
+        <div class="card-head">
+          <div><h2 id="modalTitle" style="margin:0 0 6px;"></h2><p id="modalSubtitle" class="sub" style="margin:0;"></p></div>
+          <button class="b3" onclick="closeModal()">Fermer</button>
+        </div>
+        <div id="modalBody"></div>
+        <div class="row" style="justify-content:flex-end;margin-top:16px;">
+          <button class="b3" onclick="closeModal()">Annuler</button>
+          <button class="b1 save-btn" id="modalPrimary"><span class="label">Enregistrer</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="calcBackdrop" style="z-index:70;">
+      <div class="modal">
+        <div class="card-head">
+          <div><h2 style="margin:0 0 6px;">Calcul de solvabilité</h2><p class="sub" id="calcSubtitle" style="margin:0;"></p></div>
+          <button class="b3" onclick="closeCalcModal()">Fermer</button>
+        </div>
+        <div id="calcBody"></div>
+        <div class="row" style="justify-content:flex-end;margin-top:16px;">
+          <button class="b3" onclick="closeCalcModal()">Annuler</button>
+          <button class="b1" onclick="applyCalcResult()">Appliquer au dossier</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toasts" class="toasts"></div>
+
+    <script>
+      const state = {
+        initInfo: null,
+        token: localStorage.getItem('SL_ETU_TOKEN') || '',
+        session: null,
+        lookups: null,
+        currentView: 'dashboard',
+        filters: {},
+        modalAction: null,
+        heartbeatTimer: null,
+        currentEdit: null,
+        currentSolvabilite: null
+      };
+
+      document.addEventListener('DOMContentLoaded', boot);
+      document.getElementById('loginForm').addEventListener('submit', onLogin);
+      window.addEventListener('offline', handleOfflineSignal);
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      async function boot() {
+        try {
+          state.initInfo = await rpc('initApplication');
+          byId('hint').textContent = 'Compte initial : superadmin / ChangeMe123!';
+          if (!state.token) return showLogin();
+          const data = await rpc('getBootstrapData', state.token);
+          hydrate(data);
+        } catch (error) {
+          toast(error.message || 'Erreur de démarrage', 'error');
+          showLogin();
+        }
+      }
+
+      function showLogin() {
+        stopHeartbeat();
+        byId('boot').classList.add('hidden');
+        byId('app').classList.add('hidden');
+        byId('login').classList.remove('hidden');
+      }
+
+      function showApp() {
+        byId('boot').classList.add('hidden');
+        byId('login').classList.add('hidden');
+        byId('app').classList.remove('hidden');
+      }
+
+      function fillAdmin() {
+        byId('loginInput').value = 'superadmin';
+        byId('passwordInput').value = 'ChangeMe123!';
+      }
+
+      async function onLogin(e) {
+        e.preventDefault();
+        setButtonLoading(byId('loginBtn'), true);
+        try {
+          const session = await rpc('authenticateUser', byId('loginInput').value.trim(), byId('passwordInput').value, navigator.userAgent);
+          state.token = session.token;
+          localStorage.setItem('SL_ETU_TOKEN', state.token);
+          const data = await rpc('getBootstrapData', state.token);
+          hydrate(data);
+          toast('Connexion réussie.', 'success');
+        } catch (error) {
+          toast(error.message || 'Connexion impossible.', 'error');
+        } finally {
+          setButtonLoading(byId('loginBtn'), false);
+        }
+      }
+
+      function hydrate(data) {
+        state.session = data.session;
+        state.lookups = data.lookups;
+        state.currentView = 'dashboard';
+        renderProfile();
+        renderNav();
+        showApp();
+        startHeartbeat();
+        renderDashboard(data.dashboard);
+      }
+
+      function renderProfile() {
+        const u = state.session.user;
+        byId('profileCard').innerHTML = `
+          <div class="grid" style="gap:10px;">
+            <div><strong>${esc(u.full_name || 'Utilisateur')}</strong><br><span class="sub">${esc(u.login || '')}</span></div>
+            <div class="chips">
+              <span class="chip cp">${esc(roleLabel(u.role))}</span>
+              <span class="chip ${statusClass(u.status)}">${esc(u.status || 'Actif')}</span>
+            </div>
+            <div class="sub">Dernière connexion : ${esc(formatDate(u.last_login_at) || 'Jamais')}</div>
+          </div>`;
+      }
+
+      function renderNav() {
+        byId('nav').innerHTML = state.session.menu.map(item =>
+          `<button class="${item.key===state.currentView?'active':''}" onclick="navigate('${item.key}')">${esc(item.label)}</button>`
+        ).join('');
+      }
+
+      async function navigate(key) {
+        state.currentView = key;
+        renderNav();
+        await renderView();
+      }
+
+      function refreshTop(customActions) {
+        const map = {
+          dashboard: ['Dashboard', 'Vue synthétique du périmètre.'],
+          users: ['Utilisateurs', 'Rôles, rattachements et accès.'],
+          teams: ['Équipes', 'Organisation opérationnelle.'],
+          coherences: ['Cohérences', 'Liste issue de la feuille EN_ETUDE_TYPE_TEAM_MAP.'],
+          en_etudes: ['En étude', 'Gestion des En étude et calcul de solvabilité.'],
+          presence: ['Pointage', 'Présence, connexions, déconnexions et temps en ligne.'],
+          history: ['Historique', 'Journal des actions métiers.'],
+          connections: ['Connexions', 'Journal détaillé des authentifications.']
+        };
+        byId('title').textContent = map[state.currentView][0];
+        byId('subtitle').textContent = map[state.currentView][1];
+        byId('topActions').innerHTML = (customActions || defaultActions()).join('');
+      }
+
+      function defaultActions() {
+        const actions = [];
+        if (state.currentView === 'users' && state.session.permissions.canManageUsers) actions.push(`<button class="b1" onclick="openUserForm()">Nouvel utilisateur</button>`);
+        if (state.currentView === 'teams' && state.session.permissions.canManageTeams) actions.push(`<button class="b1" onclick="openTeamForm()">Nouvelle équipe</button>`);
+        if (state.currentView === 'en_etudes' && state.session.permissions.canCreateEnEtude) {
+          actions.push(`<button class="b2" onclick="exportEnEtudesCsv()">Export CSV</button>`);
+          actions.push(`<button class="b1" onclick="openEnEtudeForm()">Nouvelle En étude</button>`);
+        }
+        return actions;
+      }
+
+      async function renderView() {
+        const view = byId('view');
+        view.classList.remove('animate');
+        void view.offsetWidth;
+        view.classList.add('animate');
+
+        if (state.currentView === 'dashboard') return renderDashboard(await rpc('getDashboardData', state.token));
+        if (state.currentView === 'users') return renderUsers();
+        if (state.currentView === 'teams') return renderTeams();
+        if (state.currentView === 'coherences') return renderCoherences();
+        if (state.currentView === 'en_etudes') return renderEnEtudes();
+        if (state.currentView === 'presence') return renderPresence();
+        if (state.currentView === 'history') return renderHistory();
+        if (state.currentView === 'connections') return renderConnections();
+      }
+
+      async function refreshView() {
+        await renderView();
+        toast('Vue actualisée.', 'info');
+      }
+
+      function renderDashboard(data) {
+        refreshTop();
+        byId('view').innerHTML = `
+          <section class="card">
+            <div class="card-head"><div><h2 style="margin:0 0 6px;">Vue synthétique</h2><p class="sub" style="margin:0;">${esc(data.scopeLabel || '')}</p></div></div>
+            <div class="kpis">
+              ${data.kpis.map(k => `<div class="kpi"><span class="chip ${toneClass(k.tone)}">${esc(k.label)}</span><div class="v">${esc(String(k.value))}</div></div>`).join('')}
+            </div>
+          </section>
+          <section class="split">
+            <div class="card">
+              <div class="card-head"><div><h3 style="margin:0 0 6px;">Répartition des statuts</h3><p class="sub" style="margin:0;">Suivi des En étude.</p></div></div>
+              <div class="chips">${(data.statusBreakdown || []).map(r => `<span class="chip ${statusClass(r.label)}">${esc(r.label)} · ${esc(String(r.value))}</span>`).join('') || '<span class="sub">Aucune donnée.</span>'}</div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><h3 style="margin:0 0 6px;">Performance</h3><p class="sub" style="margin:0;">Équipes ou ambassadeurs.</p></div></div>
+              ${(data.performance && data.performance.length) ? table(data.performance, Object.keys(data.performance[0]).map(k => ({ key:k, label:pretty(k) }))) : `<div class="empty">Aucune donnée de performance.</div>`}
+            </div>
+          </section>`;
+      }
+
+      async function renderUsers() {
+        refreshTop();
+        const rows = await rpc('listUsers', state.token);
+        byId('view').innerHTML = `
+          <section class="card">
+            <div class="toolbar"><div><h2 style="margin:0 0 6px;">Utilisateurs</h2><p class="sub" style="margin:0;">Gestion des rôles et rattachements.</p></div></div>
+            ${rows.length ? table(rows, [
+              { key:'full_name', label:'Nom' },
+              { key:'login', label:'Login' },
+              { key:'role', label:'Rôle' },
+              { key:'team_name', label:'Équipe' },
+              { key:'team_leader_name', label:'Team Leader' },
+              { key:'status', label:'Statut', badge:true },
+              { key:'last_login_at', label:'Dernière connexion', datetime:true },
+              { key:'__actions', label:'Action', render: row => state.session.permissions.canManageUsers ? `<button class="b2" onclick="openUserForm('${row.id}')">Éditer</button>` : '' }
+            ]) : `<div class="empty">Aucun utilisateur visible.</div>`}
+          </section>`;
+      }
+
+      async function renderTeams() {
+        refreshTop();
+        const rows = await rpc('listTeams', state.token);
+        byId('view').innerHTML = `
+          <section class="card">
+            <div class="toolbar"><div><h2 style="margin:0 0 6px;">Équipes</h2><p class="sub" style="margin:0;">Périmètres de pilotage.</p></div></div>
+            ${rows.length ? table(rows, [
+              { key:'name', label:'Équipe' },
+              { key:'team_leader_name', label:'Team Leader' },
+              { key:'ambassadors_count', label:'Ambassadeurs' },
+              { key:'en_etudes_count', label:'En étude' },
+              { key:'status', label:'Statut', badge:true },
+              { key:'__actions', label:'Action', render: row => state.session.permissions.canManageTeams ? `<button class="b2" onclick="openTeamForm('${row.id}')">Éditer</button>` : '' }
+            ]) : `<div class="empty">Aucune équipe visible.</div>`}
+          </section>`;
+      }
+
+      async function renderCoherences() {
+        refreshTop();
+        const rows = await rpc('listEnEtudeTypeTeamRules', state.token);
+        byId('view').innerHTML = `
+          <section class="card">
+            <div class="toolbar">
+              <div>
+                <h2 style="margin:0 0 6px;">Cohérences type de dossier / équipe</h2>
+                <p class="sub" style="margin:0;">Cette liste est alimentée par la feuille <strong>EN_ETUDE_TYPE_TEAM_MAP</strong>. Modifie-la directement dans le Sheet.</p>
+              </div>
+            </div>
+            ${rows.length ? table(rows, [
+              { key:'type_dossier', label:'Type de dossier' },
+              { key:'team_id', label:'Team ID' },
+              { key:'team_name', label:'Équipe' },
+              { key:'active', label:'Actif', badge:true },
+              { key:'updated_at', label:'Mis à jour', datetime:true }
+            ]) : `<div class="empty">Aucune cohérence trouvée dans la feuille EN_ETUDE_TYPE_TEAM_MAP.</div>`}
+          </section>`;
+      }
+
+      async function renderEnEtudes() {
+        refreshTop([`<button class="b3" onclick="state.filters.en_etudes={}; renderEnEtudes();">Réinitialiser les filtres</button>`].concat(defaultActions()));
+        const filters = state.filters.en_etudes || {};
+        const rows = await rpc('listEnEtudes', state.token, filters);
+        state.lastEnEtudes = rows;
+        byId('view').innerHTML = `
+          <section class="card">
+            <div class="toolbar">
+              <div><h2 style="margin:0 0 6px;">En étude</h2><p class="sub" style="margin:0;">Module simplifié avec calcul de solvabilité et attribution automatique de l’équipe.</p></div>
+              <div class="filters">
+                <input id="enEtudeSearch" placeholder="Recherche..." value="${escAttr(filters.search || '')}">
+                <select id="enEtudeType">
+                  <option value="">Tous les types</option>
+                  ${state.lookups.enEtudeTypes.map(v => `<option value="${v}" ${filters.type_dossier===v?'selected':''}>${v}</option>`).join('')}
+                </select>
+                <select id="enEtudeStatus">
+                  <option value="">Tous les statuts</option>
+                  ${state.lookups.enEtudeStatuses.map(v => `<option value="${escAttr(v)}" ${filters.statut===v?'selected':''}>${esc(v)}</option>`).join('')}
+                </select>
+                <button class="b2" onclick="applyEnEtudeFilters()">Filtrer</button>
+              </div>
+            </div>
+            ${rows.length ? table(rows, [
+              { key:'reference', label:'Référence' },
+              { key:'type_dossier', label:'Type de dossier' },
+              { key:'type_client', label:'Type client' },
+              { key:'priorite', label:'Priorité', badge:true },
+              { key:'client', label:'Client' },
+              { key:'adresse', label:'Adresse' },
+              { key:'equipe_name', label:'Équipe auto' },
+              { key:'ambassadeur_assigne_name', label:'Ambassadeur' },
+              { key:'statut', label:'Statut', badge:true },
+              { key:'motif_validation', label:'Motif validé' },
+              { key:'resultat_solvabilite', label:'Résultat solvabilité', badge:true },
+              { key:'updated_at', label:'Mis à jour', datetime:true },
+              { key:'__actions', label:'Action', render: row => `<button class="b2" onclick="openEnEtudeForm('${row.id}')">Éditer</button>` }
+            ]) : `<div class="empty">Aucune En étude trouvée.</div>`}
+          </section>`;
+      }
+
+      async function renderPresence() {
+        const dateKey = (state.filters.presence && state.filters.presence.date_key) || new Date().toISOString().slice(0,10);
+        refreshTop();
+        const data = await rpc('getPresenceSummary', state.token, dateKey);
+        byId('view').innerHTML = `
+          <section class="card">
+            <div class="toolbar">
+              <div><h2 style="margin:0 0 6px;">Pointage du ${esc(dateKey)}</h2><p class="sub" style="margin:0;">Les coupures de connexion sont comptées comme déconnexions après expiration du heartbeat.</p></div>
+              <div class="filters"><input type="date" id="presenceDate" value="${escAttr(dateKey)}"><button class="b2" onclick="applyPresenceDate()">Afficher</button></div>
+            </div>
+            <div class="kpis" style="margin-bottom:14px;">
+              <div class="kpi"><span class="chip cp">Présents suivis</span><div class="v">${esc(String(data.total_users))}</div></div>
+              <div class="kpi"><span class="chip cs">En ligne maintenant</span><div class="v">${esc(String(data.online_now))}</div></div>
+              <div class="kpi"><span class="chip cp">Connexions du jour</span><div class="v">${esc(String(data.total_connections))}</div></div>
+              <div class="kpi"><span class="chip cd">Déconnexions du jour</span><div class="v">${esc(String(data.total_disconnections))}</div></div>
+              <div class="kpi"><span class="chip cw">Temps en ligne cumulé</span><div class="v">${esc(secondsToHHMM(data.total_online_seconds))}</div></div>
+            </div>
+            ${data.rows && data.rows.length ? table(data.rows, [
+              { key:'full_name', label:'Utilisateur' },
+              { key:'role', label:'Rôle' },
+              { key:'team_name', label:'Équipe' },
+              { key:'first_login_at', label:'1re connexion', datetime:true },
+              { key:'last_seen_at', label:'Dernière activité', datetime:true },
+              { key:'last_disconnect_at', label:'Dernière déconnexion', datetime:true },
+              { key:'connection_count', label:'Nb connexions' },
+              { key:'disconnection_count', label:'Nb déconnexions' },
+              { key:'online_hhmm', label:'Temps en ligne' },
+              { key:'currently_online', label:'En ligne', badge:true }
+            ]) : `<div class="empty">Aucun pointage pour cette date.</div>`}
+          </section>`;
+      }
+
+      async function renderHistory() {
+        refreshTop();
+        const rows = await rpc('getActivityLogs', state.token, 150);
+        byId('view').innerHTML = `
+          <section class="card">
+            <div class="toolbar"><div><h2 style="margin:0 0 6px;">Historique</h2><p class="sub" style="margin:0;">Journal des actions.</p></div></div>
+            ${rows.length ? table(rows, [
+              { key:'timestamp', label:'Date', datetime:true },
+              { key:'login', label:'Login' },
+              { key:'action_type', label:'Action' },
+              { key:'entity_type', label:'Entité' },
+              { key:'entity_id', label:'ID' },
+              { key:'summary', label:'Résumé' }
+            ]) : `<div class="empty">Aucune activité.</div>`}
+          </section>`;
+      }
+
+      async function renderConnections() {
+        refreshTop();
+        const rows = await rpc('listLoginLogs', state.token, 150);
+        byId('view').innerHTML = `
+          <section class="card">
+            <div class="toolbar"><div><h2 style="margin:0 0 6px;">Connexions</h2><p class="sub" style="margin:0;">Authentifications et tentatives.</p></div></div>
+            ${rows.length ? table(rows, [
+              { key:'timestamp', label:'Date', datetime:true },
+              { key:'login', label:'Login' },
+              { key:'success', label:'Succès', badge:true },
+              { key:'message', label:'Message' },
+              { key:'user_agent', label:'Navigateur' }
+            ]) : `<div class="empty">Aucune connexion.</div>`}
+          </section>`;
+      }
+
+      async function openUserForm(id) {
+        await refreshLookups();
+        const users = await rpc('listUsers', state.token);
+        const item = id ? users.find(r => r.id === id) : null;
+        const roleOptions = state.session.role === 'team_leader'
+          ? [{ value:'ambassador', label:'Ambassadeur' }]
+          : [{ value:'super_admin', label:'Super Admin' }, { value:'team_leader', label:'Team Leader' }, { value:'ambassador', label:'Ambassadeur' }];
+
+        openModal(
+          item ? 'Modifier un utilisateur' : 'Nouvel utilisateur',
+          'Gestion des rôles et rattachements.',
+          `<form id="userForm" class="modal-grid">
+            <input type="hidden" name="id" value="${escAttr(item?.id || '')}">
+            <div class="field"><label>Nom complet</label><input name="full_name" value="${escAttr(item?.full_name || '')}" required></div>
+            <div class="field"><label>Login</label><input name="login" value="${escAttr(item?.login || '')}" ${item ? 'readonly' : ''} required></div>
+            <div class="field"><label>Mot de passe ${item ? '(laisser vide pour conserver)' : ''}</label><input name="password" type="password"></div>
+            <div class="field"><label>Email</label><input type="email" name="email" value="${escAttr(item?.email || '')}"></div>
+            <div class="field"><label>Rôle</label><select name="role" id="uRole" onchange="toggleUserFields()">
+              ${roleOptions.map(o => `<option value="${o.value}" ${item?.role===o.value?'selected':''}>${o.label}</option>`).join('')}
+            </select></div>
+            <div class="field"><label>Statut</label><select name="status">
+              ${state.lookups.userStatuses.map(v => `<option value="${escAttr(v)}" ${(item?.status || 'Actif')===v?'selected':''}>${esc(v)}</option>`).join('')}
+            </select></div>
+            <div class="field" id="uTeamWrap"><label>Équipe</label><select name="team_id"><option value="">Non rattaché</option>
+              ${state.lookups.teams.map(t => `<option value="${t.id}" ${item?.team_id===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}
+            </select></div>
+            <div class="field" id="uLeadWrap"><label>Team Leader</label><select name="team_leader_id"><option value="">Aucun</option>
+              ${state.lookups.teamLeaders.map(t => `<option value="${t.id}" ${item?.team_leader_id===t.id?'selected':''}>${esc(t.full_name)}</option>`).join('')}
+            </select></div>
+          </form>`,
+          async () => {
+            await rpc('saveUser', state.token, formToObject(byId('userForm')));
+            closeModal();
+            toast('Utilisateur enregistré.', 'success');
+            await renderUsers();
+          }
+        );
+        toggleUserFields();
+      }
+
+      function toggleUserFields() {
+        const role = byId('uRole')?.value || '';
+        const teamWrap = byId('uTeamWrap');
+        const leadWrap = byId('uLeadWrap');
+        if (teamWrap) teamWrap.style.display = role === 'super_admin' ? 'none' : 'block';
+        if (leadWrap) leadWrap.style.display = role === 'ambassador' ? 'block' : 'none';
+      }
+
+      async function openTeamForm(id) {
+        await refreshLookups();
+        const rows = await rpc('listTeams', state.token);
+        const item = id ? rows.find(r => r.id === id) : null;
+
+        openModal(
+          item ? 'Modifier une équipe' : 'Nouvelle équipe',
+          'Structuration des périmètres.',
+          `<form id="teamForm" class="modal-grid">
+            <input type="hidden" name="id" value="${escAttr(item?.id || '')}">
+            <div class="field span-2"><label>Nom</label><input name="name" value="${escAttr(item?.name || '')}" required></div>
+            <div class="field"><label>Team Leader</label><select name="team_leader_id"><option value="">Aucun</option>
+              ${state.lookups.teamLeaders.map(t => `<option value="${t.id}" ${item?.team_leader_id===t.id?'selected':''}>${esc(t.full_name)}</option>`).join('')}
+            </select></div>
+            <div class="field"><label>Statut</label><select name="status">
+              ${state.lookups.userStatuses.map(v => `<option value="${escAttr(v)}" ${(item?.status || 'Actif')===v?'selected':''}>${esc(v)}</option>`).join('')}
+            </select></div>
+          </form>`,
+          async () => {
+            await rpc('saveTeam', state.token, formToObject(byId('teamForm')));
+            closeModal();
+            toast('Équipe enregistrée.', 'success');
+            await renderTeams();
+          }
+        );
+      }
+
+      async function openEnEtudeForm(id) {
+        await refreshLookups();
+        const rows = await rpc('listEnEtudes', state.token, {});
+        const item = id ? rows.find(r => r.id === id) : null;
+        state.currentEdit = item || null;
+        state.currentSolvabilite = item?.solvabilite || null;
+
+        openModal(
+          item ? 'Modifier une En étude' : 'Nouvelle En étude',
+          'Syndic et Immeuble supprimés. Équipe attribuée automatiquement par la feuille de cohérence.',
+          renderEnEtudeFormHtml(item),
+          async () => {
+            const payload = collectEnEtudeForm();
+            payload.solvabilite = state.currentSolvabilite;
+            await rpc('saveEnEtude', state.token, payload);
+            closeModal();
+            toast('En étude enregistrée.', 'success');
+            await renderEnEtudes();
+          }
+        );
+        toggleMotifValidation();
+      }
+
+      function renderEnEtudeFormHtml(item) {
+        const current = item || {
+          type_dossier: '',
+          priorite: 'Normale',
+          client: '',
+          adresse: '',
+          type_client: 'Locataire',
+          ambassadeur_assigne: state.session.role === 'ambassador' ? state.session.user.id : '',
+          statut: 'Initié',
+          motif_validation: ''
+        };
+
+        return `<form id="enEtudeForm" class="modal-grid">
+          <input type="hidden" name="id" value="${escAttr(current.id || '')}">
+          <div class="field"><label>Type de dossier *</label>
+            <select name="type_dossier">
+              <option value="">Sélectionner</option>
+              ${state.lookups.enEtudeTypes.map(v => `<option value="${v}" ${current.type_dossier===v?'selected':''}>${v}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Priorité *</label>
+            <select name="priorite">
+              ${state.lookups.priorities.map(v => `<option value="${v}" ${current.priorite===v?'selected':''}>${esc(v)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Type de client *</label>
+            <select name="type_client" id="typeClientField" onchange="updateCalcSubtitle()">
+              ${state.lookups.typeClientOptions.map(v => `<option value="${v}" ${current.type_client===v?'selected':''}>${esc(v)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Ambassadeur assigné *</label>
+            <select name="ambassadeur_assigne" ${state.session.role === 'ambassador' ? 'disabled' : ''}>
+              <option value="">Sélectionner</option>
+              ${state.lookups.ambassadors.map(v => `<option value="${v.id}" ${current.ambassadeur_assigne===v.id?'selected':''}>${esc(v.full_name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field span-2"><label>Client *</label><input name="client" value="${escAttr(current.client || '')}"></div>
+          <div class="field span-2"><label>Adresse *</label><input name="adresse" value="${escAttr(current.adresse || '')}"></div>
+          <div class="field"><label>Statut *</label>
+            <select name="statut" id="statutField" onchange="toggleMotifValidation()">
+              ${state.lookups.enEtudeStatuses.map(v => `<option value="${escAttr(v)}" ${current.statut===v?'selected':''}>${esc(v)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field" id="motifWrap"><label>Motif validation *</label>
+            <select name="motif_validation" id="motifValidationField">
+              <option value="">Sélectionner</option>
+              ${state.lookups.motifValidationOptions.map(v => `<option value="${escAttr(v)}" ${current.motif_validation===v?'selected':''}>${esc(v)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field span-2">
+            <label>Calcul de solvabilité</label>
+            <div class="row">
+              <button type="button" class="b2" onclick="openCalcModal()">Ouvrir le calcul</button>
+              <span class="sub" id="solvabiliteHint">${state.currentSolvabilite ? 'Résultat actuel : ' + esc(state.currentSolvabilite.resultat) : 'Aucun calcul appliqué'}</span>
+            </div>
+          </div>
+        </form>`;
+      }
+
+      function collectEnEtudeForm() {
+        const form = byId('enEtudeForm');
+        const data = formToObject(form);
+        if (state.session.role === 'ambassador') {
+          data.ambassadeur_assigne = state.session.user.id;
+        }
+        return data;
+      }
+
+      function toggleMotifValidation() {
+        const statut = byId('statutField')?.value || '';
+        const wrap = byId('motifWrap');
+        if (!wrap) return;
+        wrap.style.display = statut === 'Validé' ? 'block' : 'none';
+
+        if (statut === 'Validé' && state.currentSolvabilite && byId('motifValidationField')) {
+          byId('motifValidationField').value = state.currentSolvabilite.resultat;
+        }
+        if (statut !== 'Validé' && byId('motifValidationField')) {
+          byId('motifValidationField').value = '';
+        }
+      }
+
+      function updateCalcSubtitle() {
+        const typeClient = byId('typeClientField')?.value || 'Locataire';
+        byId('calcSubtitle').textContent = `Type client : ${typeClient}`;
+      }
+
+      function openCalcModal() {
+        const typeClient = byId('typeClientField')?.value || 'Locataire';
+        byId('calcSubtitle').textContent = `Type client : ${typeClient}`;
+        const solv = state.currentSolvabilite || {
+          net_a_payer:[0,0,0],
+          net_avant_impot:[0,0,0],
+          brut:[0,0,0],
+          loyer:0,
+          moyenne_net_a_payer:0,
+          moyenne_net_avant_impot:0,
+          moyenne_brut:0,
+          ratio_max:typeClient === 'Garant' ? 0.33 : 0.37,
+          plafond_loyer:0,
+          resultat:''
+        };
+
+        byId('calcBody').innerHTML = `
+          <div class="modal-grid">
+            <div class="span-2"><p class="sub" style="margin:0;">Saisis les montants sur 3 mois. Le résultat présélectionnera automatiquement <strong>Solvable</strong> ou <strong>Non solvable</strong> dans la modale principale si le statut est <strong>Validé</strong>.</p></div>
+
+            <div class="span-2 field">
+              <label>Net à payer (3 mois)</label>
+              <div class="money-grid">
+                ${solv.net_a_payer.map((v,i) => `<input type="number" class="calc-input" data-group="net_a_payer" data-index="${i}" value="${v}">`).join('')}
+              </div>
+            </div>
+
+            <div class="span-2 field">
+              <label>Net avant impôt (3 mois)</label>
+              <div class="money-grid">
+                ${solv.net_avant_impot.map((v,i) => `<input type="number" class="calc-input" data-group="net_avant_impot" data-index="${i}" value="${v}">`).join('')}
+              </div>
+            </div>
+
+            <div class="span-2 field">
+              <label>Brut (3 mois)</label>
+              <div class="money-grid">
+                ${solv.brut.map((v,i) => `<input type="number" class="calc-input" data-group="brut" data-index="${i}" value="${v}">`).join('')}
+              </div>
+            </div>
+
+            <div class="field span-2"><label>Loyer</label><input id="calcLoyer" type="number" value="${solv.loyer || 0}" oninput="renderCalcSummary()"></div>
+
+            <div class="span-2" id="calcSummary"></div>
+          </div>`;
+
+        byId('calcBackdrop').classList.add('show');
+        Array.from(document.querySelectorAll('.calc-input')).forEach(function(el) {
+          el.addEventListener('input', renderCalcSummary);
+        });
+        renderCalcSummary();
+      }
+
+      function closeCalcModal() {
+        byId('calcBackdrop').classList.remove('show');
+      }
+
+      async function renderCalcSummary() {
+        const typeClient = byId('typeClientField')?.value || 'Locataire';
+        const payload = collectCalcPayload(typeClient);
+        const result = await rpc('calculateSolvabiliteServer', payload);
+        state.pendingCalcResult = result;
+        byId('calcSummary').innerHTML = `
+          <div class="grid">
+            <div class="stat-box">Moyenne net à payer : <strong>${formatNumber(result.moyenne_net_a_payer)}</strong></div>
+            <div class="stat-box">Moyenne net avant impôt : <strong>${formatNumber(result.moyenne_net_avant_impot)}</strong></div>
+            <div class="stat-box">Moyenne brut : <strong>${formatNumber(result.moyenne_brut)}</strong></div>
+            <div class="stat-box">Ratio maximum : <strong>${(result.ratio_max * 100).toFixed(0)}%</strong></div>
+            <div class="stat-box">Plafond loyer : <strong>${formatNumber(result.plafond_loyer)}</strong></div>
+            <div class="stat-box">Loyer saisi : <strong>${formatNumber(result.loyer)}</strong></div>
+            <div class="stat-box">Résultat : <span class="chip ${result.resultat === 'Solvable' ? 'cs' : 'cd'}">${esc(result.resultat)}</span></div>
+          </div>`;
+      }
+
+      function collectCalcPayload(typeClient) {
+        const pick = (group) => Array.from(document.querySelectorAll(`.calc-input[data-group="${group}"]`)).map(el => Number(el.value || 0));
+        return {
+          type_client: typeClient,
+          net_a_payer: pick('net_a_payer'),
+          net_avant_impot: pick('net_avant_impot'),
+          brut: pick('brut'),
+          loyer: Number(byId('calcLoyer').value || 0)
+        };
+      }
+
+      function applyCalcResult() {
+        if (!state.pendingCalcResult) return;
+        state.currentSolvabilite = state.pendingCalcResult;
+        if (byId('solvabiliteHint')) {
+          byId('solvabiliteHint').textContent = 'Résultat actuel : ' + state.pendingCalcResult.resultat;
+        }
+        if (byId('statutField') && byId('statutField').value === 'Validé' && byId('motifValidationField')) {
+          byId('motifValidationField').value = state.pendingCalcResult.resultat;
+        }
+        closeCalcModal();
+        toast('Calcul appliqué à la modale principale.', 'success');
+      }
+
+      function applyEnEtudeFilters() {
+        state.filters.en_etudes = {
+          search: byId('enEtudeSearch').value.trim(),
+          type_dossier: byId('enEtudeType').value,
+          statut: byId('enEtudeStatus').value
+        };
+        renderEnEtudes();
+      }
+
+      function applyPresenceDate() {
+        state.filters.presence = { date_key: byId('presenceDate').value };
+        renderPresence();
+      }
+
+      function exportEnEtudesCsv() {
+        const rows = state.lastEnEtudes || [];
+        const headers = [
+          'Référence','Type de dossier','Priorité','Client','Adresse','Type client','Ambassadeur','Équipe',
+          'Statut','Motif validation','Moyenne net à payer','Moyenne net avant impôt','Moyenne brut','Loyer',
+          'Résultat solvabilité','Créé le','Mis à jour le'
+        ];
+
+        const csvRows = rows.map(row => [
+          row.reference,
+          row.type_dossier,
+          row.priorite,
+          row.client,
+          row.adresse,
+          row.type_client,
+          row.ambassadeur_assigne_name,
+          row.equipe_name,
+          row.statut,
+          row.motif_validation || '',
+          row.solvabilite?.moyenne_net_a_payer || '',
+          row.solvabilite?.moyenne_net_avant_impot || '',
+          row.solvabilite?.moyenne_brut || '',
+          row.solvabilite?.loyer || '',
+          row.solvabilite?.resultat || '',
+          row.created_at,
+          row.updated_at
+        ]);
+
+        const escapeCsv = value => `"${String(value ?? '').replace(/"/g,'""')}"`;
+        const content = [headers.map(escapeCsv).join(';')].concat(csvRows.map(r => r.map(escapeCsv).join(';'))).join('\n');
+        const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `en-etude-${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function openModal(title, subtitle, bodyHtml, action) {
+        state.modalAction = action;
+        byId('modalTitle').textContent = title;
+        byId('modalSubtitle').textContent = subtitle || '';
+        byId('modalBody').innerHTML = bodyHtml;
+        byId('modalPrimary').onclick = async () => {
+          setButtonLoading(byId('modalPrimary'), true);
+          try {
+            await state.modalAction();
+          } catch (error) {
+            toast(error.message || 'Erreur lors de l’enregistrement.', 'error');
+          } finally {
+            setButtonLoading(byId('modalPrimary'), false);
+          }
+        };
+        byId('modalBackdrop').classList.add('show');
+      }
+
+      function closeModal() {
+        state.modalAction = null;
+        state.currentSolvabilite = null;
+        state.currentEdit = null;
+        byId('modalBackdrop').classList.remove('show');
+      }
+
+      async function refreshLookups() {
+        state.lookups = await rpc('getLookups', state.token);
+      }
+
+      async function logout() {
+        try { if (state.token) await rpc('logoutUser', state.token, 'manual_logout'); } catch (e) {}
+        stopHeartbeat();
+        localStorage.removeItem('SL_ETU_TOKEN');
+        state.token = '';
+        state.session = null;
+        showLogin();
+        toast('Déconnexion effectuée.', 'info');
+      }
+
+      function startHeartbeat() {
+        stopHeartbeat();
+        if (!state.token) return;
+        pingHeartbeat();
+        state.heartbeatTimer = setInterval(pingHeartbeat, (state.session?.heartbeatSeconds || 45) * 1000);
+      }
+
+      function stopHeartbeat() {
+        if (state.heartbeatTimer) clearInterval(state.heartbeatTimer);
+        state.heartbeatTimer = null;
+      }
+
+      async function pingHeartbeat() {
+        if (!state.token || !navigator.onLine) return;
+        try {
+          await rpc('heartbeatSession', state.token, { user_agent:navigator.userAgent, visibility:document.visibilityState });
+        } catch (error) {
+          stopHeartbeat();
+          localStorage.removeItem('SL_ETU_TOKEN');
+          toast(error.message || 'Session expirée.', 'error');
+          showLogin();
+        }
+      }
+
+      function handleOfflineSignal() {
+        if (!state.token) return;
+        rpc('registerOfflineSignal', state.token).catch(() => {});
+        stopHeartbeat();
+        toast('Connexion interrompue. La session sera fermée.', 'info');
+      }
+
+      function handleBeforeUnload() {
+        if (!state.token) return;
+        try { rpc('logoutUser', state.token, 'window_unload'); } catch (e) {}
+      }
+
+      function handleVisibilityChange() {
+        if (document.visibilityState === 'visible' && state.token) startHeartbeat();
+      }
+
+      function table(rows, cols) {
+        return `<div class="table-wrap"><table><thead><tr>${cols.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${cols.map(c => `<td>${cell(row,c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+      }
+
+      function cell(row, col) {
+        if (col.render) return col.render(row) || '';
+        const value = row[col.key];
+        if (col.badge) return `<span class="chip ${statusClass(value)}">${esc(String(value || '—'))}</span>`;
+        if (col.datetime) return esc(formatDate(value) || '—');
+        return esc(value===undefined || value===null || value==='' ? '—' : String(value));
+      }
+
+      function formToObject(form) {
+        const data = {};
+        Array.from(form.querySelectorAll('[name]')).forEach(el => {
+          if (!el.disabled) data[el.name] = el.value;
+        });
+        return data;
+      }
+
+      function setButtonLoading(button, isLoading) {
+        if (!button) return;
+        button.classList.toggle('loading', isLoading);
+        button.disabled = isLoading;
+        let spinner = button.querySelector('.spinner');
+        if (isLoading && !spinner) {
+          spinner = document.createElement('span');
+          spinner.className = 'spinner';
+          spinner.innerHTML = '<i></i>';
+          button.appendChild(spinner);
+        }
+        if (!isLoading && spinner) spinner.remove();
+      }
+
+      function roleLabel(role) { return ({super_admin:'Super Admin',team_leader:'Team Leader',ambassador:'Ambassadeur'})[role] || role || ''; }
+      function pretty(key) { return String(key || '').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); }
+      function toneClass(v) { return ({primary:'cp',success:'cs',warning:'cw',danger:'cd',neutral:'cp'})[v] || 'cp'; }
+      function statusClass(v) {
+        const s = String(v || '').toLowerCase();
+        if (s==='actif' || s==='validé' || s==='clos' || s==='true' || s==='solvable') return 'cs';
+        if (s.includes('attente') || s==='normale' || s==='haute' || s==='urgente' || s==='initié' || s==='en cours de traitement') return 'cw';
+        if (s==='suspendu' || s==='refusé' || s==='false' || s==='inactif' || s==='non solvable' || s==='connection_lost') return 'cd';
+        return 'cp';
+      }
+      function secondsToHHMM(sec) { const s=Number(sec||0); const h=Math.floor(s/3600); const m=Math.floor((s%3600)/60); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
+      function formatDate(value) { if(!value) return ''; const d = new Date(value); return isNaN(d.getTime()) ? value : d.toLocaleString('fr-FR'); }
+      function formatNumber(value) { return new Intl.NumberFormat('fr-FR', { minimumFractionDigits:2, maximumFractionDigits:2 }).format(Number(value || 0)); }
+      function byId(id) { return document.getElementById(id); }
+      function esc(v) { return String(v || '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;"); }
+      function escAttr(v) { return esc(v).replaceAll('\n','&#10;'); }
+      function toast(message,type) { const el=document.createElement('div'); el.className='toast ' + (type || 'info'); el.textContent=message; byId('toasts').appendChild(el); setTimeout(()=>el.remove(), 3200); }
+      function rpc(name, ...args) { return new Promise((resolve,reject)=>{ google.script.run.withSuccessHandler(resolve).withFailureHandler(err => reject(new Error(err && err.message ? err.message : 'Erreur Apps Script')))[name](...args); }); }
+    </script>
+  </body>
+</html>
