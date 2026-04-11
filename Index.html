@@ -106,7 +106,6 @@
           <div class="field"><label>Mot de passe</label><input id="passwordInput" type="password" autocomplete="current-password" placeholder="••••••••••••"></div>
           <div class="row">
             <button type="submit" class="b1 save-btn" id="loginBtn"><span class="label">Se connecter</span></button>
-            <button type="button" class="b2" onclick="fillAdmin()">Préremplir l’admin</button>
           </div>
         </form>
         <p id="hint" class="sub"></p>
@@ -185,7 +184,11 @@
       async function boot() {
         try {
           state.initInfo = await rpc('initApplication');
-          byId('hint').textContent = 'Compte initial : superadmin / ChangeMe123!';
+          if (state.initInfo.isFirstSetup) {
+            byId('hint').textContent = 'Premier démarrage détecté. Contactez votre administrateur pour vos identifiants.';
+          } else {
+            byId('hint').textContent = '';
+          }
           if (!state.token) return showLogin();
           const data = await rpc('getBootstrapData', state.token);
           hydrate(data);
@@ -206,11 +209,6 @@
         byId('boot').classList.add('hidden');
         byId('login').classList.add('hidden');
         byId('app').classList.remove('hidden');
-      }
-
-      function fillAdmin() {
-        byId('loginInput').value = 'superadmin';
-        byId('passwordInput').value = 'ChangeMe123!';
       }
 
       async function onLogin(e) {
@@ -329,9 +327,13 @@
               <div class="chips">${(data.statusBreakdown || []).map(r => `<span class="chip ${statusClass(r.label)}">${esc(r.label)} · ${esc(String(r.value))}</span>`).join('') || '<span class="sub">Aucune donnée.</span>'}</div>
             </div>
             <div class="card">
-              <div class="card-head"><div><h3 style="margin:0 0 6px;">Performance</h3><p class="sub" style="margin:0;">Équipes ou ambassadeurs.</p></div></div>
-              ${(data.performance && data.performance.length) ? table(data.performance, Object.keys(data.performance[0]).map(k => ({ key:k, label:pretty(k) }))) : `<div class="empty">Aucune donnée de performance.</div>`}
+              <div class="card-head"><div><h3 style="margin:0 0 6px;">Répartition par priorité</h3><p class="sub" style="margin:0;">Volume par niveau de priorité.</p></div></div>
+              <div class="chips">${(data.priorityBreakdown || []).map(r => `<span class="chip ${statusClass(r.label)}">${esc(r.label)} · ${esc(String(r.value))}</span>`).join('') || '<span class="sub">Aucune donnée.</span>'}</div>
             </div>
+          </section>
+          <section class="card">
+            <div class="card-head"><div><h3 style="margin:0 0 6px;">Performance & Durées de traitement</h3><p class="sub" style="margin:0;">Équipes ou ambassadeurs avec durée moyenne de traitement.</p></div></div>
+            ${(data.performance && data.performance.length) ? table(data.performance, Object.keys(data.performance[0]).map(k => ({ key:k, label:pretty(k) }))) : `<div class="empty">Aucune donnée de performance.</div>`}
           </section>`;
       }
 
@@ -426,6 +428,7 @@
               { key:'statut', label:'Statut', badge:true },
               { key:'motif_validation', label:'Motif validé' },
               { key:'resultat_solvabilite', label:'Résultat solvabilité', badge:true },
+              { key:'duree_traitement_hhmm', label:'Durée traitement' },
               { key:'updated_at', label:'Mis à jour', datetime:true },
               { key:'__actions', label:'Action', render: row => `<button class="b2" onclick="openEnEtudeForm('${row.id}')">Éditer</button>` }
             ]) : `<div class="empty">Aucune En étude trouvée.</div>`}
@@ -739,10 +742,16 @@
         byId('calcBackdrop').classList.remove('show');
       }
 
-      async function renderCalcSummary() {
+      var _calcDebounceTimer = null;
+      function renderCalcSummary() {
+        if (_calcDebounceTimer) clearTimeout(_calcDebounceTimer);
+        _calcDebounceTimer = setTimeout(_doRenderCalcSummary, 400);
+      }
+
+      async function _doRenderCalcSummary() {
         const typeClient = byId('typeClientField')?.value || 'Locataire';
         const payload = collectCalcPayload(typeClient);
-        const result = await rpc('calculateSolvabiliteServer', payload);
+        const result = await rpc('calculateSolvabiliteServer', state.token, payload);
         state.pendingCalcResult = result;
         byId('calcSummary').innerHTML = `
           <div class="grid">
@@ -905,7 +914,8 @@
 
       function handleBeforeUnload() {
         if (!state.token) return;
-        try { rpc('logoutUser', state.token, 'window_unload'); } catch (e) {}
+        stopHeartbeat();
+        google.script.run.registerOfflineSignal(state.token);
       }
 
       function handleVisibilityChange() {

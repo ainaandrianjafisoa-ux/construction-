@@ -1,12 +1,15 @@
 const APP_CONFIG = {
   APP_NAME: 'Syndic Ledger High-End',
-  VERSION: '2.2.0',
+  VERSION: '2.3.0',
   TIMEZONE: Session.getScriptTimeZone() || 'Indian/Antananarivo',
   HEARTBEAT_SECONDS: 45,
   SESSION_STALE_MINUTES: 2,
   SESSION_CACHE_TTL: 21600,
   DEFAULT_ADMIN_LOGIN: 'superadmin',
-  DEFAULT_ADMIN_PASSWORD: 'ChangeMe123!'
+  DEFAULT_ADMIN_PASSWORD: 'ChangeMe123!',
+  MAX_LOGIN_ATTEMPTS: 5,
+  LOGIN_LOCKOUT_MINUTES: 15,
+  MIN_PASSWORD_LENGTH: 8
 };
 
 const ROLES = {
@@ -35,8 +38,10 @@ const SCHEMA = {
     'brut_1', 'brut_2', 'brut_3',
     'loyer', 'moyenne_net_a_payer', 'moyenne_net_avant_impot', 'moyenne_brut',
     'ratio_max', 'plafond_loyer', 'resultat_solvabilite',
+    'statut_changed_at', 'duree_traitement_seconds',
     'created_by', 'updated_by', 'created_at', 'updated_at', 'closed_at'
   ],
+  STATUS_HISTORY: ['id', 'en_etude_id', 'reference', 'old_statut', 'new_statut', 'changed_by', 'changed_by_name', 'changed_at', 'duree_dans_statut_seconds'],
   EN_ETUDE_TYPE_TEAM_MAP: ['id', 'type_dossier', 'team_id', 'team_name', 'active', 'updated_at'],
   SESSIONS: ['session_id', 'token', 'user_id', 'login', 'role', 'team_id', 'started_at', 'last_seen_at', 'closed_at', 'status', 'disconnect_reason', 'user_agent'],
   PRESENCE_DAILY: ['id', 'date_key', 'user_id', 'login', 'full_name', 'role', 'team_id', 'first_login_at', 'last_seen_at', 'last_disconnect_at', 'connection_count', 'disconnection_count', 'online_seconds', 'is_online', 'updated_at'],
@@ -123,6 +128,50 @@ function hashPassword_(plain) {
     const value = (byte < 0 ? byte + 256 : byte).toString(16);
     return value.length === 1 ? '0' + value : value;
   }).join('');
+}
+
+function validatePasswordComplexity_(password) {
+  if (!password || password.length < APP_CONFIG.MIN_PASSWORD_LENGTH) {
+    throw new Error('Le mot de passe doit contenir au moins ' + APP_CONFIG.MIN_PASSWORD_LENGTH + ' caractères.');
+  }
+  if (!/[A-Z]/.test(password)) throw new Error('Le mot de passe doit contenir au moins une majuscule.');
+  if (!/[a-z]/.test(password)) throw new Error('Le mot de passe doit contenir au moins une minuscule.');
+  if (!/[0-9]/.test(password)) throw new Error('Le mot de passe doit contenir au moins un chiffre.');
+}
+
+function checkLoginRateLimit_(login) {
+  var logs = readTable_('LOGIN_LOG');
+  var cutoff = Date.now() - APP_CONFIG.LOGIN_LOCKOUT_MINUTES * 60 * 1000;
+  var recentFails = logs.filter(function(l) {
+    return String(l.login || '').toLowerCase() === login.toLowerCase()
+      && String(l.success) === 'FALSE'
+      && parseDateMs_(l.timestamp) > cutoff;
+  });
+  if (recentFails.length >= APP_CONFIG.MAX_LOGIN_ATTEMPTS) {
+    throw new Error('Trop de tentatives échouées. Réessayez dans ' + APP_CONFIG.LOGIN_LOCKOUT_MINUTES + ' minutes.');
+  }
+}
+
+function addStatusHistory_(enEtudeId, reference, oldStatut, newStatut, session) {
+  var now = nowIso_();
+  upsertRow_('STATUS_HISTORY', 'id', {
+    id: nextId_('STH'),
+    en_etude_id: enEtudeId,
+    reference: reference || '',
+    old_statut: oldStatut || '',
+    new_statut: newStatut || '',
+    changed_by: session.user ? session.user.id : (session.user_id || ''),
+    changed_by_name: session.user ? session.user.full_name : (session.login || ''),
+    changed_at: now,
+    duree_dans_statut_seconds: 0
+  });
+}
+
+function getStatusHistory(token, enEtudeId) {
+  var session = requireSession_(token);
+  return readTable_('STATUS_HISTORY')
+    .filter(function(r) { return r.en_etude_id === enEtudeId; })
+    .sort(sortDescBy_('changed_at'));
 }
 
 function publicUser_(row) {
@@ -501,17 +550,23 @@ function finalizeSession_(row, reason) {
 }
 
 function closeStaleSessions() {
-  const staleMinutes = Number(getSetting_('SESSION_STALE_MINUTES', APP_CONFIG.SESSION_STALE_MINUTES));
-  const threshold = Date.now() - staleMinutes * 60 * 1000;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;
+  try {
+    const staleMinutes = Number(getSetting_('SESSION_STALE_MINUTES', APP_CONFIG.SESSION_STALE_MINUTES));
+    const threshold = Date.now() - staleMinutes * 60 * 1000;
 
-  readTable_('SESSIONS')
-    .filter(function(s) { return s.status === 'ACTIVE'; })
-    .forEach(function(row) {
-      const lastSeen = parseDateMs_(row.last_seen_at || row.started_at);
-      if (!lastSeen || lastSeen > threshold) return;
-      finalizeSession_(row, 'connection_lost');
-      clearSessionCache_(row.token);
-    });
+    readTable_('SESSIONS')
+      .filter(function(s) { return s.status === 'ACTIVE'; })
+      .forEach(function(row) {
+        const lastSeen = parseDateMs_(row.last_seen_at || row.started_at);
+        if (!lastSeen || lastSeen > threshold) return;
+        finalizeSession_(row, 'connection_lost');
+        clearSessionCache_(row.token);
+      });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function ensurePresenceTrigger_() {
@@ -677,6 +732,8 @@ function authenticateUser(login, password, userAgent) {
     throw new Error('Veuillez renseigner votre identifiant et votre mot de passe.');
   }
 
+  checkLoginRateLimit_(normalizedLogin);
+
   const users = readTable_('USERS');
   const user = users.find(function(u) {
     return String(u.login || '').toLowerCase() === normalizedLogin;
@@ -833,11 +890,14 @@ function saveUser(token, payload) {
     throw new Error('Un ambassadeur doit être rattaché à un Team Leader.');
   }
 
+  const rawPassword = String(data.password || '').trim();
+  if (rawPassword) validatePasswordComplexity_(rawPassword);
+
   const now = nowIso_();
   const row = Object.assign({}, existing || {}, {
     id: existing ? existing.id : nextId_('USR'),
     login: login,
-    password_hash: String(data.password || '').trim() ? hashPassword_(String(data.password).trim()) : (existing ? existing.password_hash : ''),
+    password_hash: rawPassword ? hashPassword_(rawPassword) : (existing ? existing.password_hash : ''),
     role: targetRole,
     full_name: fullName,
     email: String(data.email || existing && existing.email || '').trim(),
@@ -957,7 +1017,8 @@ function assignTeamByTypeDossier_(typeDossier) {
   return teamId;
 }
 
-function calculateSolvabiliteServer(payload) {
+function calculateSolvabiliteServer(token, payload) {
+  requireSession_(token);
   const typeClient = String(payload.type_client || '');
   const netAPayer = payload.net_a_payer || [0, 0, 0];
   const netAvantImpot = payload.net_avant_impot || [0, 0, 0];
@@ -1005,6 +1066,7 @@ function hydrateEnEtudeRow_(row, usersById, teamsById) {
 
   row.ambassadeur_assigne_name = usersById[row.ambassadeur_assigne] ? usersById[row.ambassadeur_assigne].full_name : '';
   row.equipe_name = teamsById[row.equipe_id] ? teamsById[row.equipe_id].name : '';
+  row.duree_traitement_hhmm = secondsToHHMM_(Number(row.duree_traitement_seconds || 0));
   row.solvabilite = hasSolvabilite ? {
     net_a_payer: netAPayer,
     net_avant_impot: netAvantImpot,
@@ -1074,9 +1136,19 @@ function saveEnEtude(token, payload) {
   const equipeId = assignTeamByTypeDossier_(data.type_dossier || existing && existing.type_dossier || '');
   const statut = String(data.statut || existing && existing.statut || 'Initié').trim();
   const motifValidation = statut === 'Validé' ? String(data.motif_validation || existing && existing.motif_validation || '').trim() : '';
+  const oldStatut = existing ? String(existing.statut || '') : '';
+  const statutChanged = statut !== oldStatut;
 
   const solv = data.solvabilite || null;
   const now = nowIso_();
+
+  var dureeTraitement = Number(existing && existing.duree_traitement_seconds || 0);
+  if (statutChanged && existing && existing.statut_changed_at) {
+    var lastChangeMs = parseDateMs_(existing.statut_changed_at);
+    if (lastChangeMs) {
+      dureeTraitement += Math.max(0, Math.round((Date.now() - lastChangeMs) / 1000));
+    }
+  }
 
   const row = Object.assign({}, existing || {}, {
     id: existing ? existing.id : nextId_('ETD'),
@@ -1106,6 +1178,8 @@ function saveEnEtude(token, payload) {
     ratio_max: solv ? Number(solv.ratio_max || 0) : Number(existing && existing.ratio_max || 0),
     plafond_loyer: solv ? Number(solv.plafond_loyer || 0) : Number(existing && existing.plafond_loyer || 0),
     resultat_solvabilite: solv ? String(solv.resultat || '') : String(existing && existing.resultat_solvabilite || ''),
+    statut_changed_at: statutChanged ? now : (existing && existing.statut_changed_at || now),
+    duree_traitement_seconds: dureeTraitement,
     created_by: existing ? existing.created_by : session.user.id,
     updated_by: session.user.id,
     created_at: existing ? existing.created_at : now,
@@ -1115,7 +1189,23 @@ function saveEnEtude(token, payload) {
 
   validateEnEtudePayload_(row);
   upsertRow_('EN_ETUDES', 'id', row);
-  addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'EN_ETUDE', row.id, 'Enregistrement En étude', existing, row);
+
+  if (statutChanged) {
+    var dureeDansStatut = 0;
+    if (existing && existing.statut_changed_at) {
+      var prevMs = parseDateMs_(existing.statut_changed_at);
+      if (prevMs) dureeDansStatut = Math.max(0, Math.round((Date.now() - prevMs) / 1000));
+    }
+    addStatusHistory_(row.id, row.reference, oldStatut, statut, session);
+    var historyRows = readTable_('STATUS_HISTORY').filter(function(h) { return h.en_etude_id === row.id; });
+    var lastEntry = historyRows.sort(sortDescBy_('changed_at'))[0];
+    if (lastEntry && dureeDansStatut > 0) {
+      lastEntry.duree_dans_statut_seconds = dureeDansStatut;
+      upsertRow_('STATUS_HISTORY', 'id', lastEntry);
+    }
+  }
+
+  addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'EN_ETUDE', row.id, 'Enregistrement En étude' + (statutChanged ? ' — Statut: ' + oldStatut + ' → ' + statut : ''), existing, row);
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   const teamsById = indexBy_(readTable_('TEAMS'), 'id');
@@ -1140,10 +1230,18 @@ function buildTeamPerformance_() {
   const enEtudes = readTable_('EN_ETUDES');
 
   return teams.map(function(team) {
+    var teamDossiers = enEtudes.filter(function(d) { return d.equipe_id === team.id; });
+    var closedDossiers = teamDossiers.filter(function(d) { return d.statut === 'Clos' || d.statut === 'Validé' || d.statut === 'Refusé'; });
+    var totalDuree = closedDossiers.reduce(function(sum, d) { return sum + Number(d.duree_traitement_seconds || 0); }, 0);
+    var avgDuree = closedDossiers.length ? Math.round(totalDuree / closedDossiers.length) : 0;
+
     return {
       name: team.name,
       ambassadors: users.filter(function(u) { return u.team_id === team.id && u.role === ROLES.AMBASSADOR; }).length,
-      en_etudes_ouvertes: enEtudes.filter(function(d) { return d.equipe_id === team.id && d.statut !== 'Clos'; }).length
+      en_etudes_ouvertes: teamDossiers.filter(function(d) { return d.statut !== 'Clos'; }).length,
+      validees: teamDossiers.filter(function(d) { return d.statut === 'Validé'; }).length,
+      refusees: teamDossiers.filter(function(d) { return d.statut === 'Refusé'; }).length,
+      duree_moyenne: secondsToHHMM_(avgDuree)
     };
   }).sort(function(a, b) {
     return b.en_etudes_ouvertes - a.en_etudes_ouvertes;
@@ -1155,10 +1253,17 @@ function buildAmbassadorPerformance_(session) {
   const enEtudes = scopeEnEtudes_(session, readTable_('EN_ETUDES'));
 
   return users.map(function(user) {
+    var userDossiers = enEtudes.filter(function(d) { return d.ambassadeur_assigne === user.id; });
+    var closedDossiers = userDossiers.filter(function(d) { return d.statut === 'Clos' || d.statut === 'Validé' || d.statut === 'Refusé'; });
+    var totalDuree = closedDossiers.reduce(function(sum, d) { return sum + Number(d.duree_traitement_seconds || 0); }, 0);
+    var avgDuree = closedDossiers.length ? Math.round(totalDuree / closedDossiers.length) : 0;
+
     return {
       name: user.full_name,
-      en_etudes_ouvertes: enEtudes.filter(function(d) { return d.ambassadeur_assigne === user.id && d.statut !== 'Clos'; }).length,
-      valides: enEtudes.filter(function(d) { return d.ambassadeur_assigne === user.id && d.statut === 'Validé'; }).length
+      en_etudes_ouvertes: userDossiers.filter(function(d) { return d.statut !== 'Clos'; }).length,
+      valides: userDossiers.filter(function(d) { return d.statut === 'Validé'; }).length,
+      refusees: userDossiers.filter(function(d) { return d.statut === 'Refusé'; }).length,
+      duree_moyenne: secondsToHHMM_(avgDuree)
     };
   }).sort(function(a, b) {
     return b.en_etudes_ouvertes - a.en_etudes_ouvertes;
@@ -1174,17 +1279,26 @@ function getDashboardData(token) {
     const teams = readTable_('TEAMS');
     const enEtudes = readTable_('EN_ETUDES');
 
+    var closedAll = enEtudes.filter(function(d) { return d.statut === 'Clos' || d.statut === 'Validé' || d.statut === 'Refusé'; });
+    var totalDureeAll = closedAll.reduce(function(s, d) { return s + Number(d.duree_traitement_seconds || 0); }, 0);
+    var avgDureeAll = closedAll.length ? Math.round(totalDureeAll / closedAll.length) : 0;
+    var totalValidees = enEtudes.filter(function(d) { return d.statut === 'Validé'; }).length;
+    var tauxConversion = enEtudes.length ? Math.round((totalValidees / enEtudes.length) * 100) : 0;
+
     return {
       scopeLabel: 'Vision globale',
       kpis: [
         { label: 'Utilisateurs actifs', value: users.filter(function(u) { return u.status === 'Actif'; }).length, tone: 'primary' },
         { label: 'Équipes', value: teams.length, tone: 'neutral' },
         { label: 'En étude ouvertes', value: enEtudes.filter(function(d) { return d.statut !== 'Clos'; }).length, tone: 'warning' },
-        { label: 'Validées', value: enEtudes.filter(function(d) { return d.statut === 'Validé'; }).length, tone: 'success' },
-        { label: 'Connexions du jour', value: presence.total_connections, tone: 'primary' },
-        { label: 'Déconnexions du jour', value: presence.total_disconnections, tone: 'danger' }
+        { label: 'Validées', value: totalValidees, tone: 'success' },
+        { label: 'Refusées', value: enEtudes.filter(function(d) { return d.statut === 'Refusé'; }).length, tone: 'danger' },
+        { label: 'Taux conversion', value: tauxConversion + '%', tone: 'success' },
+        { label: 'Durée moy. traitement', value: secondsToHHMM_(avgDureeAll), tone: 'primary' },
+        { label: 'Connexions du jour', value: presence.total_connections, tone: 'primary' }
       ],
       statusBreakdown: buildStatusBreakdown_(enEtudes, 'statut'),
+      priorityBreakdown: buildStatusBreakdown_(enEtudes, 'priorite'),
       performance: buildTeamPerformance_(),
       recentRows: enEtudes.sort(sortDescBy_('updated_at')).slice(0, 8),
       recentActivity: readTable_('AUDIT_LOG').sort(sortDescBy_('timestamp')).slice(0, 12)
@@ -1195,6 +1309,10 @@ function getDashboardData(token) {
     const users = scopeUsers_(session, readTable_('USERS'));
     const enEtudes = scopeEnEtudes_(session, readTable_('EN_ETUDES'));
 
+    var closedTL = enEtudes.filter(function(d) { return d.statut === 'Clos' || d.statut === 'Validé' || d.statut === 'Refusé'; });
+    var totalDureeTL = closedTL.reduce(function(s, d) { return s + Number(d.duree_traitement_seconds || 0); }, 0);
+    var avgDureeTL = closedTL.length ? Math.round(totalDureeTL / closedTL.length) : 0;
+
     return {
       scopeLabel: 'Mon équipe',
       kpis: [
@@ -1202,9 +1320,12 @@ function getDashboardData(token) {
         { label: 'En attente', value: enEtudes.filter(function(d) { return d.statut === 'En attente de traitement'; }).length, tone: 'warning' },
         { label: 'En cours', value: enEtudes.filter(function(d) { return d.statut === 'En cours de traitement'; }).length, tone: 'warning' },
         { label: 'Validées', value: enEtudes.filter(function(d) { return d.statut === 'Validé'; }).length, tone: 'success' },
+        { label: 'Refusées', value: enEtudes.filter(function(d) { return d.statut === 'Refusé'; }).length, tone: 'danger' },
+        { label: 'Durée moy. traitement', value: secondsToHHMM_(avgDureeTL), tone: 'primary' },
         { label: 'Connexions du jour', value: presence.total_connections, tone: 'primary' }
       ],
       statusBreakdown: buildStatusBreakdown_(enEtudes, 'statut'),
+      priorityBreakdown: buildStatusBreakdown_(enEtudes, 'priorite'),
       performance: buildAmbassadorPerformance_(session),
       recentRows: enEtudes.sort(sortDescBy_('updated_at')).slice(0, 8),
       recentActivity: getActivityLogs(token, 12)
@@ -1212,6 +1333,10 @@ function getDashboardData(token) {
   }
 
   const enEtudes = scopeEnEtudes_(session, readTable_('EN_ETUDES'));
+  var closedAmb = enEtudes.filter(function(d) { return d.statut === 'Clos' || d.statut === 'Validé' || d.statut === 'Refusé'; });
+  var totalDureeAmb = closedAmb.reduce(function(s, d) { return s + Number(d.duree_traitement_seconds || 0); }, 0);
+  var avgDureeAmb = closedAmb.length ? Math.round(totalDureeAmb / closedAmb.length) : 0;
+
   return {
     scopeLabel: 'Mon activité',
     kpis: [
@@ -1219,9 +1344,11 @@ function getDashboardData(token) {
       { label: 'En attente', value: enEtudes.filter(function(d) { return d.statut === 'En attente de traitement'; }).length, tone: 'warning' },
       { label: 'En cours', value: enEtudes.filter(function(d) { return d.statut === 'En cours de traitement'; }).length, tone: 'warning' },
       { label: 'Validées', value: enEtudes.filter(function(d) { return d.statut === 'Validé'; }).length, tone: 'success' },
+      { label: 'Durée moy. traitement', value: secondsToHHMM_(avgDureeAmb), tone: 'primary' },
       { label: 'Mes connexions du jour', value: presence.total_connections, tone: 'primary' }
     ],
     statusBreakdown: buildStatusBreakdown_(enEtudes, 'statut'),
+    priorityBreakdown: buildStatusBreakdown_(enEtudes, 'priorite'),
     performance: [],
     recentRows: enEtudes.sort(sortDescBy_('updated_at')).slice(0, 8),
     recentActivity: getActivityLogs(token, 12)
@@ -1235,15 +1362,12 @@ function initApplication() {
     seedBaseData_();
     ensurePresenceTrigger_();
 
+    var isFirstSetup = readTable_('USERS').length <= 1;
     return {
       ok: true,
       appName: APP_CONFIG.APP_NAME,
       version: APP_CONFIG.VERSION,
-      databaseUrl: dbInfo.spreadsheetUrl,
-      defaultAdmin: {
-        login: APP_CONFIG.DEFAULT_ADMIN_LOGIN,
-        password: APP_CONFIG.DEFAULT_ADMIN_PASSWORD
-      }
+      isFirstSetup: isFirstSetup
     };
   } finally {
     lock.releaseLock();
@@ -1256,8 +1380,7 @@ function generateAllSheetsAndSeed() {
   ensurePresenceTrigger_();
   return {
     ok: true,
-    spreadsheetUrl: dbInfo.spreadsheetUrl,
-    defaultAdminLogin: APP_CONFIG.DEFAULT_ADMIN_LOGIN
+    spreadsheetUrl: dbInfo.spreadsheetUrl
   };
 }
 
