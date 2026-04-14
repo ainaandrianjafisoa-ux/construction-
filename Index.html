@@ -1,979 +1,1880 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <base target="_top">
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Syndic Ledger High-End</title>
-    <style>
-      :root{
-        --bg:#f4f7fb;--panel:#fff;--line:#d8e0ea;--text:#17212b;--muted:#5c6b7a;
-        --primary:#1e5eff;--primary-dark:#16324f;--success:#1f8a5b;--warning:#d98e04;--danger:#c43d3d;
-        --shadow:0 18px 42px rgba(22,50,79,.08)
-      }
-      *{box-sizing:border-box} html,body{height:100%}
-      body{margin:0;font-family:Inter,Manrope,Arial,sans-serif;background:
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Syndic Ledger High-End</title>
+  <style>
+    /* ── Variables ───────────────────────────────────── */
+    :root {
+      --bg:#f4f7fb; --panel:#fff; --line:#d8e0ea;
+      --text:#17212b; --muted:#5c6b7a;
+      --primary:#1e5eff; --primary-dark:#16324f;
+      --success:#1f8a5b; --warning:#d98e04; --danger:#c43d3d;
+      --shadow:0 18px 42px rgba(22,50,79,.08);
+      --radius:20px; --radius-sm:14px;
+      --transition:.22s cubic-bezier(.22,1,.36,1);
+    }
+
+    /* ── Reset & base ─────────────────────────────────── */
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;font-family:Inter,Manrope,Arial,sans-serif;
+      background:
         radial-gradient(circle at top left,rgba(30,94,255,.08),transparent 28%),
-        linear-gradient(180deg,#f8fbff 0%,var(--bg) 100%);color:var(--text)}
-      .hidden{display:none!important}
-      .boot,.login{min-height:100vh;display:grid;place-items:center;padding:24px}
-      .card-boot,.card-login{width:min(100%,480px);background:rgba(255,255,255,.94);border:1px solid rgba(215,222,231,.9);border-radius:28px;box-shadow:var(--shadow);padding:28px}
-      .brand{display:flex;align-items:center;gap:14px;margin-bottom:20px}
-      .brand-mark{width:52px;height:52px;border-radius:18px;background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:grid;place-items:center;color:#fff;font-weight:800}
-      .brand small{display:block;color:var(--muted);margin-top:4px}
-      .hero-title{margin:0 0 10px;font-size:1.6rem}
-      .sub{color:var(--muted);line-height:1.55}
-      .grid{display:grid;gap:14px}
-      .field label{display:block;font-size:.88rem;font-weight:600;margin-bottom:6px;color:var(--primary-dark)}
-      .field input,.field select,.field textarea{
-        width:100%;min-height:46px;border:1px solid var(--line);border-radius:16px;padding:12px 14px;font:inherit;
-        outline:none;transition:.2s all ease;background:#fff
-      }
-      .field textarea{min-height:110px;resize:vertical}
-      .field input:focus,.field select:focus,.field textarea:focus{border-color:rgba(30,94,255,.55);box-shadow:0 0 0 4px rgba(30,94,255,.12)}
-      .row{display:flex;gap:10px;flex-wrap:wrap}
-      button{border:0;border-radius:16px;min-height:46px;padding:0 16px;font:inherit;font-weight:700;cursor:pointer;transition:transform .12s ease, box-shadow .2s ease, opacity .2s ease}
-      button:hover{transform:translateY(-1px)} button:active{transform:scale(.97)} button:disabled{opacity:.65;cursor:not-allowed}
-      .b1{background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;box-shadow:0 14px 24px rgba(30,94,255,.18)}
-      .b2{background:#eef3ff;color:var(--primary-dark)}
-      .b3{background:#eef2f6;color:var(--text)}
-      .bd{background:#fff1f1;color:var(--danger)}
-      .shell{min-height:100vh;display:grid;grid-template-columns:290px 1fr}
-      .sidebar{background:rgba(255,255,255,.92);border-right:1px solid rgba(215,222,231,.75);padding:22px 18px;position:sticky;top:0;height:100vh;overflow:auto;backdrop-filter:blur(18px)}
-      .nav{display:grid;gap:6px;margin-top:14px}
-      .nav button{width:100%;display:flex;justify-content:flex-start;background:transparent;color:var(--text);padding:12px 14px;border-radius:16px}
-      .nav button.active{background:linear-gradient(135deg,rgba(22,50,79,.95),rgba(30,94,255,.95));color:#fff}
-      .main{padding:22px}
-      .top{background:rgba(255,255,255,.9);border:1px solid rgba(215,222,231,.9);border-radius:24px;box-shadow:var(--shadow);padding:18px 20px;display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:18px}
-      .content{display:grid;gap:18px}
-      .content.animate{animation:tabIn 220ms ease-out}
-      .card{background:rgba(255,255,255,.94);border:1px solid rgba(215,222,231,.9);border-radius:24px;box-shadow:var(--shadow);padding:18px}
-      .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
-      .chips{display:flex;gap:10px;flex-wrap:wrap}
-      .chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;font-size:.78rem;font-weight:700;background:#eef2f6}
-      .cp{background:#eef3ff;color:var(--primary-dark)} .cs{background:#eef9f3;color:var(--success)} .cw{background:#fff6e5;color:var(--warning)} .cd{background:#fff2f2;color:var(--danger)}
-      .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
-      .kpi{border:1px solid var(--line);border-radius:20px;padding:16px;background:linear-gradient(180deg,#fff,#f8fbff)}
-      .kpi .v{margin-top:10px;font-size:1.85rem;font-weight:800}
-      .split{display:grid;grid-template-columns:1.2fr 1fr;gap:18px}
-      .toolbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-      .filters{display:flex;gap:10px;flex-wrap:wrap}
-      .table-wrap{width:100%;overflow:auto;border-radius:18px;border:1px solid var(--line);background:#fff}
-      table{width:100%;border-collapse:collapse;min-width:1080px}
-      th,td{padding:12px 14px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:.93rem}
-      th{background:#f8fafc;color:var(--primary-dark);font-size:.82rem;text-transform:uppercase;letter-spacing:.04em}
-      .empty{padding:30px 18px;border:1px dashed var(--line);border-radius:18px;color:var(--muted);text-align:center;background:#fbfdff}
-      .modal-backdrop{position:fixed;inset:0;background:rgba(13,22,34,.42);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
-      .modal-backdrop.show{display:flex}
-      .modal{width:min(860px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:26px;box-shadow:0 30px 80px rgba(17,30,48,.25);padding:22px;animation:slideUp 260ms cubic-bezier(.22,1,.36,1)}
-      .modal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-      .span-2{grid-column:span 2}
-      .toasts{position:fixed;right:18px;bottom:18px;display:grid;gap:10px;z-index:60}
-      .toast{min-width:260px;max-width:420px;padding:13px 14px;border-radius:16px;box-shadow:var(--shadow);border:1px solid rgba(215,222,231,.85);background:#fff}
-      .progress{height:4px;border-radius:999px;overflow:hidden;background:rgba(30,94,255,.08);margin-top:14px}
-      .progress span{display:block;width:42%;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--primary-dark),var(--primary));animation:slide 1.2s infinite ease-in-out}
-      .save-btn{position:relative;min-width:150px}
-      .save-btn.loading .label{opacity:0}
-      .spinner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-      .spinner i{width:18px;height:18px;border-radius:999px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;display:block;animation:spin .8s linear infinite}
-      .money-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-      .stat-box{border:1px solid var(--line);border-radius:18px;padding:14px;background:#f8fafc}
-      @keyframes slide{0%{transform:translateX(-120%)}100%{transform:translateX(330%)}}
-      @keyframes spin{to{transform:rotate(360deg)}}
-      @keyframes slideUp{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
-      @keyframes tabIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
-      @media (max-width:1100px){.shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--line)}.split{grid-template-columns:1fr}}
-      @media (max-width:720px){.main{padding:14px}.top{flex-direction:column;align-items:flex-start}.modal-grid{grid-template-columns:1fr}.span-2{grid-column:span 1}.money-grid{grid-template-columns:1fr}}
-    </style>
-  </head>
-  <body>
-    <div id="boot" class="boot">
-      <div class="card-boot">
-        <div class="brand"><div class="brand-mark">SL</div><div><strong>Syndic Ledger High-End</strong><small>En étude · Assurance habitation</small></div></div>
-        <h2 class="hero-title">Initialisation de la plateforme</h2>
-        <p class="sub">Préparation des feuilles, des cohérences type de dossier / équipe, du pointage et des accès.</p>
-        <div class="progress"><span></span></div>
+        linear-gradient(180deg,#f8fbff 0%,var(--bg) 100%);
+      color:var(--text);
+    }
+    .hidden{display:none!important}
+
+    /* ── Boot / Login ─────────────────────────────────── */
+    .boot,.login{min-height:100vh;display:grid;place-items:center;padding:24px}
+    .card-boot,.card-login{
+      width:min(100%,480px);
+      background:rgba(255,255,255,.94);
+      border:1px solid rgba(215,222,231,.9);
+      border-radius:28px;box-shadow:var(--shadow);padding:28px;
+      animation:fadeInUp .4s var(--transition);
+    }
+    .brand{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+    .brand-mark{
+      width:52px;height:52px;border-radius:18px;
+      background:linear-gradient(135deg,var(--primary-dark),var(--primary));
+      display:grid;place-items:center;color:#fff;font-weight:800;font-size:1.1rem;
+    }
+    .brand small{display:block;color:var(--muted);margin-top:4px;font-size:.82rem}
+    .hero-title{margin:0 0 10px;font-size:1.6rem}
+    .sub{color:var(--muted);line-height:1.55;font-size:.93rem}
+
+    /* ── Formulaires ──────────────────────────────────── */
+    .grid{display:grid;gap:14px}
+    .field label{display:block;font-size:.88rem;font-weight:600;margin-bottom:6px;color:var(--primary-dark)}
+    .field input,.field select,.field textarea{
+      width:100%;min-height:46px;border:1px solid var(--line);
+      border-radius:var(--radius-sm);padding:12px 14px;font:inherit;
+      outline:none;transition:border-color var(--transition), box-shadow var(--transition);
+      background:#fff;
+    }
+    .field textarea{min-height:110px;resize:vertical}
+    .field input:focus,.field select:focus,.field textarea:focus{
+      border-color:rgba(30,94,255,.55);
+      box-shadow:0 0 0 4px rgba(30,94,255,.12);
+    }
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+
+    /* ── Boutons ──────────────────────────────────────── */
+    button{
+      border:0;border-radius:var(--radius-sm);min-height:44px;
+      padding:0 18px;font:inherit;font-weight:700;cursor:pointer;
+      transition:transform var(--transition), box-shadow .2s ease, opacity .2s ease, background .2s ease;
+    }
+    button:hover:not(:disabled){transform:translateY(-1px)}
+    button:active:not(:disabled){transform:scale(.97)}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .b1{background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;box-shadow:0 12px 22px rgba(30,94,255,.2)}
+    .b1:hover:not(:disabled){box-shadow:0 16px 30px rgba(30,94,255,.28)}
+    .b2{background:#eef3ff;color:var(--primary-dark)}
+    .b3{background:#eef2f6;color:var(--text)}
+    .bd{background:#fff1f1;color:var(--danger)}
+    .bs{background:#eef9f3;color:var(--success)}
+
+    /* ── Shell ────────────────────────────────────────── */
+    .shell{min-height:100vh;display:grid;grid-template-columns:270px 1fr}
+    .sidebar{
+      background:rgba(255,255,255,.92);
+      border-right:1px solid rgba(215,222,231,.75);
+      padding:20px 16px;position:sticky;top:0;height:100vh;
+      overflow:auto;backdrop-filter:blur(18px);
+    }
+    .nav{display:grid;gap:4px;margin-top:12px}
+    .nav button{
+      width:100%;display:flex;justify-content:flex-start;
+      background:transparent;color:var(--text);
+      padding:11px 14px;border-radius:var(--radius-sm);
+      font-size:.93rem;
+    }
+    .nav button:hover:not(.active){background:rgba(30,94,255,.06)}
+    .nav button.active{
+      background:linear-gradient(135deg,rgba(22,50,79,.95),rgba(30,94,255,.95));
+      color:#fff;
+    }
+    .nav-sep{height:1px;background:var(--line);margin:8px 0}
+    .main{padding:22px}
+    .top{
+      background:rgba(255,255,255,.9);border:1px solid rgba(215,222,231,.9);
+      border-radius:24px;box-shadow:var(--shadow);
+      padding:16px 20px;display:flex;justify-content:space-between;
+      gap:14px;align-items:center;margin-bottom:18px;
+    }
+    .content{display:grid;gap:18px}
+    .content.animate{animation:tabIn .25s var(--transition)}
+
+    /* ── Cards ────────────────────────────────────────── */
+    .card{
+      background:rgba(255,255,255,.96);border:1px solid rgba(215,222,231,.9);
+      border-radius:24px;box-shadow:var(--shadow);padding:18px;
+      transition:box-shadow .25s ease;
+    }
+    .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+
+    /* ── Chips / badges ───────────────────────────────── */
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{
+      display:inline-flex;align-items:center;gap:6px;border-radius:999px;
+      padding:5px 11px;font-size:.78rem;font-weight:700;background:#eef2f6;
+      transition:background .15s ease;
+    }
+    .cp{background:#eef3ff;color:var(--primary-dark)}
+    .cs{background:#eef9f3;color:var(--success)}
+    .cw{background:#fff6e5;color:var(--warning)}
+    .cd{background:#fff2f2;color:var(--danger)}
+
+    /* ── KPIs ─────────────────────────────────────────── */
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+    .kpi{
+      border:1px solid var(--line);border-radius:20px;padding:16px;
+      background:linear-gradient(180deg,#fff,#f8fbff);
+      transition:transform .22s ease, box-shadow .22s ease;cursor:default;
+    }
+    .kpi:hover{transform:translateY(-3px);box-shadow:0 16px 32px rgba(30,94,255,.1)}
+    .kpi .v{margin-top:10px;font-size:1.8rem;font-weight:800;line-height:1}
+    .kpi .v-sm{margin-top:8px;font-size:1.3rem;font-weight:800}
+
+    /* ── Module stats cards ───────────────────────────── */
+    .module-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px}
+    .module-card{
+      border:1px solid var(--line);border-radius:18px;padding:16px;
+      background:#fff;cursor:pointer;
+      transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .module-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(30,94,255,.1);border-color:rgba(30,94,255,.25)}
+    .module-card h4{margin:0 0 10px;font-size:.9rem;color:var(--primary-dark)}
+    .module-card .stat-row{display:flex;justify-content:space-between;align-items:center;font-size:.82rem;color:var(--muted);margin-top:4px}
+    .module-card .stat-row strong{color:var(--text)}
+
+    /* ── Split layout ─────────────────────────────────── */
+    .split{display:grid;grid-template-columns:1.2fr 1fr;gap:18px}
+    .split-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+
+    /* ── Toolbar & filtres ────────────────────────────── */
+    .toolbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .filters input,.filters select{min-height:40px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 12px;font:inherit;outline:none;background:#fff;transition:border-color .2s}
+    .filters input:focus,.filters select:focus{border-color:rgba(30,94,255,.4)}
+
+    /* ── Table ────────────────────────────────────────── */
+    .table-wrap{width:100%;overflow:auto;border-radius:18px;border:1px solid var(--line);background:#fff}
+    table{width:100%;border-collapse:collapse;min-width:900px}
+    th,td{padding:11px 14px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:middle;font-size:.9rem}
+    th{background:#f8fafc;color:var(--primary-dark);font-size:.79rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+    tr:last-child td{border-bottom:0}
+    tr:hover td{background:rgba(30,94,255,.025)}
+    .empty{padding:28px 18px;border:1px dashed var(--line);border-radius:18px;color:var(--muted);text-align:center;background:#fbfdff}
+
+    /* ── Modales ──────────────────────────────────────── */
+    .modal-backdrop{
+      position:fixed;inset:0;background:rgba(13,22,34,.44);
+      display:none;align-items:center;justify-content:center;
+      padding:18px;z-index:50;
+      transition:opacity .2s ease;
+    }
+    .modal-backdrop.show{display:flex;animation:fadeIn .18s ease}
+    .modal{
+      width:min(880px,100%);max-height:90vh;overflow:auto;
+      background:#fff;border:1px solid var(--line);
+      border-radius:26px;box-shadow:0 32px 80px rgba(17,30,48,.22);
+      padding:24px;animation:slideUp .28s var(--transition);
+    }
+    .modal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .span-2{grid-column:span 2}
+    .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+
+    /* ── Timeline (Facture) ───────────────────────────── */
+    .timeline{display:grid;gap:10px;margin-top:4px}
+    .timeline-step{
+      display:flex;align-items:center;gap:14px;padding:14px 16px;
+      border:1px solid var(--line);border-radius:16px;background:#f9fbff;
+      transition:background var(--transition), border-color var(--transition);
+    }
+    .timeline-step.done{background:#eef9f3;border-color:rgba(31,138,91,.3)}
+    .step-num{
+      width:34px;height:34px;border-radius:50%;
+      background:#e8edf5;display:grid;place-items:center;
+      font-size:.82rem;font-weight:700;color:var(--muted);flex-shrink:0;
+      transition:background var(--transition), color var(--transition);
+    }
+    .timeline-step.done .step-num{background:#d4f0e6;color:var(--success)}
+    .step-info{flex:1}
+    .step-info strong{display:block;font-size:.92rem}
+    .step-info span{font-size:.8rem;color:var(--muted)}
+    .timeline-step input[type=checkbox]{
+      width:20px;height:20px;cursor:pointer;accent-color:var(--success);flex-shrink:0;
+    }
+    .timeline-step input[type=checkbox]:disabled{cursor:default}
+
+    /* ── Bouton Traité (apparition animée) ────────────── */
+    .traiter-zone{
+      margin-top:14px;padding:14px 16px;
+      border:1px solid rgba(31,138,91,.25);
+      border-radius:16px;background:#f0fbf6;
+      display:none;
+      animation:scaleIn .22s var(--transition);
+    }
+    .traiter-zone.visible{display:flex;align-items:center;justify-content:space-between;gap:12px}
+
+    /* ── Délai badge ──────────────────────────────────── */
+    .delai-badge{
+      display:inline-flex;align-items:center;gap:6px;
+      background:#f0f4ff;border:1px solid rgba(30,94,255,.2);
+      border-radius:999px;padding:5px 12px;font-size:.82rem;font-weight:600;color:var(--primary-dark);
+    }
+
+    /* ── Toasts ───────────────────────────────────────── */
+    .toasts{position:fixed;right:18px;bottom:18px;display:grid;gap:10px;z-index:60}
+    .toast{
+      min-width:260px;max-width:420px;padding:13px 14px;
+      border-radius:16px;box-shadow:var(--shadow);
+      border:1px solid rgba(215,222,231,.85);background:#fff;
+      animation:slideInRight .22s var(--transition);
+    }
+    .toast.success{border-left:4px solid var(--success)}
+    .toast.error{border-left:4px solid var(--danger)}
+    .toast.info{border-left:4px solid var(--primary)}
+
+    /* ── Progress ─────────────────────────────────────── */
+    .progress{height:4px;border-radius:999px;overflow:hidden;background:rgba(30,94,255,.08);margin-top:14px}
+    .progress span{display:block;width:42%;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--primary-dark),var(--primary));animation:slide 1.2s infinite ease-in-out}
+
+    /* ── Spinner dans bouton ──────────────────────────── */
+    .save-btn{position:relative;min-width:140px}
+    .save-btn.loading .label{opacity:0}
+    .spinner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+    .spinner i{width:18px;height:18px;border-radius:999px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;display:block;animation:spin .8s linear infinite}
+
+    /* ── Calc solvabilité ─────────────────────────────── */
+    .money-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .stat-box{border:1px solid var(--line);border-radius:16px;padding:13px;background:#f8fafc;font-size:.88rem}
+    .stat-box strong{display:block;font-size:1rem;margin-top:4px}
+
+    /* ── Résiliation conditional fields ──────────────── */
+    .resil-section{
+      grid-column:span 2;padding:14px;border:1px solid rgba(30,94,255,.15);
+      border-radius:14px;background:#f5f8ff;display:none;
+    }
+    .resil-section.visible{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;animation:fadeInUp .2s var(--transition)}
+    .comment-section{display:none}
+    .comment-section.visible{display:block;animation:fadeInUp .2s var(--transition)}
+
+    /* ── Keyframes ────────────────────────────────────── */
+    @keyframes slide{0%{transform:translateX(-120%)}100%{transform:translateX(330%)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes slideUp{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @keyframes slideInRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes tabIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes scaleIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+    /* ── Responsive ───────────────────────────────────── */
+    @media(max-width:1100px){
+      .shell{grid-template-columns:1fr}
+      .sidebar{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--line)}
+      .split{grid-template-columns:1fr}
+      .split-3{grid-template-columns:1fr}
+    }
+    @media(max-width:720px){
+      .main{padding:14px}
+      .top{flex-direction:column;align-items:flex-start}
+      .modal-grid{grid-template-columns:1fr}
+      .span-2{grid-column:span 1}
+      .money-grid{grid-template-columns:1fr}
+      .resil-section.visible{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Boot -->
+  <div id="boot" class="boot">
+    <div class="card-boot">
+      <div class="brand">
+        <div class="brand-mark">SL</div>
+        <div><strong>Syndic Ledger High-End</strong><small>Agrément · Sinistre · Facture · Résiliation</small></div>
+      </div>
+      <h2 class="hero-title">Initialisation de la plateforme</h2>
+      <p class="sub">Préparation des feuilles, cohérences, pointage et accès.</p>
+      <div class="progress"><span></span></div>
+    </div>
+  </div>
+
+  <!-- Login -->
+  <div id="login" class="login hidden">
+    <div class="card-login">
+      <div class="brand">
+        <div class="brand-mark">SL</div>
+        <div><strong>Syndic Ledger High-End</strong><small>Multi-modules · Assurance habitation</small></div>
+      </div>
+      <h1 class="hero-title">Connexion</h1>
+      <p class="sub">Agrément, Sinistre, Facture, Résiliation — tout en un.</p>
+      <form id="loginForm" class="grid">
+        <div class="field"><label>Identifiant</label><input id="loginInput" autocomplete="username" placeholder="superadmin"></div>
+        <div class="field"><label>Mot de passe</label><input id="passwordInput" type="password" autocomplete="current-password" placeholder="••••••••••••"></div>
+        <div class="row">
+          <button type="submit" class="b1 save-btn" id="loginBtn"><span class="label">Se connecter</span></button>
+          <button type="button" class="b2" onclick="fillAdmin()">Préremplir admin</button>
+        </div>
+      </form>
+      <p id="hint" class="sub" style="margin-top:12px;"></p>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div id="app" class="shell hidden">
+    <aside class="sidebar">
+      <div class="brand" style="margin-bottom:14px;">
+        <div class="brand-mark">SL</div>
+        <div><strong>Syndic Ledger</strong><small>High-End v3</small></div>
+      </div>
+      <div class="card" id="profileCard" style="padding:14px;margin-bottom:12px;"></div>
+      <nav class="nav" id="nav"></nav>
+      <div class="row" style="margin-top:16px;gap:8px;">
+        <button class="b2" style="flex:1" onclick="refreshView()">Actualiser</button>
+        <button class="bd" style="flex:1" onclick="logout()">Déconnexion</button>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="top">
+        <div><h1 id="title" style="margin:0 0 4px;font-size:1.4rem;"></h1><p id="subtitle" class="sub" style="margin:0;"></p></div>
+        <div class="row" id="topActions"></div>
+      </div>
+      <div class="content" id="view"></div>
+    </main>
+  </div>
+
+  <!-- Modale principale -->
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <div class="card-head">
+        <div><h2 id="modalTitle" style="margin:0 0 4px;font-size:1.2rem;"></h2><p id="modalSubtitle" class="sub" style="margin:0;"></p></div>
+        <button class="b3" onclick="closeModal()">Fermer</button>
+      </div>
+      <div id="modalBody"></div>
+      <div class="modal-footer">
+        <button class="b3" onclick="closeModal()">Annuler</button>
+        <button class="b1 save-btn" id="modalPrimary"><span class="label">Enregistrer</span></button>
       </div>
     </div>
+  </div>
 
-    <div id="login" class="login hidden">
-      <div class="card-login">
-        <div class="brand"><div class="brand-mark">SL</div><div><strong>Syndic Ledger High-End</strong><small>Module En étude</small></div></div>
-        <h1 class="hero-title">Connexion</h1>
-        <p class="sub">Gestion des En étude, calcul de solvabilité, cohérences depuis la feuille et pointage.</p>
-        <form id="loginForm" class="grid">
-          <div class="field"><label>Identifiant</label><input id="loginInput" autocomplete="username" placeholder="superadmin"></div>
-          <div class="field"><label>Mot de passe</label><input id="passwordInput" type="password" autocomplete="current-password" placeholder="••••••••••••"></div>
-          <div class="row">
-            <button type="submit" class="b1 save-btn" id="loginBtn"><span class="label">Se connecter</span></button>
-          </div>
-        </form>
-        <p id="hint" class="sub"></p>
+  <!-- Modale calcul solvabilité -->
+<div class="modal-backdrop" id="calcBackdrop" style="z-index:70;">
+  <div class="modal">
+    <div class="card-head">
+      <div><h2 style="margin:0 0 4px;font-size:1.2rem;">Calcul de solvabilité</h2><p class="sub" id="calcSubtitle" style="margin:0;"></p></div>
+      <button class="b3" onclick="closeCalcModal()">Fermer</button>
+    </div>
+    <div id="calcBody"></div>
+    <div class="modal-footer">
+      <button class="b3" onclick="closeCalcModal()">Annuler</button>
+      <button class="b1" onclick="applyCalcResult()">Appliquer</button>
+    </div>
+  </div>
+</div>
+  <div id="toasts" class="toasts"></div>
+  <script>
+  /* ── tout le JS suit dans les sections 2-12 ── */
+  // ============================================================
+// SECTION 2 — ÉTAT, BOOT, LOGIN, HYDRATE
+// ============================================================
+
+const state = {
+  token:              localStorage.getItem('SL_ETU_TOKEN') || '',
+  session:            null,
+  lookups:            null,
+  currentView:        'dashboard',
+  filters:            {},
+  modalAction:        null,
+  heartbeatTimer:     null,
+  currentEdit:        null,
+  currentSolvabilite: null,
+  lastAgrements:      [],
+  lastPresence:       []
+};
+
+document.addEventListener('DOMContentLoaded', boot);
+document.getElementById('loginForm').addEventListener('submit', onLogin);
+window.addEventListener('offline',           handleOfflineSignal);
+window.addEventListener('beforeunload',      handleBeforeUnload);
+document.addEventListener('visibilitychange',handleVisibilityChange);
+
+async function boot() {
+  try {
+    await rpc('initApplication');
+    byId('hint').textContent = 'Compte initial : superadmin / ChangeMe123!';
+    if (!state.token) return showLogin();
+    const data = await rpc('getBootstrapData', state.token);
+    hydrate(data);
+  } catch (e) {
+    toast(e.message || 'Erreur de démarrage.', 'error');
+    showLogin();
+  }
+}
+
+function showLogin() {
+  stopHeartbeat();
+  byId('boot').classList.add('hidden');
+  byId('app').classList.add('hidden');
+  byId('login').classList.remove('hidden');
+}
+function showApp() {
+  byId('boot').classList.add('hidden');
+  byId('login').classList.add('hidden');
+  byId('app').classList.remove('hidden');
+}
+function fillAdmin() {
+  byId('loginInput').value  = 'superadmin';
+  byId('passwordInput').value = 'ChangeMe123!';
+}
+
+async function onLogin(e) {
+  e.preventDefault();
+  setButtonLoading(byId('loginBtn'), true);
+  try {
+    const session = await rpc('authenticateUser',
+      byId('loginInput').value.trim(),
+      byId('passwordInput').value,
+      navigator.userAgent
+    );
+    state.token = session.token;
+    localStorage.setItem('SL_ETU_TOKEN', state.token);
+    const data = await rpc('getBootstrapData', state.token);
+    hydrate(data);
+    toast('Connexion réussie.', 'success');
+  } catch (e) {
+    toast(e.message || 'Connexion impossible.', 'error');
+  } finally {
+    setButtonLoading(byId('loginBtn'), false);
+  }
+}
+
+function hydrate(data) {
+  state.session    = data.session;
+  state.lookups    = data.lookups;
+  state.currentView = 'dashboard';
+  renderProfile();
+  renderNav();
+  showApp();
+  startHeartbeat();
+  renderDashboard(data.dashboard);
+}
+
+function renderProfile() {
+  const u = state.session.user;
+  byId('profileCard').innerHTML = `
+    <div style="display:grid;gap:8px;">
+      <div><strong>${esc(u.full_name||'Utilisateur')}</strong><br>
+      <span class="sub" style="font-size:.82rem;">${esc(u.login||'')}</span></div>
+      <div class="chips">
+        <span class="chip cp">${esc(roleLabel(u.role))}</span>
+        <span class="chip ${statusClass(u.status)}">${esc(u.status||'Actif')}</span>
       </div>
-    </div>
+      <div class="sub" style="font-size:.78rem;">Dernière connexion : ${esc(formatDate(u.last_login_at)||'Jamais')}</div>
+    </div>`;
+}
 
-    <div id="app" class="shell hidden">
-      <aside class="sidebar">
-        <div class="brand"><div class="brand-mark">SL</div><div><strong>Syndic Ledger High-End</strong><small>Module En étude</small></div></div>
-        <div class="card" id="profileCard" style="padding:16px;margin-bottom:16px;"></div>
-        <nav class="nav" id="nav"></nav>
-        <div class="row" style="margin-top:18px;">
-          <button class="b2" onclick="refreshView()">Actualiser</button>
-          <button class="bd" onclick="logout()">Se déconnecter</button>
-        </div>
-      </aside>
-      <main class="main">
-        <div class="top">
-          <div><h1 id="title" style="margin:0 0 6px;"></h1><p id="subtitle" class="sub" style="margin:0;"></p></div>
-          <div class="row" id="topActions"></div>
-        </div>
-        <div class="content" id="view"></div>
-      </main>
-    </div>
+function startHeartbeat() {
+  stopHeartbeat();
+  if (!state.token) return;
+  pingHeartbeat();
+  state.heartbeatTimer = setInterval(pingHeartbeat, (state.session?.heartbeatSeconds || 45) * 1000);
+}
+function stopHeartbeat() {
+  if (state.heartbeatTimer) clearInterval(state.heartbeatTimer);
+  state.heartbeatTimer = null;
+}
+async function pingHeartbeat() {
+  if (!state.token || !navigator.onLine) return;
+  try {
+    await rpc('heartbeatSession', state.token, { user_agent: navigator.userAgent, visibility: document.visibilityState });
+  } catch (e) {
+    stopHeartbeat();
+    localStorage.removeItem('SL_ETU_TOKEN');
+    toast(e.message || 'Session expirée.', 'error');
+    showLogin();
+  }
+}
+function handleOfflineSignal() {
+  if (!state.token) return;
+  rpc('registerOfflineSignal', state.token).catch(() => {});
+  stopHeartbeat();
+  toast('Connexion interrompue. La session sera fermée.', 'info');
+}
+function handleBeforeUnload() {
+  if (!state.token) return;
+  try { rpc('logoutUser', state.token, 'window_unload'); } catch(e) {}
+}
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible' && state.token) startHeartbeat();
+}
+async function logout() {
+  try { if (state.token) await rpc('logoutUser', state.token, 'manual_logout'); } catch(e) {}
+  stopHeartbeat();
+  localStorage.removeItem('SL_ETU_TOKEN');
+  state.token = ''; state.session = null;
+  showLogin();
+  toast('Déconnexion effectuée.', 'info');
+}
+async function refreshLookups() {
+  state.lookups = await rpc('getLookups', state.token);
+}
+// ============================================================
+// SECTION 3 — NAVIGATION & TOP BAR
+// ============================================================
 
-    <div class="modal-backdrop" id="modalBackdrop">
-      <div class="modal">
+const VIEW_META = {
+  dashboard:   ['Dashboard',     'Vue synthétique du périmètre.'],
+  users:       ['Utilisateurs',  'Rôles, rattachements et accès.'],
+  teams:       ['Équipes',       'Organisation opérationnelle.'],
+  coherences:  ['Cohérences',    'Règles type de dossier / équipe.'],
+  agrements:   ['Agrément',      'Gestion des agréments et calcul de solvabilité.'],
+  sinistres:   ['Sinistre',      'Déclarations et suivi des dossiers sinistres.'],
+  factures:    ['Facture',       'Demandes de règlement et suivi des étapes.'],
+  resiliations:['Résiliation',   'Demandes de résiliation par mail ou BO.'],
+  presence:    ['Pointage',      'Présence, connexions et temps en ligne.'],
+  history:     ['Historique',    'Journal des actions métiers.'],
+  connections: ['Connexions',    'Journal détaillé des authentifications.']
+};
+
+// Groupes de menu pour séparateurs visuels
+const NAV_GROUPS = [
+  ['users','teams','coherences'],
+  ['dashboard','agrements','sinistres','factures','resiliations'],
+  ['presence','history','connections']
+];
+
+function renderNav() {
+  const items = state.session.menu;
+  const html  = [];
+  items.forEach((item, i) => {
+    // Séparateur entre groupes
+    if (i > 0) {
+      const prev = items[i - 1].key;
+      const cur  = item.key;
+      const prevGroup = NAV_GROUPS.findIndex(g => g.includes(prev));
+      const curGroup  = NAV_GROUPS.findIndex(g => g.includes(cur));
+      if (prevGroup !== curGroup) html.push('<div class="nav-sep"></div>');
+    }
+    html.push(`<button class="${item.key === state.currentView ? 'active' : ''}"
+      onclick="navigate('${item.key}')">${esc(item.label)}</button>`);
+  });
+  byId('nav').innerHTML = html.join('');
+}
+
+async function navigate(key) {
+  state.currentView = key;
+  renderNav();
+  await renderView();
+}
+
+async function renderView() {
+  const view = byId('view');
+  view.classList.remove('animate');
+  void view.offsetWidth;   // reflow pour relancer l'animation
+  view.classList.add('animate');
+
+  if (state.currentView === 'dashboard')    return renderDashboard(await rpc('getDashboardData', state.token));
+  if (state.currentView === 'users')        return renderUsers();
+  if (state.currentView === 'teams')        return renderTeams();
+  if (state.currentView === 'coherences')   return renderCoherences();
+  if (state.currentView === 'agrements')    return renderAgrements();
+  if (state.currentView === 'sinistres')    return renderSinistres();
+  if (state.currentView === 'factures')     return renderFactures();
+  if (state.currentView === 'resiliations') return renderResiliations();
+  if (state.currentView === 'presence')     return renderPresence();
+  if (state.currentView === 'history')      return renderHistory();
+  if (state.currentView === 'connections')  return renderConnections();
+}
+
+async function refreshView() {
+  await renderView();
+  toast('Vue actualisée.', 'info');
+}
+
+function refreshTop(customActions) {
+  const meta = VIEW_META[state.currentView] || [state.currentView, ''];
+  byId('title').textContent    = meta[0];
+  byId('subtitle').textContent = meta[1];
+  byId('topActions').innerHTML = (customActions || defaultActions()).join('');
+}
+
+function defaultActions() {
+  const p = state.session.permissions;
+  const v = state.currentView;
+  const actions = [];
+
+  if (v === 'users'  && p.canManageUsers)  actions.push(`<button class="b1" onclick="openUserForm()">Nouvel utilisateur</button>`);
+  if (v === 'teams'  && p.canManageTeams)  actions.push(`<button class="b1" onclick="openTeamForm()">Nouvelle équipe</button>`);
+
+  if (v === 'agrements') {
+    actions.push(`<button class="b2" onclick="exportAgrementsCsv()">Export CSV</button>`);
+    actions.push(`<button class="b1" onclick="openAgrementForm()">Nouvel agrément</button>`);
+  }
+  if (v === 'sinistres')    actions.push(`<button class="b1" onclick="openSinistreForm()">Nouvelle déclaration</button>`);
+  if (v === 'factures')     actions.push(`<button class="b1" onclick="openFactureForm()">Créer une demande</button>`);
+  if (v === 'resiliations') actions.push(`<button class="b1" onclick="openResiliationForm()">Nouvelle résiliation</button>`);
+  if (v === 'presence')     actions.push(`<button class="b2" onclick="exportPresenceCsv()">Export CSV</button>`);
+
+  return actions;
+}
+// ============================================================
+// SECTION 4 — DASHBOARD
+// ============================================================
+
+function renderDashboard(data) {
+  refreshTop();
+  const ms = data.moduleStats || {};
+  const ps = data.presenceSummary || {};
+
+  byId('view').innerHTML = `
+    <!-- KPIs -->
+    <section class="card">
+      <div class="card-head">
+        <div><h2 style="margin:0 0 4px;">Vue synthétique</h2>
+        <p class="sub" style="margin:0;">${esc(data.scopeLabel||'')}</p></div>
+      </div>
+      <div class="kpis">
+        ${(data.kpis||[]).map(k=>`
+          <div class="kpi">
+            <span class="chip ${toneClass(k.tone)}">${esc(k.label)}</span>
+            <div class="v">${esc(String(k.value))}</div>
+          </div>`).join('')}
+      </div>
+    </section>
+
+    <!-- Modules métier -->
+    <section class="card">
+      <div class="card-head">
+        <div><h3 style="margin:0 0 4px;">Modules métier</h3>
+        <p class="sub" style="margin:0;">Sinistre · Facture · Résiliation</p></div>
+      </div>
+      <div class="module-cards">
+        ${ms.sinistre ? `
+        <div class="module-card" onclick="navigate('sinistres')" title="Voir les sinistres">
+          <h4>Sinistre</h4>
+          <div class="stat-row"><span>Total</span><strong>${ms.sinistre.total}</strong></div>
+          <div class="stat-row"><span>Complets</span><strong><span class="chip cs" style="font-size:.75rem;">${ms.sinistre.complets}</span></strong></div>
+          <div class="stat-row"><span>Relances</span><strong><span class="chip cd" style="font-size:.75rem;">${ms.sinistre.relances}</span></strong></div>
+          <div class="stat-row"><span>Traités</span><strong><span class="chip cp" style="font-size:.75rem;">${ms.sinistre.traites}</span></strong></div>
+        </div>` : ''}
+        ${ms.facture ? `
+        <div class="module-card" onclick="navigate('factures')" title="Voir les factures">
+          <h4>Facture</h4>
+          <div class="stat-row"><span>Total</span><strong>${ms.facture.total}</strong></div>
+          <div class="stat-row"><span>En cours</span><strong><span class="chip cw" style="font-size:.75rem;">${ms.facture.en_cours}</span></strong></div>
+          <div class="stat-row"><span>Traités</span><strong><span class="chip cs" style="font-size:.75rem;">${ms.facture.traites}</span></strong></div>
+        </div>` : ''}
+        ${ms.resiliation ? `
+        <div class="module-card" onclick="navigate('resiliations')" title="Voir les résiliations">
+          <h4>Résiliation</h4>
+          <div class="stat-row"><span>Total</span><strong>${ms.resiliation.total}</strong></div>
+          <div class="stat-row"><span>En cours</span><strong><span class="chip cw" style="font-size:.75rem;">${ms.resiliation.en_cours}</span></strong></div>
+          <div class="stat-row"><span>Relances</span><strong><span class="chip cd" style="font-size:.75rem;">${ms.resiliation.relances}</span></strong></div>
+          <div class="stat-row"><span>Traités</span><strong><span class="chip cs" style="font-size:.75rem;">${ms.resiliation.traites}</span></strong></div>
+        </div>` : ''}
+      </div>
+    </section>
+
+    <!-- Répartition + Performance -->
+    <section class="split">
+      <div class="card">
         <div class="card-head">
-          <div><h2 id="modalTitle" style="margin:0 0 6px;"></h2><p id="modalSubtitle" class="sub" style="margin:0;"></p></div>
-          <button class="b3" onclick="closeModal()">Fermer</button>
+          <h3 style="margin:0 0 4px;">Répartition des statuts</h3>
         </div>
-        <div id="modalBody"></div>
-        <div class="row" style="justify-content:flex-end;margin-top:16px;">
-          <button class="b3" onclick="closeModal()">Annuler</button>
-          <button class="b1 save-btn" id="modalPrimary"><span class="label">Enregistrer</span></button>
+        <div class="chips">
+          ${(data.statusBreakdown||[]).map(r=>`
+            <span class="chip ${statusClass(r.label)}">${esc(r.label)} · ${r.value}</span>`).join('')
+            || '<span class="sub">Aucune donnée.</span>'}
         </div>
       </div>
-    </div>
-
-    <div class="modal-backdrop" id="calcBackdrop" style="z-index:70;">
-      <div class="modal">
+      <div class="card">
         <div class="card-head">
-          <div><h2 style="margin:0 0 6px;">Calcul de solvabilité</h2><p class="sub" id="calcSubtitle" style="margin:0;"></p></div>
-          <button class="b3" onclick="closeCalcModal()">Fermer</button>
+          <h3 style="margin:0 0 4px;">Performance</h3>
         </div>
-        <div id="calcBody"></div>
-        <div class="row" style="justify-content:flex-end;margin-top:16px;">
-          <button class="b3" onclick="closeCalcModal()">Annuler</button>
-          <button class="b1" onclick="applyCalcResult()">Appliquer au dossier</button>
+        ${(data.performance && data.performance.length)
+          ? table(data.performance, Object.keys(data.performance[0]).map(k=>({key:k,label:pretty(k)})))
+          : `<div class="empty">Aucune donnée de performance.</div>`}
+      </div>
+    </section>
+
+    <!-- Présence ambassadeurs -->
+    ${(data.ambassadorPresence && data.ambassadorPresence.length) ? `
+    <section class="card">
+      <div class="card-head">
+        <div><h3 style="margin:0 0 4px;">Présence ambassadeurs du jour</h3>
+        <p class="sub" style="margin:0;">
+          ${ps.online_now||0} en ligne · ${ps.total_users||0} suivis · 
+          Cumulé : ${secondsToHHMM(ps.total_online_seconds||0)}
+        </p></div>
+        <button class="b2" onclick="navigate('presence')">Voir tout le pointage</button>
+      </div>
+      ${table(data.ambassadorPresence, [
+        {key:'full_name',      label:'Ambassadeur'},
+        {key:'team_name',      label:'Équipe'},
+        {key:'first_login_at', label:'1re connexion', datetime:true},
+        {key:'online_hhmm',    label:'Temps en ligne'},
+        {key:'connection_count',label:'Connexions'},
+        {key:'currently_online',label:'En ligne', badge:true}
+      ])}
+    </section>` : ''}`;
+}
+// ============================================================
+// SECTION 5 — UTILISATEURS, ÉQUIPES, COHÉRENCES
+// ============================================================
+
+async function renderUsers() {
+  refreshTop();
+  const rows = await rpc('listUsers', state.token);
+  byId('view').innerHTML = `
+    <section class="card">
+      <div class="card-head">
+        <div><h2 style="margin:0 0 4px;">Utilisateurs</h2>
+        <p class="sub" style="margin:0;">Rôles et rattachements.</p></div>
+      </div>
+      ${rows.length ? table(rows, [
+        {key:'full_name',        label:'Nom'},
+        {key:'login',            label:'Login'},
+        {key:'role',             label:'Rôle'},
+        {key:'team_name',        label:'Équipe'},
+        {key:'team_leader_name', label:'Team Leader'},
+        {key:'status',           label:'Statut', badge:true},
+        {key:'last_login_at',    label:'Dernière connexion', datetime:true},
+        {key:'__actions', label:'Action', render: row =>
+          state.session.permissions.canManageUsers
+            ? `<button class="b2" onclick="openUserForm('${row.id}')">Éditer</button>` : ''}
+      ]) : `<div class="empty">Aucun utilisateur visible.</div>`}
+    </section>`;
+}
+
+async function renderTeams() {
+  refreshTop();
+  const rows = await rpc('listTeams', state.token);
+  byId('view').innerHTML = `
+    <section class="card">
+      <div class="card-head">
+        <div><h2 style="margin:0 0 4px;">Équipes</h2>
+        <p class="sub" style="margin:0;">Périmètres de pilotage.</p></div>
+      </div>
+      ${rows.length ? table(rows, [
+        {key:'name',             label:'Équipe'},
+        {key:'team_leader_name', label:'Team Leader'},
+        {key:'ambassadors_count',label:'Ambassadeurs'},
+        {key:'agrements_count',  label:'Agréments'},
+        {key:'status',           label:'Statut', badge:true},
+        {key:'__actions', label:'Action', render: row =>
+          state.session.permissions.canManageTeams
+            ? `<button class="b2" onclick="openTeamForm('${row.id}')">Éditer</button>` : ''}
+      ]) : `<div class="empty">Aucune équipe visible.</div>`}
+    </section>`;
+}
+
+async function renderCoherences() {
+  refreshTop();
+  const rows = await rpc('listAgrementTypeTeamRules', state.token);
+  byId('view').innerHTML = `
+    <section class="card">
+      <div class="card-head">
+        <div><h2 style="margin:0 0 4px;">Cohérences type de dossier / équipe</h2>
+        <p class="sub" style="margin:0;">Alimenté par la feuille <strong>AGREMENT_TYPE_TEAM_MAP</strong>. Modifiable directement dans le Sheet.</p></div>
+      </div>
+      ${rows.length ? table(rows, [
+        {key:'type_dossier', label:'Type de dossier'},
+        {key:'team_id',      label:'Team ID'},
+        {key:'team_name',    label:'Équipe'},
+        {key:'active',       label:'Actif', badge:true},
+        {key:'updated_at',   label:'Mis à jour', datetime:true}
+      ]) : `<div class="empty">Aucune cohérence dans AGREMENT_TYPE_TEAM_MAP.</div>`}
+    </section>`;
+}
+
+// ── Formulaires Utilisateur ───────────────────────────────────
+async function openUserForm(id) {
+  await refreshLookups();
+  const users = await rpc('listUsers', state.token);
+  const item  = id ? users.find(r => r.id === id) : null;
+  const roleOptions = state.session.role === 'team_leader'
+    ? [{value:'ambassador',  label:'Ambassadeur'}]
+    : [{value:'super_admin', label:'Super Admin'},{value:'team_leader',label:'Team Leader'},{value:'ambassador',label:'Ambassadeur'}];
+
+  openModal(
+    item ? 'Modifier un utilisateur' : 'Nouvel utilisateur',
+    'Gestion des rôles et rattachements.',
+    `<form id="userForm" class="modal-grid">
+      <input type="hidden" name="id" value="${escAttr(item?.id||'')}">
+      <div class="field"><label>Nom complet</label><input name="full_name" value="${escAttr(item?.full_name||'')}" required></div>
+      <div class="field"><label>Login</label><input name="login" value="${escAttr(item?.login||'')}" ${item?'readonly':''} required></div>
+      <div class="field"><label>Mot de passe ${item?'(vide = inchangé)':''}</label><input name="password" type="password"></div>
+      <div class="field"><label>Email</label><input type="email" name="email" value="${escAttr(item?.email||'')}"></div>
+      <div class="field"><label>Rôle</label>
+        <select name="role" id="uRole" onchange="toggleUserFields()">
+          ${roleOptions.map(o=>`<option value="${o.value}" ${item?.role===o.value?'selected':''}>${o.label}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>Statut</label>
+        <select name="status">
+          ${(state.lookups.userStatuses||[]).map(v=>`<option value="${escAttr(v)}" ${(item?.status||'Actif')===v?'selected':''}>${esc(v)}</option>`).join('')}
+        </select></div>
+      <div class="field" id="uTeamWrap"><label>Équipe</label>
+        <select name="team_id"><option value="">Non rattaché</option>
+          ${(state.lookups.teams||[]).map(t=>`<option value="${t.id}" ${item?.team_id===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}
+        </select></div>
+      <div class="field" id="uLeadWrap"><label>Team Leader</label>
+        <select name="team_leader_id"><option value="">Aucun</option>
+          ${(state.lookups.teamLeaders||[]).map(t=>`<option value="${t.id}" ${item?.team_leader_id===t.id?'selected':''}>${esc(t.full_name)}</option>`).join('')}
+        </select></div>
+    </form>`,
+    async () => {
+      await rpc('saveUser', state.token, formToObject(byId('userForm')));
+      closeModal(); toast('Utilisateur enregistré.', 'success'); await renderUsers();
+    }
+  );
+  toggleUserFields();
+}
+
+function toggleUserFields() {
+  const role = byId('uRole')?.value || '';
+  const tw = byId('uTeamWrap'); const lw = byId('uLeadWrap');
+  if (tw) tw.style.display = role === 'super_admin' ? 'none' : 'block';
+  if (lw) lw.style.display = role === 'ambassador'  ? 'block' : 'none';
+}
+
+// ── Formulaire Équipe ─────────────────────────────────────────
+async function openTeamForm(id) {
+  await refreshLookups();
+  const rows = await rpc('listTeams', state.token);
+  const item = id ? rows.find(r => r.id === id) : null;
+  openModal(
+    item ? 'Modifier une équipe' : 'Nouvelle équipe',
+    'Structuration des périmètres.',
+    `<form id="teamForm" class="modal-grid">
+      <input type="hidden" name="id" value="${escAttr(item?.id||'')}">
+      <div class="field span-2"><label>Nom</label><input name="name" value="${escAttr(item?.name||'')}" required></div>
+      <div class="field"><label>Team Leader</label>
+        <select name="team_leader_id"><option value="">Aucun</option>
+          ${(state.lookups.teamLeaders||[]).map(t=>`<option value="${t.id}" ${item?.team_leader_id===t.id?'selected':''}>${esc(t.full_name)}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>Statut</label>
+        <select name="status">
+          ${(state.lookups.userStatuses||[]).map(v=>`<option value="${escAttr(v)}" ${(item?.status||'Actif')===v?'selected':''}>${esc(v)}</option>`).join('')}
+        </select></div>
+    </form>`,
+    async () => {
+      await rpc('saveTeam', state.token, formToObject(byId('teamForm')));
+      closeModal(); toast('Équipe enregistrée.', 'success'); await renderTeams();
+    }
+  );
+}
+// ============================================================
+// SECTION 6 — MODULE AGRÉMENT
+// ============================================================
+
+async function renderAgrements() {
+  refreshTop([`<button class="b3" onclick="state.filters.agrements={}; renderAgrements();">Réinitialiser</button>`]
+    .concat(defaultActions()));
+  const filters = state.filters.agrements || {};
+  const rows    = await rpc('listAgrements', state.token, filters);
+  state.lastAgrements = rows;
+
+  byId('view').innerHTML = `
+    <section class="card">
+      <div class="toolbar">
+        <div><h2 style="margin:0 0 4px;">Agréments</h2>
+        <p class="sub" style="margin:0;">Calcul de solvabilité et attribution automatique d'équipe.</p></div>
+        <div class="filters">
+          <input id="agrSearch" placeholder="Recherche…" value="${escAttr(filters.search||'')}">
+          <select id="agrType">
+            <option value="">Tous les types</option>
+            ${(state.lookups.agrementTypes||[]).map(v=>`<option value="${v}" ${filters.type_dossier===v?'selected':''}>${v}</option>`).join('')}
+          </select>
+          <select id="agrStatus">
+            <option value="">Tous les statuts</option>
+            ${(state.lookups.agrementStatuses||[]).map(v=>`<option value="${escAttr(v)}" ${filters.statut===v?'selected':''}>${esc(v)}</option>`).join('')}
+          </select>
+          <button class="b2" onclick="applyAgrementFilters()">Filtrer</button>
         </div>
       </div>
+      ${rows.length ? table(rows, [
+        {key:'reference',             label:'Référence'},
+        {key:'type_dossier',          label:'Type dossier'},
+        {key:'type_client',           label:'Type client'},
+        {key:'priorite',              label:'Priorité', badge:true},
+        {key:'client',                label:'Client'},
+        {key:'adresse',               label:'Adresse'},
+        {key:'equipe_name',           label:'Équipe auto'},
+        {key:'ambassadeur_assigne_name',label:'Ambassadeur'},
+        {key:'statut',                label:'Statut', badge:true},
+        {key:'motif_validation',      label:'Motif validé'},
+        {key:'resultat_solvabilite',  label:'Solvabilité', badge:true},
+        {key:'updated_at',            label:'Mis à jour', datetime:true},
+        {key:'__actions', label:'Action', render: row =>
+          `<button class="b2" onclick="openAgrementForm('${row.id}')">Éditer</button>`}
+      ]) : `<div class="empty">Aucun agrément trouvé.</div>`}
+    </section>`;
+}
+
+function applyAgrementFilters() {
+  state.filters.agrements = {
+    search:       byId('agrSearch')?.value.trim(),
+    type_dossier: byId('agrType')?.value,
+    statut:       byId('agrStatus')?.value
+  };
+  renderAgrements();
+}
+
+async function openAgrementForm(id) {
+  await refreshLookups();
+  const rows = await rpc('listAgrements', state.token, {});
+  const item = id ? rows.find(r => r.id === id) : null;
+  state.currentEdit       = item || null;
+  state.currentSolvabilite = item?.solvabilite || null;
+
+  openModal(
+    item ? 'Modifier un agrément' : 'Nouvel agrément',
+    'Équipe attribuée automatiquement via la feuille de cohérence.',
+    renderAgrementFormHtml(item),
+    async () => {
+      const payload = collectAgrementForm();
+      payload.solvabilite = state.currentSolvabilite;
+      await rpc('saveAgrement', state.token, payload);
+      closeModal(); toast('Agrément enregistré.', 'success'); await renderAgrements();
+    }
+  );
+  toggleMotifValidation();
+}
+
+function renderAgrementFormHtml(item) {
+  const cur = item || {
+    type_dossier:'', priorite:'Normale', client:'', adresse:'',
+    type_client:'Locataire',
+    ambassadeur_assigne: state.session.role === 'ambassador' ? state.session.user.id : '',
+    statut:'Initié', motif_validation:''
+  };
+  return `<form id="agrementForm" class="modal-grid">
+    <input type="hidden" name="id" value="${escAttr(cur.id||'')}">
+    <div class="field"><label>Type de dossier *</label>
+      <select name="type_dossier">
+        <option value="">Sélectionner</option>
+        ${(state.lookups.agrementTypes||[]).map(v=>`<option value="${v}" ${cur.type_dossier===v?'selected':''}>${v}</option>`).join('')}
+      </select></div>
+    <div class="field"><label>Priorité *</label>
+      <select name="priorite">
+        ${(state.lookups.priorities||[]).map(v=>`<option value="${v}" ${cur.priorite===v?'selected':''}>${esc(v)}</option>`).join('')}
+      </select></div>
+    <div class="field"><label>Type de client *</label>
+      <select name="type_client" id="typeClientField" onchange="updateCalcSubtitle()">
+        ${(state.lookups.typeClientOptions||[]).map(v=>`<option value="${v}" ${cur.type_client===v?'selected':''}>${esc(v)}</option>`).join('')}
+      </select></div>
+    <div class="field"><label>Ambassadeur assigné *</label>
+      <select name="ambassadeur_assigne" ${state.session.role==='ambassador'?'disabled':''}>
+        <option value="">Sélectionner</option>
+        ${(state.lookups.ambassadors||[]).map(v=>`<option value="${v.id}" ${cur.ambassadeur_assigne===v.id?'selected':''}>${esc(v.full_name)}</option>`).join('')}
+      </select></div>
+    <div class="field span-2"><label>Client *</label><input name="client" value="${escAttr(cur.client||'')}" required></div>
+    <div class="field span-2"><label>Adresse *</label><input name="adresse" value="${escAttr(cur.adresse||'')}" required></div>
+    <div class="field"><label>Statut *</label>
+      <select name="statut" id="statutField" onchange="toggleMotifValidation()">
+        ${(state.lookups.agrementStatuses||[]).map(v=>`<option value="${escAttr(v)}" ${cur.statut===v?'selected':''}>${esc(v)}</option>`).join('')}
+      </select></div>
+    <div class="field" id="motifWrap"><label>Motif validation *</label>
+      <select name="motif_validation" id="motifValidationField">
+        <option value="">Sélectionner</option>
+        ${(state.lookups.motifValidationOptions||[]).map(v=>`<option value="${escAttr(v)}" ${cur.motif_validation===v?'selected':''}>${esc(v)}</option>`).join('')}
+      </select></div>
+    <div class="field span-2">
+      <label>Calcul de solvabilité</label>
+      <div class="row" style="align-items:center;">
+        <button type="button" class="b2" onclick="openCalcModal()">Ouvrir le calcul</button>
+        <span class="sub" id="solvabiliteHint">${state.currentSolvabilite
+          ? 'Résultat : ' + esc(state.currentSolvabilite.resultat)
+          : 'Aucun calcul appliqué'}</span>
+      </div>
     </div>
+  </form>`;
+}
 
-    <div id="toasts" class="toasts"></div>
+function collectAgrementForm() {
+  const data = formToObject(byId('agrementForm'));
+  if (state.session.role === 'ambassador') data.ambassadeur_assigne = state.session.user.id;
+  return data;
+}
 
-    <script>
-      const state = {
-        initInfo: null,
-        token: localStorage.getItem('SL_ETU_TOKEN') || '',
-        session: null,
-        lookups: null,
-        currentView: 'dashboard',
-        filters: {},
-        modalAction: null,
-        heartbeatTimer: null,
-        currentEdit: null,
-        currentSolvabilite: null
-      };
+function toggleMotifValidation() {
+  const statut = byId('statutField')?.value || '';
+  const wrap   = byId('motifWrap');
+  if (!wrap) return;
+  wrap.style.display = statut === 'Validé' ? 'block' : 'none';
+  if (statut === 'Validé' && state.currentSolvabilite && byId('motifValidationField')) {
+    byId('motifValidationField').value = state.currentSolvabilite.resultat;
+  }
+  if (statut !== 'Validé' && byId('motifValidationField')) {
+    byId('motifValidationField').value = '';
+  }
+}
 
-      document.addEventListener('DOMContentLoaded', boot);
-      document.getElementById('loginForm').addEventListener('submit', onLogin);
-      window.addEventListener('offline', handleOfflineSignal);
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      document.addEventListener('visibilitychange', handleVisibilityChange);
+// ── Calcul solvabilité ────────────────────────────────────────
+function updateCalcSubtitle() {
+  const tc = byId('typeClientField')?.value || 'Locataire';
+  if (byId('calcSubtitle')) byId('calcSubtitle').textContent = 'Type client : ' + tc;
+}
 
-      async function boot() {
-        try {
-          state.initInfo = await rpc('initApplication');
-          if (state.initInfo.isFirstSetup) {
-            byId('hint').textContent = 'Premier démarrage détecté. Contactez votre administrateur pour vos identifiants.';
-          } else {
-            byId('hint').textContent = '';
-          }
-          if (!state.token) return showLogin();
-          const data = await rpc('getBootstrapData', state.token);
-          hydrate(data);
-        } catch (error) {
-          toast(error.message || 'Erreur de démarrage', 'error');
-          showLogin();
-        }
-      }
+function openCalcModal() {
+  const typeClient = byId('typeClientField')?.value || 'Locataire';
+  if (byId('calcSubtitle')) byId('calcSubtitle').textContent = 'Type client : ' + typeClient;
+  const solv = state.currentSolvabilite || {
+    net_a_payer:[0,0,0], net_avant_impot:[0,0,0], brut:[0,0,0],
+    loyer:0, ratio_max: typeClient === 'Garant' ? 0.33 : 0.37
+  };
+  byId('calcBody').innerHTML = `
+    <div class="modal-grid">
+      <div class="span-2"><p class="sub" style="margin:0;">Saisis les montants sur 3 mois.</p></div>
+      <div class="span-2 field"><label>Net à payer (3 mois)</label>
+        <div class="money-grid">${solv.net_a_payer.map((v,i)=>`<input type="number" class="calc-input" data-group="net_a_payer" data-index="${i}" value="${v}">`).join('')}</div></div>
+      <div class="span-2 field"><label>Net avant impôt (3 mois)</label>
+        <div class="money-grid">${solv.net_avant_impot.map((v,i)=>`<input type="number" class="calc-input" data-group="net_avant_impot" data-index="${i}" value="${v}">`).join('')}</div></div>
+      <div class="span-2 field"><label>Brut (3 mois)</label>
+        <div class="money-grid">${solv.brut.map((v,i)=>`<input type="number" class="calc-input" data-group="brut" data-index="${i}" value="${v}">`).join('')}</div></div>
+      <div class="field span-2"><label>Loyer</label>
+        <input id="calcLoyer" type="number" value="${solv.loyer||0}" oninput="renderCalcSummary()"></div>
+      <div class="span-2" id="calcSummary"></div>
+    </div>`;
+  byId('calcBackdrop').classList.add('show');
+  document.querySelectorAll('.calc-input').forEach(el => el.addEventListener('input', renderCalcSummary));
+  renderCalcSummary();
+}
+function closeCalcModal() { byId('calcBackdrop').classList.remove('show'); }
 
-      function showLogin() {
-        stopHeartbeat();
-        byId('boot').classList.add('hidden');
-        byId('app').classList.add('hidden');
-        byId('login').classList.remove('hidden');
-      }
+async function renderCalcSummary() {
+  const tc = byId('typeClientField')?.value || 'Locataire';
+  const pick = g => Array.from(document.querySelectorAll(`.calc-input[data-group="${g}"]`)).map(el => Number(el.value||0));
+  const payload = {
+    type_client: tc,
+    net_a_payer: pick('net_a_payer'), net_avant_impot: pick('net_avant_impot'), brut: pick('brut'),
+    loyer: Number(byId('calcLoyer')?.value || 0)
+  };
+  const r = await rpc('calculateSolvabiliteServer', payload);
+  state.pendingCalcResult = r;
+  if (!byId('calcSummary')) return;
+  byId('calcSummary').innerHTML = `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
+    <div class="stat-box">Moy. net à payer<strong>${formatNumber(r.moyenne_net_a_payer)}</strong></div>
+    <div class="stat-box">Moy. net avant impôt<strong>${formatNumber(r.moyenne_net_avant_impot)}</strong></div>
+    <div class="stat-box">Moy. brut<strong>${formatNumber(r.moyenne_brut)}</strong></div>
+    <div class="stat-box">Ratio max<strong>${(r.ratio_max*100).toFixed(0)} %</strong></div>
+    <div class="stat-box">Plafond loyer<strong>${formatNumber(r.plafond_loyer)}</strong></div>
+    <div class="stat-box">Loyer saisi<strong>${formatNumber(r.loyer)}</strong></div>
+    <div class="stat-box">Résultat<strong><span class="chip ${r.resultat==='Solvable'?'cs':'cd'}">${esc(r.resultat)}</span></strong></div>
+  </div>`;
+}
 
-      function showApp() {
-        byId('boot').classList.add('hidden');
-        byId('login').classList.add('hidden');
-        byId('app').classList.remove('hidden');
-      }
+function applyCalcResult() {
+  if (!state.pendingCalcResult) return;
+  state.currentSolvabilite = state.pendingCalcResult;
+  if (byId('solvabiliteHint')) byId('solvabiliteHint').textContent = 'Résultat : ' + state.pendingCalcResult.resultat;
+  if (byId('statutField')?.value === 'Validé' && byId('motifValidationField')) {
+    byId('motifValidationField').value = state.pendingCalcResult.resultat;
+  }
+  closeCalcModal();
+  toast('Calcul appliqué.', 'success');
+}
 
-      async function onLogin(e) {
-        e.preventDefault();
-        setButtonLoading(byId('loginBtn'), true);
-        try {
-          const session = await rpc('authenticateUser', byId('loginInput').value.trim(), byId('passwordInput').value, navigator.userAgent);
-          state.token = session.token;
-          localStorage.setItem('SL_ETU_TOKEN', state.token);
-          const data = await rpc('getBootstrapData', state.token);
-          hydrate(data);
-          toast('Connexion réussie.', 'success');
-        } catch (error) {
-          toast(error.message || 'Connexion impossible.', 'error');
-        } finally {
-          setButtonLoading(byId('loginBtn'), false);
-        }
-      }
+function exportAgrementsCsv() {
+  const rows = state.lastAgrements || [];
+  const headers = ['Référence','Type dossier','Priorité','Client','Adresse','Type client',
+    'Ambassadeur','Équipe','Statut','Motif validé','Moy net à payer','Moy net avant impôt',
+    'Moy brut','Loyer','Résultat solvabilité','Créé le','Mis à jour le'];
+  const csvRows = rows.map(row => [
+    row.reference, row.type_dossier, row.priorite, row.client, row.adresse, row.type_client,
+    row.ambassadeur_assigne_name, row.equipe_name, row.statut, row.motif_validation||'',
+    row.solvabilite?.moyenne_net_a_payer||'', row.solvabilite?.moyenne_net_avant_impot||'',
+    row.solvabilite?.moyenne_brut||'', row.solvabilite?.loyer||'',
+    row.solvabilite?.resultat||'', row.created_at, row.updated_at
+  ]);
+  downloadCsv(headers, csvRows, `agrement-${new Date().toISOString().slice(0,10)}.csv`);
+}
+// ============================================================
+// SECTION 7 — MODULE SINISTRE
+// ============================================================
 
-      function hydrate(data) {
-        state.session = data.session;
-        state.lookups = data.lookups;
-        state.currentView = 'dashboard';
-        renderProfile();
-        renderNav();
-        showApp();
-        startHeartbeat();
-        renderDashboard(data.dashboard);
-      }
+async function renderSinistres() {
+  refreshTop([`<button class="b3" onclick="state.filters.sinistres={}; renderSinistres();">Réinitialiser</button>`]
+    .concat(defaultActions()));
+  const filters = state.filters.sinistres || {};
+  const rows    = await rpc('listSinistres', state.token, filters);
 
-      function renderProfile() {
-        const u = state.session.user;
-        byId('profileCard').innerHTML = `
-          <div class="grid" style="gap:10px;">
-            <div><strong>${esc(u.full_name || 'Utilisateur')}</strong><br><span class="sub">${esc(u.login || '')}</span></div>
-            <div class="chips">
-              <span class="chip cp">${esc(roleLabel(u.role))}</span>
-              <span class="chip ${statusClass(u.status)}">${esc(u.status || 'Actif')}</span>
-            </div>
-            <div class="sub">Dernière connexion : ${esc(formatDate(u.last_login_at) || 'Jamais')}</div>
-          </div>`;
-      }
+  byId('view').innerHTML = `
+    <section class="card">
+      <div class="toolbar">
+        <div><h2 style="margin:0 0 4px;">Sinistres</h2>
+        <p class="sub" style="margin:0;">Déclarations, mises à jour et suivi des dossiers.</p></div>
+        <div class="filters">
+          <input id="sinSearch" placeholder="Recherche…" value="${escAttr(filters.search||'')}">
+          <select id="sinStatut">
+            <option value="">Tous les statuts</option>
+            ${(state.lookups.sinistreStatuts||[]).map(v=>`<option value="${escAttr(v)}" ${filters.statut===v?'selected':''}>${esc(v)}</option>`).join('')}
+          </select>
+          <select id="sinSituation">
+            <option value="">Toutes les situations</option>
+            ${(state.lookups.sinistreSituations||[]).map(v=>`<option value="${escAttr(v)}" ${filters.situation===v?'selected':''}>${esc(v)}</option>`).join('')}
+          </select>
+          <button class="b2" onclick="applySinistreFilters()">Filtrer</button>
+        </div>
+      </div>
+      ${rows.length ? table(rows, [
+        {key:'reference',      label:'Référence'},
+        {key:'no_sinistre',    label:'N° sinistre'},
+        {key:'no_contrat',     label:'N° contrat'},
+        {key:'date_reception', label:'Date réception'},
+        {key:'gestionnaire',   label:'Gestionnaire'},
+        {key:'completude',     label:'Complétude', badge:true},
+        {key:'situation',      label:'Situation', badge:true},
+        {key:'statut',         label:'Statut', badge:true},
+        {key:'delai_formate',  label:'Délai'},
+        {key:'created_at',     label:'Créé le', datetime:true},
+        {key:'__actions', label:'Action', render: row =>
+          `<button class="b2" onclick="openSinistreForm('${row.id}')">
+            ${row.statut === 'Traité' ? 'Voir' : 'Éditer'}
+          </button>`}
+      ]) : `<div class="empty">Aucune déclaration de sinistre.</div>`}
+    </section>`;
+}
 
-      function renderNav() {
-        byId('nav').innerHTML = state.session.menu.map(item =>
-          `<button class="${item.key===state.currentView?'active':''}" onclick="navigate('${item.key}')">${esc(item.label)}</button>`
-        ).join('');
-      }
+function applySinistreFilters() {
+  state.filters.sinistres = {
+    search:    byId('sinSearch')?.value.trim(),
+    statut:    byId('sinStatut')?.value,
+    situation: byId('sinSituation')?.value
+  };
+  renderSinistres();
+}
 
-      async function navigate(key) {
-        state.currentView = key;
-        renderNav();
-        await renderView();
-      }
+async function openSinistreForm(id) {
+  await refreshLookups();
+  let item = null;
+  if (id) {
+    const rows = await rpc('listSinistres', state.token, {});
+    item = rows.find(r => r.id === id) || null;
+  }
+  const isNew     = !item;
+  const isTraite  = item?.statut === 'Traité';
 
-      function refreshTop(customActions) {
-        const map = {
-          dashboard: ['Dashboard', 'Vue synthétique du périmètre.'],
-          users: ['Utilisateurs', 'Rôles, rattachements et accès.'],
-          teams: ['Équipes', 'Organisation opérationnelle.'],
-          coherences: ['Cohérences', 'Liste issue de la feuille EN_ETUDE_TYPE_TEAM_MAP.'],
-          en_etudes: ['En étude', 'Gestion des En étude et calcul de solvabilité.'],
-          presence: ['Pointage', 'Présence, connexions, déconnexions et temps en ligne.'],
-          history: ['Historique', 'Journal des actions métiers.'],
-          connections: ['Connexions', 'Journal détaillé des authentifications.']
-        };
-        byId('title').textContent = map[state.currentView][0];
-        byId('subtitle').textContent = map[state.currentView][1];
-        byId('topActions').innerHTML = (customActions || defaultActions()).join('');
-      }
+  openModal(
+    isNew ? 'Nouvelle déclaration de sinistre' : `Sinistre ${esc(item.reference||'')}`,
+    isNew ? 'Situation initiale : Nouvelle déclaration.'
+          : `Situation : ${esc(item.situation||'')} · Statut : ${esc(item.statut||'')}`,
+    `<form id="sinistreForm" class="modal-grid">
+      <input type="hidden" name="id" value="${escAttr(item?.id||'')}">
+      <div class="field"><label>N° de sinistre *</label>
+        <input name="no_sinistre" value="${escAttr(item?.no_sinistre||'')}" required ${isTraite?'readonly':''}></div>
+      <div class="field"><label>N° de contrat *</label>
+        <input name="no_contrat" value="${escAttr(item?.no_contrat||'')}" required ${isTraite?'readonly':''}></div>
+      <div class="field"><label>Date de réception</label>
+        <input type="date" name="date_reception" value="${escAttr(item?.date_reception||'')}" ${isTraite?'readonly':''}></div>
+      <div class="field"><label>Gestionnaire</label>
+        <input name="gestionnaire" value="${escAttr(item?.gestionnaire||'')}" ${isTraite?'readonly':''}></div>
+      <div class="field span-2"><label>Complétude</label>
+        <select name="completude" id="sinCom" ${isTraite?'disabled':''}>
+          <option value="">— Sélectionner —</option>
+          ${(state.lookups.sinistreCompletude||[]).map(v=>`<option value="${v}" ${item?.completude===v?'selected':''}>${v}</option>`).join('')}
+        </select></div>
 
-      function defaultActions() {
-        const actions = [];
-        if (state.currentView === 'users' && state.session.permissions.canManageUsers) actions.push(`<button class="b1" onclick="openUserForm()">Nouvel utilisateur</button>`);
-        if (state.currentView === 'teams' && state.session.permissions.canManageTeams) actions.push(`<button class="b1" onclick="openTeamForm()">Nouvelle équipe</button>`);
-        if (state.currentView === 'en_etudes' && state.session.permissions.canCreateEnEtude) {
-          actions.push(`<button class="b2" onclick="exportEnEtudesCsv()">Export CSV</button>`);
-          actions.push(`<button class="b1" onclick="openEnEtudeForm()">Nouvelle En étude</button>`);
-        }
-        return actions;
-      }
+      ${item && !isNew ? `
+      <div class="field span-2">
+        <label>Situation actuelle</label>
+        <div><span class="chip ${statusClass(item.situation)}">${esc(item.situation||'')}</span>
+        &nbsp;&nbsp;<span class="chip ${statusClass(item.statut)}">${esc(item.statut||'')}</span></div>
+      </div>` : ''}
 
-      async function renderView() {
-        const view = byId('view');
-        view.classList.remove('animate');
-        void view.offsetWidth;
-        view.classList.add('animate');
+      ${item?.delai_formate && item.delai_formate !== '—' ? `
+      <div class="field span-2">
+        <label>Délai de traitement</label>
+        <div class="delai-badge">⏱ ${esc(item.delai_formate)}</div>
+      </div>` : ''}
 
-        if (state.currentView === 'dashboard') return renderDashboard(await rpc('getDashboardData', state.token));
-        if (state.currentView === 'users') return renderUsers();
-        if (state.currentView === 'teams') return renderTeams();
-        if (state.currentView === 'coherences') return renderCoherences();
-        if (state.currentView === 'en_etudes') return renderEnEtudes();
-        if (state.currentView === 'presence') return renderPresence();
-        if (state.currentView === 'history') return renderHistory();
-        if (state.currentView === 'connections') return renderConnections();
-      }
-
-      async function refreshView() {
-        await renderView();
-        toast('Vue actualisée.', 'info');
-      }
-
-      function renderDashboard(data) {
-        refreshTop();
-        byId('view').innerHTML = `
-          <section class="card">
-            <div class="card-head"><div><h2 style="margin:0 0 6px;">Vue synthétique</h2><p class="sub" style="margin:0;">${esc(data.scopeLabel || '')}</p></div></div>
-            <div class="kpis">
-              ${data.kpis.map(k => `<div class="kpi"><span class="chip ${toneClass(k.tone)}">${esc(k.label)}</span><div class="v">${esc(String(k.value))}</div></div>`).join('')}
-            </div>
-          </section>
-          <section class="split">
-            <div class="card">
-              <div class="card-head"><div><h3 style="margin:0 0 6px;">Répartition des statuts</h3><p class="sub" style="margin:0;">Suivi des En étude.</p></div></div>
-              <div class="chips">${(data.statusBreakdown || []).map(r => `<span class="chip ${statusClass(r.label)}">${esc(r.label)} · ${esc(String(r.value))}</span>`).join('') || '<span class="sub">Aucune donnée.</span>'}</div>
-            </div>
-            <div class="card">
-              <div class="card-head"><div><h3 style="margin:0 0 6px;">Répartition par priorité</h3><p class="sub" style="margin:0;">Volume par niveau de priorité.</p></div></div>
-              <div class="chips">${(data.priorityBreakdown || []).map(r => `<span class="chip ${statusClass(r.label)}">${esc(r.label)} · ${esc(String(r.value))}</span>`).join('') || '<span class="sub">Aucune donnée.</span>'}</div>
-            </div>
-          </section>
-          <section class="card">
-            <div class="card-head"><div><h3 style="margin:0 0 6px;">Performance & Durées de traitement</h3><p class="sub" style="margin:0;">Équipes ou ambassadeurs avec durée moyenne de traitement.</p></div></div>
-            ${(data.performance && data.performance.length) ? table(data.performance, Object.keys(data.performance[0]).map(k => ({ key:k, label:pretty(k) }))) : `<div class="empty">Aucune donnée de performance.</div>`}
-          </section>`;
-      }
-
-      async function renderUsers() {
-        refreshTop();
-        const rows = await rpc('listUsers', state.token);
-        byId('view').innerHTML = `
-          <section class="card">
-            <div class="toolbar"><div><h2 style="margin:0 0 6px;">Utilisateurs</h2><p class="sub" style="margin:0;">Gestion des rôles et rattachements.</p></div></div>
-            ${rows.length ? table(rows, [
-              { key:'full_name', label:'Nom' },
-              { key:'login', label:'Login' },
-              { key:'role', label:'Rôle' },
-              { key:'team_name', label:'Équipe' },
-              { key:'team_leader_name', label:'Team Leader' },
-              { key:'status', label:'Statut', badge:true },
-              { key:'last_login_at', label:'Dernière connexion', datetime:true },
-              { key:'__actions', label:'Action', render: row => state.session.permissions.canManageUsers ? `<button class="b2" onclick="openUserForm('${row.id}')">Éditer</button>` : '' }
-            ]) : `<div class="empty">Aucun utilisateur visible.</div>`}
-          </section>`;
-      }
-
-      async function renderTeams() {
-        refreshTop();
-        const rows = await rpc('listTeams', state.token);
-        byId('view').innerHTML = `
-          <section class="card">
-            <div class="toolbar"><div><h2 style="margin:0 0 6px;">Équipes</h2><p class="sub" style="margin:0;">Périmètres de pilotage.</p></div></div>
-            ${rows.length ? table(rows, [
-              { key:'name', label:'Équipe' },
-              { key:'team_leader_name', label:'Team Leader' },
-              { key:'ambassadors_count', label:'Ambassadeurs' },
-              { key:'en_etudes_count', label:'En étude' },
-              { key:'status', label:'Statut', badge:true },
-              { key:'__actions', label:'Action', render: row => state.session.permissions.canManageTeams ? `<button class="b2" onclick="openTeamForm('${row.id}')">Éditer</button>` : '' }
-            ]) : `<div class="empty">Aucune équipe visible.</div>`}
-          </section>`;
-      }
-
-      async function renderCoherences() {
-        refreshTop();
-        const rows = await rpc('listEnEtudeTypeTeamRules', state.token);
-        byId('view').innerHTML = `
-          <section class="card">
-            <div class="toolbar">
-              <div>
-                <h2 style="margin:0 0 6px;">Cohérences type de dossier / équipe</h2>
-                <p class="sub" style="margin:0;">Cette liste est alimentée par la feuille <strong>EN_ETUDE_TYPE_TEAM_MAP</strong>. Modifie-la directement dans le Sheet.</p>
-              </div>
-            </div>
-            ${rows.length ? table(rows, [
-              { key:'type_dossier', label:'Type de dossier' },
-              { key:'team_id', label:'Team ID' },
-              { key:'team_name', label:'Équipe' },
-              { key:'active', label:'Actif', badge:true },
-              { key:'updated_at', label:'Mis à jour', datetime:true }
-            ]) : `<div class="empty">Aucune cohérence trouvée dans la feuille EN_ETUDE_TYPE_TEAM_MAP.</div>`}
-          </section>`;
-      }
-
-      async function renderEnEtudes() {
-        refreshTop([`<button class="b3" onclick="state.filters.en_etudes={}; renderEnEtudes();">Réinitialiser les filtres</button>`].concat(defaultActions()));
-        const filters = state.filters.en_etudes || {};
-        const rows = await rpc('listEnEtudes', state.token, filters);
-        state.lastEnEtudes = rows;
-        byId('view').innerHTML = `
-          <section class="card">
-            <div class="toolbar">
-              <div><h2 style="margin:0 0 6px;">En étude</h2><p class="sub" style="margin:0;">Module simplifié avec calcul de solvabilité et attribution automatique de l’équipe.</p></div>
-              <div class="filters">
-                <input id="enEtudeSearch" placeholder="Recherche..." value="${escAttr(filters.search || '')}">
-                <select id="enEtudeType">
-                  <option value="">Tous les types</option>
-                  ${state.lookups.enEtudeTypes.map(v => `<option value="${v}" ${filters.type_dossier===v?'selected':''}>${v}</option>`).join('')}
-                </select>
-                <select id="enEtudeStatus">
-                  <option value="">Tous les statuts</option>
-                  ${state.lookups.enEtudeStatuses.map(v => `<option value="${escAttr(v)}" ${filters.statut===v?'selected':''}>${esc(v)}</option>`).join('')}
-                </select>
-                <button class="b2" onclick="applyEnEtudeFilters()">Filtrer</button>
-              </div>
-            </div>
-            ${rows.length ? table(rows, [
-              { key:'reference', label:'Référence' },
-              { key:'type_dossier', label:'Type de dossier' },
-              { key:'type_client', label:'Type client' },
-              { key:'priorite', label:'Priorité', badge:true },
-              { key:'client', label:'Client' },
-              { key:'adresse', label:'Adresse' },
-              { key:'equipe_name', label:'Équipe auto' },
-              { key:'ambassadeur_assigne_name', label:'Ambassadeur' },
-              { key:'statut', label:'Statut', badge:true },
-              { key:'motif_validation', label:'Motif validé' },
-              { key:'resultat_solvabilite', label:'Résultat solvabilité', badge:true },
-              { key:'duree_traitement_hhmm', label:'Durée traitement' },
-              { key:'updated_at', label:'Mis à jour', datetime:true },
-              { key:'__actions', label:'Action', render: row => `<button class="b2" onclick="openEnEtudeForm('${row.id}')">Éditer</button>` }
-            ]) : `<div class="empty">Aucune En étude trouvée.</div>`}
-          </section>`;
-      }
-
-      async function renderPresence() {
-        const dateKey = (state.filters.presence && state.filters.presence.date_key) || new Date().toISOString().slice(0,10);
-        refreshTop();
-        const data = await rpc('getPresenceSummary', state.token, dateKey);
-        byId('view').innerHTML = `
-          <section class="card">
-            <div class="toolbar">
-              <div><h2 style="margin:0 0 6px;">Pointage du ${esc(dateKey)}</h2><p class="sub" style="margin:0;">Les coupures de connexion sont comptées comme déconnexions après expiration du heartbeat.</p></div>
-              <div class="filters"><input type="date" id="presenceDate" value="${escAttr(dateKey)}"><button class="b2" onclick="applyPresenceDate()">Afficher</button></div>
-            </div>
-            <div class="kpis" style="margin-bottom:14px;">
-              <div class="kpi"><span class="chip cp">Présents suivis</span><div class="v">${esc(String(data.total_users))}</div></div>
-              <div class="kpi"><span class="chip cs">En ligne maintenant</span><div class="v">${esc(String(data.online_now))}</div></div>
-              <div class="kpi"><span class="chip cp">Connexions du jour</span><div class="v">${esc(String(data.total_connections))}</div></div>
-              <div class="kpi"><span class="chip cd">Déconnexions du jour</span><div class="v">${esc(String(data.total_disconnections))}</div></div>
-              <div class="kpi"><span class="chip cw">Temps en ligne cumulé</span><div class="v">${esc(secondsToHHMM(data.total_online_seconds))}</div></div>
-            </div>
-            ${data.rows && data.rows.length ? table(data.rows, [
-              { key:'full_name', label:'Utilisateur' },
-              { key:'role', label:'Rôle' },
-              { key:'team_name', label:'Équipe' },
-              { key:'first_login_at', label:'1re connexion', datetime:true },
-              { key:'last_seen_at', label:'Dernière activité', datetime:true },
-              { key:'last_disconnect_at', label:'Dernière déconnexion', datetime:true },
-              { key:'connection_count', label:'Nb connexions' },
-              { key:'disconnection_count', label:'Nb déconnexions' },
-              { key:'online_hhmm', label:'Temps en ligne' },
-              { key:'currently_online', label:'En ligne', badge:true }
-            ]) : `<div class="empty">Aucun pointage pour cette date.</div>`}
-          </section>`;
-      }
-
-      async function renderHistory() {
-        refreshTop();
-        const rows = await rpc('getActivityLogs', state.token, 150);
-        byId('view').innerHTML = `
-          <section class="card">
-            <div class="toolbar"><div><h2 style="margin:0 0 6px;">Historique</h2><p class="sub" style="margin:0;">Journal des actions.</p></div></div>
-            ${rows.length ? table(rows, [
-              { key:'timestamp', label:'Date', datetime:true },
-              { key:'login', label:'Login' },
-              { key:'action_type', label:'Action' },
-              { key:'entity_type', label:'Entité' },
-              { key:'entity_id', label:'ID' },
-              { key:'summary', label:'Résumé' }
-            ]) : `<div class="empty">Aucune activité.</div>`}
-          </section>`;
-      }
-
-      async function renderConnections() {
-        refreshTop();
-        const rows = await rpc('listLoginLogs', state.token, 150);
-        byId('view').innerHTML = `
-          <section class="card">
-            <div class="toolbar"><div><h2 style="margin:0 0 6px;">Connexions</h2><p class="sub" style="margin:0;">Authentifications et tentatives.</p></div></div>
-            ${rows.length ? table(rows, [
-              { key:'timestamp', label:'Date', datetime:true },
-              { key:'login', label:'Login' },
-              { key:'success', label:'Succès', badge:true },
-              { key:'message', label:'Message' },
-              { key:'user_agent', label:'Navigateur' }
-            ]) : `<div class="empty">Aucune connexion.</div>`}
-          </section>`;
-      }
-
-      async function openUserForm(id) {
-        await refreshLookups();
-        const users = await rpc('listUsers', state.token);
-        const item = id ? users.find(r => r.id === id) : null;
-        const roleOptions = state.session.role === 'team_leader'
-          ? [{ value:'ambassador', label:'Ambassadeur' }]
-          : [{ value:'super_admin', label:'Super Admin' }, { value:'team_leader', label:'Team Leader' }, { value:'ambassador', label:'Ambassadeur' }];
-
-        openModal(
-          item ? 'Modifier un utilisateur' : 'Nouvel utilisateur',
-          'Gestion des rôles et rattachements.',
-          `<form id="userForm" class="modal-grid">
-            <input type="hidden" name="id" value="${escAttr(item?.id || '')}">
-            <div class="field"><label>Nom complet</label><input name="full_name" value="${escAttr(item?.full_name || '')}" required></div>
-            <div class="field"><label>Login</label><input name="login" value="${escAttr(item?.login || '')}" ${item ? 'readonly' : ''} required></div>
-            <div class="field"><label>Mot de passe ${item ? '(laisser vide pour conserver)' : ''}</label><input name="password" type="password"></div>
-            <div class="field"><label>Email</label><input type="email" name="email" value="${escAttr(item?.email || '')}"></div>
-            <div class="field"><label>Rôle</label><select name="role" id="uRole" onchange="toggleUserFields()">
-              ${roleOptions.map(o => `<option value="${o.value}" ${item?.role===o.value?'selected':''}>${o.label}</option>`).join('')}
-            </select></div>
-            <div class="field"><label>Statut</label><select name="status">
-              ${state.lookups.userStatuses.map(v => `<option value="${escAttr(v)}" ${(item?.status || 'Actif')===v?'selected':''}>${esc(v)}</option>`).join('')}
-            </select></div>
-            <div class="field" id="uTeamWrap"><label>Équipe</label><select name="team_id"><option value="">Non rattaché</option>
-              ${state.lookups.teams.map(t => `<option value="${t.id}" ${item?.team_id===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}
-            </select></div>
-            <div class="field" id="uLeadWrap"><label>Team Leader</label><select name="team_leader_id"><option value="">Aucun</option>
-              ${state.lookups.teamLeaders.map(t => `<option value="${t.id}" ${item?.team_leader_id===t.id?'selected':''}>${esc(t.full_name)}</option>`).join('')}
-            </select></div>
-          </form>`,
-          async () => {
-            await rpc('saveUser', state.token, formToObject(byId('userForm')));
-            closeModal();
-            toast('Utilisateur enregistré.', 'success');
-            await renderUsers();
-          }
-        );
-        toggleUserFields();
-      }
-
-      function toggleUserFields() {
-        const role = byId('uRole')?.value || '';
-        const teamWrap = byId('uTeamWrap');
-        const leadWrap = byId('uLeadWrap');
-        if (teamWrap) teamWrap.style.display = role === 'super_admin' ? 'none' : 'block';
-        if (leadWrap) leadWrap.style.display = role === 'ambassador' ? 'block' : 'none';
-      }
-
-      async function openTeamForm(id) {
-        await refreshLookups();
-        const rows = await rpc('listTeams', state.token);
-        const item = id ? rows.find(r => r.id === id) : null;
-
-        openModal(
-          item ? 'Modifier une équipe' : 'Nouvelle équipe',
-          'Structuration des périmètres.',
-          `<form id="teamForm" class="modal-grid">
-            <input type="hidden" name="id" value="${escAttr(item?.id || '')}">
-            <div class="field span-2"><label>Nom</label><input name="name" value="${escAttr(item?.name || '')}" required></div>
-            <div class="field"><label>Team Leader</label><select name="team_leader_id"><option value="">Aucun</option>
-              ${state.lookups.teamLeaders.map(t => `<option value="${t.id}" ${item?.team_leader_id===t.id?'selected':''}>${esc(t.full_name)}</option>`).join('')}
-            </select></div>
-            <div class="field"><label>Statut</label><select name="status">
-              ${state.lookups.userStatuses.map(v => `<option value="${escAttr(v)}" ${(item?.status || 'Actif')===v?'selected':''}>${esc(v)}</option>`).join('')}
-            </select></div>
-          </form>`,
-          async () => {
-            await rpc('saveTeam', state.token, formToObject(byId('teamForm')));
-            closeModal();
-            toast('Équipe enregistrée.', 'success');
-            await renderTeams();
-          }
-        );
-      }
-
-      async function openEnEtudeForm(id) {
-        await refreshLookups();
-        const rows = await rpc('listEnEtudes', state.token, {});
-        const item = id ? rows.find(r => r.id === id) : null;
-        state.currentEdit = item || null;
-        state.currentSolvabilite = item?.solvabilite || null;
-
-        openModal(
-          item ? 'Modifier une En étude' : 'Nouvelle En étude',
-          'Syndic et Immeuble supprimés. Équipe attribuée automatiquement par la feuille de cohérence.',
-          renderEnEtudeFormHtml(item),
-          async () => {
-            const payload = collectEnEtudeForm();
-            payload.solvabilite = state.currentSolvabilite;
-            await rpc('saveEnEtude', state.token, payload);
-            closeModal();
-            toast('En étude enregistrée.', 'success');
-            await renderEnEtudes();
-          }
-        );
-        toggleMotifValidation();
-      }
-
-      function renderEnEtudeFormHtml(item) {
-        const current = item || {
-          type_dossier: '',
-          priorite: 'Normale',
-          client: '',
-          adresse: '',
-          type_client: 'Locataire',
-          ambassadeur_assigne: state.session.role === 'ambassador' ? state.session.user.id : '',
-          statut: 'Initié',
-          motif_validation: ''
-        };
-
-        return `<form id="enEtudeForm" class="modal-grid">
-          <input type="hidden" name="id" value="${escAttr(current.id || '')}">
-          <div class="field"><label>Type de dossier *</label>
-            <select name="type_dossier">
-              <option value="">Sélectionner</option>
-              ${state.lookups.enEtudeTypes.map(v => `<option value="${v}" ${current.type_dossier===v?'selected':''}>${v}</option>`).join('')}
-            </select>
+      ${!isNew && !isTraite ? `
+      <div class="span-2">
+        <div class="traiter-zone" id="traiterZone">
+          <div>
+            <strong style="color:var(--success);">Clôturer ce dossier</strong>
+            <div class="sub">Marque le sinistre comme traité et calcule le délai.</div>
           </div>
-          <div class="field"><label>Priorité *</label>
-            <select name="priorite">
-              ${state.lookups.priorities.map(v => `<option value="${v}" ${current.priorite===v?'selected':''}>${esc(v)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field"><label>Type de client *</label>
-            <select name="type_client" id="typeClientField" onchange="updateCalcSubtitle()">
-              ${state.lookups.typeClientOptions.map(v => `<option value="${v}" ${current.type_client===v?'selected':''}>${esc(v)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field"><label>Ambassadeur assigné *</label>
-            <select name="ambassadeur_assigne" ${state.session.role === 'ambassador' ? 'disabled' : ''}>
-              <option value="">Sélectionner</option>
-              ${state.lookups.ambassadors.map(v => `<option value="${v.id}" ${current.ambassadeur_assigne===v.id?'selected':''}>${esc(v.full_name)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field span-2"><label>Client *</label><input name="client" value="${escAttr(current.client || '')}"></div>
-          <div class="field span-2"><label>Adresse *</label><input name="adresse" value="${escAttr(current.adresse || '')}"></div>
-          <div class="field"><label>Statut *</label>
-            <select name="statut" id="statutField" onchange="toggleMotifValidation()">
-              ${state.lookups.enEtudeStatuses.map(v => `<option value="${escAttr(v)}" ${current.statut===v?'selected':''}>${esc(v)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field" id="motifWrap"><label>Motif validation *</label>
-            <select name="motif_validation" id="motifValidationField">
-              <option value="">Sélectionner</option>
-              ${state.lookups.motifValidationOptions.map(v => `<option value="${escAttr(v)}" ${current.motif_validation===v?'selected':''}>${esc(v)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field span-2">
-            <label>Calcul de solvabilité</label>
-            <div class="row">
-              <button type="button" class="b2" onclick="openCalcModal()">Ouvrir le calcul</button>
-              <span class="sub" id="solvabiliteHint">${state.currentSolvabilite ? 'Résultat actuel : ' + esc(state.currentSolvabilite.resultat) : 'Aucun calcul appliqué'}</span>
-            </div>
-          </div>
-        </form>`;
-      }
+          <button type="button" class="bs save-btn" id="btnTraiterSinistre"
+            onclick="traiterSinistreAction(this, '${escAttr(item.id)}')">
+            <span class="label">✓ Marquer Traité</span>
+          </button>
+        </div>
+      </div>` : ''}
+    </form>`,
+    async () => {
+      if (isTraite) { closeModal(); return; }
+      const payload = formToObject(byId('sinistreForm'));
+      await rpc('saveSinistre', state.token, payload);
+      closeModal();
+      toast(isNew ? 'Sinistre déclaré.' : 'Sinistre mis à jour.', 'success');
+      await renderSinistres();
+    },
+    { primaryLabel: isNew ? 'Déclarer' : isTraite ? 'Fermer' : 'Mettre à jour' }
+  );
 
-      function collectEnEtudeForm() {
-        const form = byId('enEtudeForm');
-        const data = formToObject(form);
-        if (state.session.role === 'ambassador') {
-          data.ambassadeur_assigne = state.session.user.id;
-        }
-        return data;
-      }
+  // Afficher le bouton Traité après un court délai (animation)
+  if (!isNew && !isTraite) {
+    setTimeout(() => {
+      const zone = byId('traiterZone');
+      if (zone) zone.classList.add('visible');
+    }, 180);
+  }
+}
 
-      function toggleMotifValidation() {
-        const statut = byId('statutField')?.value || '';
-        const wrap = byId('motifWrap');
-        if (!wrap) return;
-        wrap.style.display = statut === 'Validé' ? 'block' : 'none';
+async function traiterSinistreAction(btn, id) {
+  setButtonLoading(btn, true);
+  try {
+    await rpc('traiterSinistre', state.token, id);
+    closeModal();
+    toast('Sinistre clôturé.', 'success');
+    await renderSinistres();
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+// ============================================================
+// SECTION 8 — MODULE FACTURE
+// ============================================================
 
-        if (statut === 'Validé' && state.currentSolvabilite && byId('motifValidationField')) {
-          byId('motifValidationField').value = state.currentSolvabilite.resultat;
-        }
-        if (statut !== 'Validé' && byId('motifValidationField')) {
-          byId('motifValidationField').value = '';
-        }
-      }
+async function renderFactures() {
+  refreshTop([`<button class="b3" onclick="state.filters.factures={}; renderFactures();">Réinitialiser</button>`]
+    .concat(defaultActions()));
+  const filters = state.filters.factures || {};
+  const rows    = await rpc('listFactures', state.token, filters);
 
-      function updateCalcSubtitle() {
-        const typeClient = byId('typeClientField')?.value || 'Locataire';
-        byId('calcSubtitle').textContent = `Type client : ${typeClient}`;
-      }
+  byId('view').innerHTML = `
+    <section class="card">
+      <div class="toolbar">
+        <div><h2 style="margin:0 0 4px;">Factures</h2>
+        <p class="sub" style="margin:0;">Demandes de règlement — suivi par étapes.</p></div>
+        <div class="filters">
+          <input id="facSearch" placeholder="Recherche…" value="${escAttr(filters.search||'')}">
+          <select id="facStatut">
+            <option value="">Tous les statuts</option>
+            ${(state.lookups.factureStatuts||[]).map(v=>`<option value="${escAttr(v)}" ${filters.statut===v?'selected':''}>${esc(v)}</option>`).join('')}
+          </select>
+          <button class="b2" onclick="applyFactureFilters()">Filtrer</button>
+        </div>
+      </div>
+      ${rows.length ? table(rows, [
+        {key:'reference',     label:'Référence'},
+        {key:'no_sinistre',   label:'N° sinistre'},
+        {key:'__prog', label:'Étapes', render: row => {
+          const n = Number(row.progression||0);
+          return `<span class="chip ${n===3?'cs':n>0?'cw':'cp'}">${n}/3</span>`;
+        }},
+        {key:'statut',        label:'Statut', badge:true},
+        {key:'delai_formate', label:'Délai'},
+        {key:'created_at',    label:'Créé le', datetime:true},
+        {key:'traite_at',     label:'Traité le', datetime:true},
+        {key:'__actions', label:'Action', render: row =>
+          `<button class="b2" onclick="openFactureForm('${row.id}')">
+            ${row.statut === 'Traité' ? 'Voir' : 'Ouvrir'}
+          </button>`}
+      ]) : `<div class="empty">Aucune demande de règlement.</div>`}
+    </section>`;
+}
 
-      function openCalcModal() {
-        const typeClient = byId('typeClientField')?.value || 'Locataire';
-        byId('calcSubtitle').textContent = `Type client : ${typeClient}`;
-        const solv = state.currentSolvabilite || {
-          net_a_payer:[0,0,0],
-          net_avant_impot:[0,0,0],
-          brut:[0,0,0],
-          loyer:0,
-          moyenne_net_a_payer:0,
-          moyenne_net_avant_impot:0,
-          moyenne_brut:0,
-          ratio_max:typeClient === 'Garant' ? 0.33 : 0.37,
-          plafond_loyer:0,
-          resultat:''
-        };
+function applyFactureFilters() {
+  state.filters.factures = {
+    search: byId('facSearch')?.value.trim(),
+    statut: byId('facStatut')?.value
+  };
+  renderFactures();
+}
 
-        byId('calcBody').innerHTML = `
-          <div class="modal-grid">
-            <div class="span-2"><p class="sub" style="margin:0;">Saisis les montants sur 3 mois. Le résultat présélectionnera automatiquement <strong>Solvable</strong> ou <strong>Non solvable</strong> dans la modale principale si le statut est <strong>Validé</strong>.</p></div>
+async function openFactureForm(id) {
+  await refreshLookups();
 
-            <div class="span-2 field">
-              <label>Net à payer (3 mois)</label>
-              <div class="money-grid">
-                ${solv.net_a_payer.map((v,i) => `<input type="number" class="calc-input" data-group="net_a_payer" data-index="${i}" value="${v}">`).join('')}
-              </div>
-            </div>
+  if (!id) {
+    // ── Création : formulaire simple ─────────────────────────
+    openModal(
+      'Nouvelle demande de règlement',
+      'Saisir le numéro de sinistre associé.',
+      `<form id="factureForm" class="modal-grid">
+        <div class="field span-2">
+          <label>N° de sinistre *</label>
+          <input name="no_sinistre" required placeholder="Ex : SIN-20260414-0001">
+        </div>
+      </form>`,
+      async () => {
+        const data = formToObject(byId('factureForm'));
+        await rpc('saveFacture', state.token, data);
+        closeModal(); toast('Demande créée.', 'success'); await renderFactures();
+      },
+      { primaryLabel: 'Créer la demande' }
+    );
+    return;
+  }
 
-            <div class="span-2 field">
-              <label>Net avant impôt (3 mois)</label>
-              <div class="money-grid">
-                ${solv.net_avant_impot.map((v,i) => `<input type="number" class="calc-input" data-group="net_avant_impot" data-index="${i}" value="${v}">`).join('')}
-              </div>
-            </div>
+  // ── Détail / mise à jour ──────────────────────────────────
+  const rows = await rpc('listFactures', state.token, {});
+  const item = rows.find(r => r.id === id);
+  if (!item) { toast('Facture introuvable.', 'error'); return; }
 
-            <div class="span-2 field">
-              <label>Brut (3 mois)</label>
-              <div class="money-grid">
-                ${solv.brut.map((v,i) => `<input type="number" class="calc-input" data-group="brut" data-index="${i}" value="${v}">`).join('')}
-              </div>
-            </div>
+  const isTraite = item.statut === 'Traité';
+  const veri = String(item.etape_verification) === 'TRUE';
+  const calc  = String(item.etape_calcul)       === 'TRUE';
+  const regl  = String(item.etape_reglement)    === 'TRUE';
 
-            <div class="field span-2"><label>Loyer</label><input id="calcLoyer" type="number" value="${solv.loyer || 0}" oninput="renderCalcSummary()"></div>
+  openModal(
+    `Facture ${esc(item.reference||'')}`,
+    `N° sinistre : ${esc(item.no_sinistre||'')}`,
+    `<div>
+      <div class="chips" style="margin-bottom:14px;">
+        <span class="chip ${statusClass(item.statut)}">${esc(item.statut)}</span>
+        <span class="chip cp">${Number(item.progression||0)}/3 étapes</span>
+        ${item.delai_formate && item.delai_formate!=='—'
+          ? `<span class="delai-badge">⏱ ${esc(item.delai_formate)}</span>` : ''}
+      </div>
 
-            <div class="span-2" id="calcSummary"></div>
-          </div>`;
+      <p class="sub" style="margin:0 0 12px;">
+        Cocher les étapes au fur et à mesure du traitement.
+        Le bouton <strong>Traité</strong> apparaît quand les 3 étapes sont validées.
+      </p>
 
-        byId('calcBackdrop').classList.add('show');
-        Array.from(document.querySelectorAll('.calc-input')).forEach(function(el) {
-          el.addEventListener('input', renderCalcSummary);
-        });
-        renderCalcSummary();
-      }
+      <form id="factureDetailForm">
+        <input type="hidden" id="facDetailId"   value="${escAttr(item.id)}">
+        <input type="hidden" id="facNoSinistre" value="${escAttr(item.no_sinistre)}">
+        <div class="timeline">
+          ${timelineStep(1, 'Vérification facture',  'Contrôle et validation de la facture reçue.',  'etape_verification', veri,  isTraite)}
+          ${timelineStep(2, 'Calcul',                 'Calcul du montant à régler.',                  'etape_calcul',       calc,  isTraite)}
+          ${timelineStep(3, 'Règlement',               'Émission et validation du paiement.',          'etape_reglement',    regl,  isTraite)}
+        </div>
+      </form>
 
-      function closeCalcModal() {
-        byId('calcBackdrop').classList.remove('show');
-      }
+      <div class="traiter-zone ${(!isTraite && veri && calc && regl) ? 'visible' : ''}"
+           id="facTraiterZone">
+        <div>
+          <strong style="color:var(--success);">Clôturer la demande</strong>
+          <div class="sub">Les 3 étapes sont validées. Enregistre le traitement et calcule le délai.</div>
+        </div>
+        <button type="button" class="bs save-btn" id="btnTraiterFacture"
+          onclick="traiterFactureAction(this, '${escAttr(item.id)}')">
+          <span class="label">✓ Traité</span>
+        </button>
+      </div>
+    </div>`,
+    async () => {
+      if (isTraite) { closeModal(); return; }
+      // Sauvegarde les étapes
+      await rpc('saveFacture', state.token, {
+        id:                  byId('facDetailId')?.value,
+        no_sinistre:         byId('facNoSinistre')?.value,
+        etape_verification:  byId('etape_verification')?.checked ? 'TRUE' : 'FALSE',
+        etape_calcul:        byId('etape_calcul')?.checked        ? 'TRUE' : 'FALSE',
+        etape_reglement:     byId('etape_reglement')?.checked     ? 'TRUE' : 'FALSE'
+      });
+      closeModal(); toast('Étapes enregistrées.', 'success'); await renderFactures();
+    },
+    { primaryLabel: isTraite ? 'Fermer' : 'Enregistrer les étapes' }
+  );
 
-      var _calcDebounceTimer = null;
-      function renderCalcSummary() {
-        if (_calcDebounceTimer) clearTimeout(_calcDebounceTimer);
-        _calcDebounceTimer = setTimeout(_doRenderCalcSummary, 400);
-      }
+  // Branche les events pour afficher/cacher le bouton Traité
+  if (!isTraite) {
+    setTimeout(() => {
+      ['etape_verification','etape_calcul','etape_reglement'].forEach(n => {
+        byId(n)?.addEventListener('change', onFactureEtapeChange);
+      });
+    }, 50);
+  }
+}
 
-      async function _doRenderCalcSummary() {
-        const typeClient = byId('typeClientField')?.value || 'Locataire';
-        const payload = collectCalcPayload(typeClient);
-        const result = await rpc('calculateSolvabiliteServer', state.token, payload);
-        state.pendingCalcResult = result;
-        byId('calcSummary').innerHTML = `
-          <div class="grid">
-            <div class="stat-box">Moyenne net à payer : <strong>${formatNumber(result.moyenne_net_a_payer)}</strong></div>
-            <div class="stat-box">Moyenne net avant impôt : <strong>${formatNumber(result.moyenne_net_avant_impot)}</strong></div>
-            <div class="stat-box">Moyenne brut : <strong>${formatNumber(result.moyenne_brut)}</strong></div>
-            <div class="stat-box">Ratio maximum : <strong>${(result.ratio_max * 100).toFixed(0)}%</strong></div>
-            <div class="stat-box">Plafond loyer : <strong>${formatNumber(result.plafond_loyer)}</strong></div>
-            <div class="stat-box">Loyer saisi : <strong>${formatNumber(result.loyer)}</strong></div>
-            <div class="stat-box">Résultat : <span class="chip ${result.resultat === 'Solvable' ? 'cs' : 'cd'}">${esc(result.resultat)}</span></div>
-          </div>`;
-      }
+function timelineStep(num, title, desc, inputId, checked, disabled) {
+  return `<div class="timeline-step ${checked ? 'done' : ''}" id="step_${inputId}">
+    <div class="step-num">${checked ? '✓' : num}</div>
+    <div class="step-info">
+      <strong>${esc(title)}</strong>
+      <span>${esc(desc)}</span>
+    </div>
+    <input type="checkbox" id="${inputId}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}
+      onchange="onFactureEtapeChange()">
+  </div>`;
+}
 
-      function collectCalcPayload(typeClient) {
-        const pick = (group) => Array.from(document.querySelectorAll(`.calc-input[data-group="${group}"]`)).map(el => Number(el.value || 0));
-        return {
-          type_client: typeClient,
-          net_a_payer: pick('net_a_payer'),
-          net_avant_impot: pick('net_avant_impot'),
-          brut: pick('brut'),
-          loyer: Number(byId('calcLoyer').value || 0)
-        };
-      }
+function onFactureEtapeChange() {
+  const veri = byId('etape_verification')?.checked;
+  const calc  = byId('etape_calcul')?.checked;
+  const regl  = byId('etape_reglement')?.checked;
 
-      function applyCalcResult() {
-        if (!state.pendingCalcResult) return;
-        state.currentSolvabilite = state.pendingCalcResult;
-        if (byId('solvabiliteHint')) {
-          byId('solvabiliteHint').textContent = 'Résultat actuel : ' + state.pendingCalcResult.resultat;
-        }
-        if (byId('statutField') && byId('statutField').value === 'Validé' && byId('motifValidationField')) {
-          byId('motifValidationField').value = state.pendingCalcResult.resultat;
-        }
-        closeCalcModal();
-        toast('Calcul appliqué à la modale principale.', 'success');
-      }
+  // Mise à jour visuelle de chaque step
+  ['etape_verification','etape_calcul','etape_reglement'].forEach(id => {
+    const cb   = byId(id);
+    const step = byId('step_' + id);
+    if (!cb || !step) return;
+    step.classList.toggle('done', cb.checked);
+    step.querySelector('.step-num').textContent = cb.checked ? '✓' : step.querySelector('.step-num').textContent;
+  });
 
-      function applyEnEtudeFilters() {
-        state.filters.en_etudes = {
-          search: byId('enEtudeSearch').value.trim(),
-          type_dossier: byId('enEtudeType').value,
-          statut: byId('enEtudeStatus').value
-        };
-        renderEnEtudes();
-      }
+  // Affichage bouton Traité
+  const zone = byId('facTraiterZone');
+  if (zone) {
+    const allDone = veri && calc && regl;
+    zone.classList.toggle('visible', allDone);
+  }
+}
 
-      function applyPresenceDate() {
-        state.filters.presence = { date_key: byId('presenceDate').value };
-        renderPresence();
-      }
+async function traiterFactureAction(btn, id) {
+  setButtonLoading(btn, true);
+  try {
+    // Sauvegarde d'abord les étapes
+    await rpc('saveFacture', state.token, {
+      id:                 byId('facDetailId')?.value || id,
+      no_sinistre:        byId('facNoSinistre')?.value || '',
+      etape_verification: byId('etape_verification')?.checked ? 'TRUE' : 'FALSE',
+      etape_calcul:       byId('etape_calcul')?.checked        ? 'TRUE' : 'FALSE',
+      etape_reglement:    byId('etape_reglement')?.checked     ? 'TRUE' : 'FALSE'
+    });
+    await rpc('traiterFacture', state.token, id);
+    closeModal();
+    toast('Facture traitée et clôturée.', 'success');
+    await renderFactures();
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+// ============================================================
+// SECTION 9 — MODULE RÉSILIATION
+// ============================================================
 
-      function exportEnEtudesCsv() {
-        const rows = state.lastEnEtudes || [];
-        const headers = [
-          'Référence','Type de dossier','Priorité','Client','Adresse','Type client','Ambassadeur','Équipe',
-          'Statut','Motif validation','Moyenne net à payer','Moyenne net avant impôt','Moyenne brut','Loyer',
-          'Résultat solvabilité','Créé le','Mis à jour le'
-        ];
+async function renderResiliations() {
+  refreshTop([`<button class="b3" onclick="state.filters.resiliations={}; renderResiliations();">Réinitialiser</button>`]
+    .concat(defaultActions()));
+  const filters = state.filters.resiliations || {};
+  const rows    = await rpc('listResiliations', state.token, filters);
 
-        const csvRows = rows.map(row => [
-          row.reference,
-          row.type_dossier,
-          row.priorite,
-          row.client,
-          row.adresse,
-          row.type_client,
-          row.ambassadeur_assigne_name,
-          row.equipe_name,
-          row.statut,
-          row.motif_validation || '',
-          row.solvabilite?.moyenne_net_a_payer || '',
-          row.solvabilite?.moyenne_net_avant_impot || '',
-          row.solvabilite?.moyenne_brut || '',
-          row.solvabilite?.loyer || '',
-          row.solvabilite?.resultat || '',
-          row.created_at,
-          row.updated_at
-        ]);
+  byId('view').innerHTML = `
+    <section class="card">
+      <div class="toolbar">
+        <div><h2 style="margin:0 0 4px;">Résiliations</h2>
+        <p class="sub" style="margin:0;">Demandes par mail ou BO — suivi de complétude.</p></div>
+        <div class="filters">
+          <input id="resSearch" placeholder="Recherche…" value="${escAttr(filters.search||'')}">
+          <select id="resStatut">
+            <option value="">Tous les statuts</option>
+            ${(state.lookups.resiliationStatuts||[]).map(v=>`<option value="${escAttr(v)}" ${filters.statut===v?'selected':''}>${esc(v)}</option>`).join('')}
+          </select>
+          <button class="b2" onclick="applyResiliationFilters()">Filtrer</button>
+        </div>
+      </div>
+      ${rows.length ? table(rows, [
+        {key:'reference',     label:'Référence'},
+        {key:'origine',       label:'Origine', badge:true},
+        {key:'no_contrat',    label:'N° contrat'},
+        {key:'completude',    label:'Complétude', badge:true},
+        {key:'resil',         label:'Résil', badge:true},
+        {key:'statut',        label:'Statut', badge:true},
+        {key:'delai_formate', label:'Délai'},
+        {key:'created_at',    label:'Créé le', datetime:true},
+        {key:'__actions', label:'Action', render: row =>
+          `<button class="b2" onclick="openResiliationForm('${row.id}')">
+            ${row.statut === 'Traité' ? 'Voir' : 'Ouvrir'}
+          </button>`}
+      ]) : `<div class="empty">Aucune résiliation.</div>`}
+    </section>`;
+}
 
-        const escapeCsv = value => `"${String(value ?? '').replace(/"/g,'""')}"`;
-        const content = [headers.map(escapeCsv).join(';')].concat(csvRows.map(r => r.map(escapeCsv).join(';'))).join('\n');
-        const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `en-etude-${new Date().toISOString().slice(0,10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+function applyResiliationFilters() {
+  state.filters.resiliations = {
+    search: byId('resSearch')?.value.trim(),
+    statut: byId('resStatut')?.value
+  };
+  renderResiliations();
+}
 
-      function openModal(title, subtitle, bodyHtml, action) {
-        state.modalAction = action;
-        byId('modalTitle').textContent = title;
-        byId('modalSubtitle').textContent = subtitle || '';
-        byId('modalBody').innerHTML = bodyHtml;
-        byId('modalPrimary').onclick = async () => {
-          setButtonLoading(byId('modalPrimary'), true);
-          try {
-            await state.modalAction();
-          } catch (error) {
-            toast(error.message || 'Erreur lors de l’enregistrement.', 'error');
-          } finally {
-            setButtonLoading(byId('modalPrimary'), false);
-          }
-        };
-        byId('modalBackdrop').classList.add('show');
-      }
+async function openResiliationForm(id) {
+  await refreshLookups();
 
-      function closeModal() {
-        state.modalAction = null;
-        state.currentSolvabilite = null;
-        state.currentEdit = null;
-        byId('modalBackdrop').classList.remove('show');
-      }
+  if (!id) {
+    // ── Création ─────────────────────────────────────────────
+    openModal(
+      'Nouvelle résiliation',
+      'Saisir l\'origine et le numéro de contrat.',
+      `<form id="resiliationForm" class="modal-grid">
+        <div class="field"><label>Origine *</label>
+          <select name="origine" required>
+            <option value="">— Sélectionner —</option>
+            ${(state.lookups.resiliationOrigines||[]).map(v=>`<option value="${v}">${v}</option>`).join('')}
+          </select></div>
+        <div class="field"><label>Mail <span class="sub">(facultatif)</span></label>
+          <input name="mail" type="email" placeholder="contact@exemple.fr"></div>
+        <div class="field span-2"><label>N° de contrat *</label>
+          <input name="no_contrat" required placeholder="Ex : CONT-2026-001"></div>
+      </form>`,
+      async () => {
+        const data = formToObject(byId('resiliationForm'));
+        await rpc('saveResiliation', state.token, data);
+        closeModal(); toast('Résiliation créée.', 'success'); await renderResiliations();
+      },
+      { primaryLabel: 'Créer la résiliation' }
+    );
+    return;
+  }
 
-      async function refreshLookups() {
-        state.lookups = await rpc('getLookups', state.token);
-      }
+  // ── Ouverture / soumission ────────────────────────────────
+  const rows = await rpc('listResiliations', state.token, {});
+  const item = rows.find(r => r.id === id);
+  if (!item) { toast('Résiliation introuvable.', 'error'); return; }
 
-      async function logout() {
-        try { if (state.token) await rpc('logoutUser', state.token, 'manual_logout'); } catch (e) {}
-        stopHeartbeat();
-        localStorage.removeItem('SL_ETU_TOKEN');
-        state.token = '';
-        state.session = null;
-        showLogin();
-        toast('Déconnexion effectuée.', 'info');
-      }
+  const isTraite = item.statut === 'Traité';
 
-      function startHeartbeat() {
-        stopHeartbeat();
-        if (!state.token) return;
-        pingHeartbeat();
-        state.heartbeatTimer = setInterval(pingHeartbeat, (state.session?.heartbeatSeconds || 45) * 1000);
-      }
+  openModal(
+    `Résiliation ${esc(item.reference||'')}`,
+    `Contrat : ${esc(item.no_contrat||'')} · Origine : ${esc(item.origine||'')}`,
+    `<form id="resDetailForm" class="modal-grid">
+      <input type="hidden" id="resDetailId" value="${escAttr(item.id)}">
 
-      function stopHeartbeat() {
-        if (state.heartbeatTimer) clearInterval(state.heartbeatTimer);
-        state.heartbeatTimer = null;
-      }
+      <!-- Infos lecture seule -->
+      <div class="field"><label>Origine</label>
+        <input value="${escAttr(item.origine||'')}" readonly></div>
+      <div class="field"><label>N° de contrat</label>
+        <input value="${escAttr(item.no_contrat||'')}" readonly></div>
+      ${item.mail ? `<div class="field span-2"><label>Mail</label>
+        <input value="${escAttr(item.mail)}" readonly></div>` : ''}
 
-      async function pingHeartbeat() {
-        if (!state.token || !navigator.onLine) return;
-        try {
-          await rpc('heartbeatSession', state.token, { user_agent:navigator.userAgent, visibility:document.visibilityState });
-        } catch (error) {
-          stopHeartbeat();
-          localStorage.removeItem('SL_ETU_TOKEN');
-          toast(error.message || 'Session expirée.', 'error');
-          showLogin();
-        }
-      }
+      <!-- Statut actuel -->
+      <div class="field span-2">
+        <label>Statut actuel</label>
+        <div class="chips">
+          <span class="chip ${statusClass(item.statut)}">${esc(item.statut||'')}</span>
+          ${item.completude ? `<span class="chip ${statusClass(item.completude)}">${esc(item.completude)}</span>` : ''}
+          ${item.resil ? `<span class="chip ${statusClass(item.resil)}">${esc(item.resil)}</span>` : ''}
+        </div>
+      </div>
 
-      function handleOfflineSignal() {
-        if (!state.token) return;
-        rpc('registerOfflineSignal', state.token).catch(() => {});
-        stopHeartbeat();
-        toast('Connexion interrompue. La session sera fermée.', 'info');
-      }
+      ${item.delai_formate && item.delai_formate!=='—' ? `
+      <div class="field span-2">
+        <label>Délai (ouverture → soumission)</label>
+        <div class="delai-badge">⏱ ${esc(item.delai_formate)}</div>
+      </div>` : ''}
 
-      function handleBeforeUnload() {
-        if (!state.token) return;
-        stopHeartbeat();
-        google.script.run.registerOfflineSignal(state.token);
-      }
+      <!-- Complétude -->
+      ${!isTraite ? `
+      <div class="field span-2"><label>Complétude *</label>
+        <select id="resComField" name="completude" onchange="onResiliationCompletude()"
+          ${isTraite?'disabled':''}>
+          <option value="">— Sélectionner —</option>
+          ${(state.lookups.resiliationCompletude||[]).map(v=>`<option value="${v}" ${item.completude===v?'selected':''}>${v}</option>`).join('')}
+        </select></div>
 
-      function handleVisibilityChange() {
-        if (document.visibilityState === 'visible' && state.token) startHeartbeat();
-      }
+      <!-- Section Résil (si complétude = OK) -->
+      <div class="resil-section ${item.completude==='OK'?'visible':''}" id="resilSection">
+        <div class="field"><label>Résil *</label>
+          <select id="resResilField" name="resil" onchange="onResiliationResil()">
+            <option value="">— Sélectionner —</option>
+            ${(state.lookups.resiliationResil||[]).map(v=>`<option value="${v}" ${item.resil===v?'selected':''}>${esc(v)}</option>`).join('')}
+          </select></div>
+        <div class="comment-section ${item.resil==='Résil KO'?'visible':''}" id="resCommentSection">
+          <div class="field"><label>Commentaire * <span class="sub">(obligatoire si Résil KO)</span></label>
+            <textarea name="commentaire" id="resCommentaire" rows="3"
+              >${escAttr(item.commentaire||'')}</textarea></div>
+        </div>
+      </div>` : `
+      <!-- Vue lecture seule si traité -->
+      <div class="field span-2"><label>Complétude</label>
+        <input value="${escAttr(item.completude||'—')}" readonly></div>
+      ${item.resil ? `<div class="field span-2"><label>Résil</label>
+        <input value="${escAttr(item.resil)}" readonly></div>` : ''}
+      ${item.commentaire ? `<div class="field span-2"><label>Commentaire</label>
+        <textarea readonly rows="3">${escAttr(item.commentaire)}</textarea></div>` : ''}
+      `}
+    </form>`,
+    async () => {
+      if (isTraite) { closeModal(); return; }
+      const completude  = byId('resComField')?.value || '';
+      const resil       = byId('resResilField')?.value || '';
+      const commentaire = byId('resCommentaire')?.value || '';
+      await rpc('soumettreResiliation', state.token, item.id, { completude, resil, commentaire });
+      closeModal();
+      toast('Résiliation soumise.', 'success');
+      await renderResiliations();
+    },
+    { primaryLabel: isTraite ? 'Fermer' : 'Soumettre la demande' }
+  );
+}
 
-      function table(rows, cols) {
-        return `<div class="table-wrap"><table><thead><tr>${cols.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${cols.map(c => `<td>${cell(row,c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-      }
+function onResiliationCompletude() {
+  const completude  = byId('resComField')?.value;
+  const resilSection = byId('resilSection');
+  if (resilSection) {
+    resilSection.classList.toggle('visible', completude === 'OK');
+    if (completude !== 'OK') {
+      if (byId('resResilField'))      byId('resResilField').value = '';
+      if (byId('resCommentSection'))  byId('resCommentSection').classList.remove('visible');
+    }
+  }
+}
 
-      function cell(row, col) {
-        if (col.render) return col.render(row) || '';
-        const value = row[col.key];
-        if (col.badge) return `<span class="chip ${statusClass(value)}">${esc(String(value || '—'))}</span>`;
-        if (col.datetime) return esc(formatDate(value) || '—');
-        return esc(value===undefined || value===null || value==='' ? '—' : String(value));
-      }
+function onResiliationResil() {
+  const resil   = byId('resResilField')?.value;
+  const section = byId('resCommentSection');
+  if (section) section.classList.toggle('visible', resil === 'Résil KO');
+}
+// ============================================================
+// SECTION 10 — PRÉSENCE & EXPORT
+// ============================================================
 
-      function formToObject(form) {
-        const data = {};
-        Array.from(form.querySelectorAll('[name]')).forEach(el => {
-          if (!el.disabled) data[el.name] = el.value;
-        });
-        return data;
-      }
+async function renderPresence() {
+  const dateKey = (state.filters.presence?.date_key) || new Date().toISOString().slice(0,10);
+  refreshTop([
+    `<button class="b2" onclick="exportPresenceCsv()">Export CSV</button>`
+  ]);
+  const data = await rpc('getPresenceSummary', state.token, dateKey);
+  state.lastPresence = data.rows || [];
 
-      function setButtonLoading(button, isLoading) {
-        if (!button) return;
-        button.classList.toggle('loading', isLoading);
-        button.disabled = isLoading;
-        let spinner = button.querySelector('.spinner');
-        if (isLoading && !spinner) {
-          spinner = document.createElement('span');
-          spinner.className = 'spinner';
-          spinner.innerHTML = '<i></i>';
-          button.appendChild(spinner);
-        }
-        if (!isLoading && spinner) spinner.remove();
-      }
+  byId('view').innerHTML = `
+    <section class="card">
+      <div class="toolbar">
+        <div><h2 style="margin:0 0 4px;">Pointage du ${esc(dateKey)}</h2>
+        <p class="sub" style="margin:0;">Les coupures sont comptées comme déconnexions après expiration du heartbeat.</p></div>
+        <div class="filters">
+          <input type="date" id="presenceDate" value="${escAttr(dateKey)}">
+          <button class="b2" onclick="applyPresenceDate()">Afficher</button>
+        </div>
+      </div>
+      <div class="kpis" style="margin-bottom:14px;">
+        <div class="kpi"><span class="chip cp">Présents suivis</span><div class="v-sm">${data.total_users}</div></div>
+        <div class="kpi"><span class="chip cs">En ligne</span><div class="v-sm">${data.online_now}</div></div>
+        <div class="kpi"><span class="chip cp">Connexions</span><div class="v-sm">${data.total_connections}</div></div>
+        <div class="kpi"><span class="chip cd">Déconnexions</span><div class="v-sm">${data.total_disconnections}</div></div>
+        <div class="kpi"><span class="chip cw">Temps cumulé</span><div class="v-sm">${secondsToHHMM(data.total_online_seconds)}</div></div>
+      </div>
+      ${data.rows?.length ? table(data.rows, [
+        {key:'full_name',          label:'Utilisateur'},
+        {key:'role',               label:'Rôle'},
+        {key:'team_name',          label:'Équipe'},
+        {key:'first_login_at',     label:'1re connexion', datetime:true},
+        {key:'last_seen_at',       label:'Dernière activité', datetime:true},
+        {key:'last_disconnect_at', label:'Dernière déconnexion', datetime:true},
+        {key:'connection_count',   label:'Connexions'},
+        {key:'disconnection_count',label:'Déconnexions'},
+        {key:'online_hhmm',        label:'Temps en ligne'},
+        {key:'currently_online',   label:'En ligne', badge:true}
+      ]) : `<div class="empty">Aucun pointage pour cette date.</div>`}
+    </section>`;
+}
 
-      function roleLabel(role) { return ({super_admin:'Super Admin',team_leader:'Team Leader',ambassador:'Ambassadeur'})[role] || role || ''; }
-      function pretty(key) { return String(key || '').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); }
-      function toneClass(v) { return ({primary:'cp',success:'cs',warning:'cw',danger:'cd',neutral:'cp'})[v] || 'cp'; }
-      function statusClass(v) {
-        const s = String(v || '').toLowerCase();
-        if (s==='actif' || s==='validé' || s==='clos' || s==='true' || s==='solvable') return 'cs';
-        if (s.includes('attente') || s==='normale' || s==='haute' || s==='urgente' || s==='initié' || s==='en cours de traitement') return 'cw';
-        if (s==='suspendu' || s==='refusé' || s==='false' || s==='inactif' || s==='non solvable' || s==='connection_lost') return 'cd';
-        return 'cp';
-      }
-      function secondsToHHMM(sec) { const s=Number(sec||0); const h=Math.floor(s/3600); const m=Math.floor((s%3600)/60); return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
-      function formatDate(value) { if(!value) return ''; const d = new Date(value); return isNaN(d.getTime()) ? value : d.toLocaleString('fr-FR'); }
-      function formatNumber(value) { return new Intl.NumberFormat('fr-FR', { minimumFractionDigits:2, maximumFractionDigits:2 }).format(Number(value || 0)); }
-      function byId(id) { return document.getElementById(id); }
-      function esc(v) { return String(v || '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;"); }
-      function escAttr(v) { return esc(v).replaceAll('\n','&#10;'); }
-      function toast(message,type) { const el=document.createElement('div'); el.className='toast ' + (type || 'info'); el.textContent=message; byId('toasts').appendChild(el); setTimeout(()=>el.remove(), 3200); }
-      function rpc(name, ...args) { return new Promise((resolve,reject)=>{ google.script.run.withSuccessHandler(resolve).withFailureHandler(err => reject(new Error(err && err.message ? err.message : 'Erreur Apps Script')))[name](...args); }); }
-    </script>
-  </body>
+function applyPresenceDate() {
+  state.filters.presence = { date_key: byId('presenceDate').value };
+  renderPresence();
+}
+
+function exportPresenceCsv() {
+  const rows    = state.lastPresence || [];
+  const dateKey = (state.filters.presence?.date_key) || new Date().toISOString().slice(0,10);
+  const headers = ['Utilisateur','Rôle','Équipe','1re connexion','Dernière activité',
+    'Dernière déconnexion','Nb connexions','Nb déconnexions','Temps en ligne (HH:MM)','En ligne'];
+  const csvRows = rows.map(r => [
+    r.full_name, r.role, r.team_name||'',
+    r.first_login_at     ? formatDate(r.first_login_at)     : '',
+    r.last_seen_at       ? formatDate(r.last_seen_at)       : '',
+    r.last_disconnect_at ? formatDate(r.last_disconnect_at) : '',
+    r.connection_count||0, r.disconnection_count||0,
+    r.online_hhmm||'00:00',
+    String(r.currently_online) === 'TRUE' ? 'Oui' : 'Non'
+  ]);
+  downloadCsv(headers, csvRows, `presence-${dateKey}.csv`);
+}
+// ============================================================
+// SECTION 11 — HISTORIQUE & CONNEXIONS
+// ============================================================
+
+async function renderHistory() {
+  refreshTop();
+  const rows = await rpc('getActivityLogs', state.token, 150);
+  byId('view').innerHTML = `
+    <section class="card">
+      <div class="card-head">
+        <div><h2 style="margin:0 0 4px;">Historique</h2>
+        <p class="sub" style="margin:0;">Journal des actions métiers (150 dernières).</p></div>
+      </div>
+      ${rows.length ? table(rows, [
+        {key:'timestamp',   label:'Date', datetime:true},
+        {key:'login',       label:'Login'},
+        {key:'action_type', label:'Action'},
+        {key:'entity_type', label:'Entité'},
+        {key:'entity_id',   label:'ID'},
+        {key:'summary',     label:'Résumé'}
+      ]) : `<div class="empty">Aucune activité.</div>`}
+    </section>`;
+}
+
+async function renderConnections() {
+  refreshTop();
+  const rows = await rpc('listLoginLogs', state.token, 150);
+  byId('view').innerHTML = `
+    <section class="card">
+      <div class="card-head">
+        <div><h2 style="margin:0 0 4px;">Connexions</h2>
+        <p class="sub" style="margin:0;">Authentifications et tentatives (150 dernières).</p></div>
+      </div>
+      ${rows.length ? table(rows, [
+        {key:'timestamp',  label:'Date', datetime:true},
+        {key:'login',      label:'Login'},
+        {key:'success',    label:'Succès', badge:true},
+        {key:'message',    label:'Message'},
+        {key:'user_agent', label:'Navigateur'}
+      ]) : `<div class="empty">Aucune connexion.</div>`}
+    </section>`;
+}
+// ============================================================
+// SECTION 12 — MODALES, UTILITAIRES, HELPERS
+// ============================================================
+
+// ── Modale générique ─────────────────────────────────────────
+function openModal(title, subtitle, bodyHtml, action, options) {
+  const opts = options || {};
+  state.modalAction = action;
+  byId('modalTitle').textContent    = title;
+  byId('modalSubtitle').textContent = subtitle || '';
+  byId('modalBody').innerHTML       = bodyHtml;
+
+  const primaryBtn = byId('modalPrimary');
+  primaryBtn.querySelector('.label').textContent = opts.primaryLabel || 'Enregistrer';
+
+  primaryBtn.onclick = async () => {
+    setButtonLoading(primaryBtn, true);
+    try {
+      await state.modalAction();
+    } catch(e) {
+      toast(e.message || 'Erreur lors de l\'enregistrement.', 'error');
+    } finally {
+      setButtonLoading(primaryBtn, false);
+    }
+  };
+  byId('modalBackdrop').classList.add('show');
+}
+
+function closeModal() {
+  state.modalAction        = null;
+  state.currentSolvabilite = null;
+  state.currentEdit        = null;
+  byId('modalBackdrop').classList.remove('show');
+  // Remet le label par défaut
+  const lbl = byId('modalPrimary')?.querySelector('.label');
+  if (lbl) lbl.textContent = 'Enregistrer';
+}
+
+// ── Table renderer ────────────────────────────────────────────
+function table(rows, cols) {
+  return `<div class="table-wrap"><table>
+    <thead><tr>${cols.map(c=>`<th>${esc(c.label)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(row=>`<tr>${cols.map(c=>`<td>${cell(row,c)}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function cell(row, col) {
+  if (col.render) return col.render(row) || '';
+  const value = row[col.key];
+  if (col.badge)    return `<span class="chip ${statusClass(value)}">${esc(String(value||'—'))}</span>`;
+  if (col.datetime) return esc(formatDate(value) || '—');
+  return esc(value === undefined || value === null || value === '' ? '—' : String(value));
+}
+
+// ── CSV générique ─────────────────────────────────────────────
+function downloadCsv(headers, csvRows, filename) {
+  const escape = v => `"${String(v??'').replace(/"/g,'""')}"`;
+  const content = [headers.map(escape).join(';')]
+    .concat(csvRows.map(r => r.map(escape).join(';')))
+    .join('\n');
+  const blob = new Blob(['\uFEFF' + content], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Formulaire ────────────────────────────────────────────────
+function formToObject(form) {
+  const data = {};
+  Array.from(form.querySelectorAll('[name]')).forEach(el => {
+    if (!el.disabled) data[el.name] = el.value;
+  });
+  return data;
+}
+
+// ── Bouton avec spinner ───────────────────────────────────────
+function setButtonLoading(button, isLoading) {
+  if (!button) return;
+  button.classList.toggle('loading', isLoading);
+  button.disabled = isLoading;
+  let spinner = button.querySelector('.spinner');
+  if (isLoading && !spinner) {
+    spinner = document.createElement('span');
+    spinner.className  = 'spinner';
+    spinner.innerHTML  = '<i></i>';
+    button.appendChild(spinner);
+  }
+  if (!isLoading && spinner) spinner.remove();
+}
+
+// ── Fonctions display ─────────────────────────────────────────
+function roleLabel(role) {
+  return ({super_admin:'Super Admin',team_leader:'Team Leader',ambassador:'Ambassadeur'})[role] || role || '';
+}
+function pretty(key) {
+  return String(key||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+}
+function toneClass(v) {
+  return ({primary:'cp',success:'cs',warning:'cw',danger:'cd',neutral:'cp'})[v] || 'cp';
+}
+function statusClass(v) {
+  const s = String(v||'').toLowerCase();
+  if (['actif','validé','clos','true','solvable','complet','traité','résil ok','ok'].includes(s)) return 'cs';
+  if (s.includes('attente') || s.includes('en cours') ||
+      ['normale','haute','urgente','initié','complément','nouvelle déclaration','mail','bo'].includes(s)) return 'cw';
+  if (['suspendu','refusé','false','inactif','non solvable','connection_lost','relance','résil ko','ko'].includes(s)) return 'cd';
+  return 'cp';
+}
+function secondsToHHMM(sec) {
+  const s = Number(sec||0);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function formatDate(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? value : d.toLocaleString('fr-FR');
+}
+function formatNumber(value) {
+  return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(value||0));
+}
+function byId(id)    { return document.getElementById(id); }
+function esc(v)      { return String(v||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+function escAttr(v)  { return esc(v).replaceAll('\n','&#10;'); }
+function toast(message, type) {
+  const el = document.createElement('div');
+  el.className  = 'toast ' + (type||'info');
+  el.textContent = message;
+  byId('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3400);
+}
+function rpc(name, ...args) {
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(err => reject(new Error(err?.message || 'Erreur Apps Script')))
+      [name](...args);
+  });
+}
+  </script>
+</body>
 </html>
