@@ -1,0 +1,156 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PART G — Dashboard
+═══════════════════════════════════════════════════════════════ */
+
+function renderDashboard() {
+  var data = S.dashboard;
+  if (!data) {
+    el('content').innerHTML = '<div class="empty">Chargement…</div>';
+    loadDashboard();
+    return;
+  }
+  paintDashboard(data);
+}
+
+function loadDashboard() {
+  google.script.run
+    .withSuccessHandler(function(data) {
+      S.dashboard = data;
+      if (S.activeView === 'dashboard') paintDashboard(data);
+    })
+    .withFailureHandler(function(e) {
+      toast('Erreur dashboard : ' + (e.message || e), 'error');
+    })
+    .getDashboardData(S.token);
+}
+
+function paintDashboard(data) {
+  var html = '';
+
+  /* ── KPIs ── */
+  html += '<div class="kpis">';
+  (data.kpis || []).forEach(function(k) {
+    var toneClass = {
+      primary: 'cp', success: 'cs', warning: 'cw', danger: 'cd', neutral: ''
+    }[k.tone] || '';
+    html += '<div class="kpi">';
+    html += '<div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">' + escHtml(k.label) + '</div>';
+    html += '<div class="v">' + escHtml(String(k.value)) + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  /* ── Module stats ── */
+  if (data.moduleStats) {
+    html += '<div class="card" style="margin-top:0;">';
+    html += '<div class="card-head"><span class="fw8">Modules</span></div>';
+    html += '<div class="module-cards">';
+
+    /* Sinistres */
+    var ms = data.moduleStats.sinistre;
+    html += '<div class="module-card" onclick="navigate(\'sinistres\')">';
+    html += '<h4>Sinistres</h4>';
+    html += '<div class="stat-row"><span>Total</span><strong>' + (ms.total||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Complets</span><strong>' + (ms.complets||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Relances</span><strong>' + (ms.relances||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Traités</span><strong>' + (ms.traites||0) + '</strong></div>';
+    html += '</div>';
+
+    /* Factures */
+    var mf = data.moduleStats.facture;
+    html += '<div class="module-card" onclick="navigate(\'factures\')">';
+    html += '<h4>Factures</h4>';
+    html += '<div class="stat-row"><span>Total</span><strong>' + (mf.total||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>En cours</span><strong>' + (mf.en_cours||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Remontées</span><strong>' + (mf.remontees||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Vérifiées</span><strong>' + (mf.verifiees||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Traitées</span><strong>' + (mf.traites||0) + '</strong></div>';
+    html += '</div>';
+
+    /* Résiliations */
+    var mr = data.moduleStats.resiliation;
+    html += '<div class="module-card" onclick="navigate(\'resiliations\')">';
+    html += '<h4>Résiliations</h4>';
+    html += '<div class="stat-row"><span>Total</span><strong>' + (mr.total||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>En cours</span><strong>' + (mr.en_cours||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Relances</span><strong>' + (mr.relances||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Traités</span><strong>' + (mr.traites||0) + '</strong></div>';
+    html += '</div>';
+
+    html += '</div></div>'; // module-cards, card
+  }
+
+  /* ── Split: répartition statuts + performance ── */
+  html += '<div class="split">';
+
+  /* Répartition statuts agrément */
+  if (data.statusBreakdown && data.statusBreakdown.length) {
+    html += '<div class="card">';
+    html += '<div class="card-head"><span class="fw8">Répartition agréments</span></div>';
+    var maxVal = Math.max.apply(null, data.statusBreakdown.map(function(r){ return r.value; }));
+    data.statusBreakdown.forEach(function(r) {
+      var pct = maxVal > 0 ? Math.round(r.value / maxVal * 100) : 0;
+      html += '<div style="margin-bottom:10px;">';
+      html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
+      html += '<span class="fs-sm">' + escHtml(r.label) + '</span>';
+      html += '<span class="fs-sm fw7">' + r.value + '</span>';
+      html += '</div>';
+      html += '<div class="stat-bar"><div class="stat-bar-fill" style="width:' + pct + '%"></div></div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  /* Performance équipes / ambassadeurs */
+  if (data.performance && data.performance.length) {
+    html += '<div class="card">';
+    html += '<div class="card-head"><span class="fw8">Performance</span></div>';
+    html += '<div class="table-wrap" style="border:0;">';
+    html += '<table><thead><tr>';
+    var perfKeys = Object.keys(data.performance[0]);
+    perfKeys.forEach(function(k) { html += '<th>' + escHtml(k) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    data.performance.forEach(function(r) {
+      html += '<tr>';
+      perfKeys.forEach(function(k) {
+        html += '<td>' + escHtml(String(r[k] !== undefined ? r[k] : '—')) + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+  }
+
+  html += '</div>'; // split
+
+  /* ── Présence ambassadeurs ── */
+  if (data.ambassadorPresence && data.ambassadorPresence.length) {
+    html += '<div class="card">';
+    html += '<div class="card-head">';
+    html += '<span class="fw8">Présence ambassadeurs aujourd\'hui</span>';
+    if (data.presenceSummary) {
+      html += '<span class="chip cs">' + (data.presenceSummary.online_now || 0) + ' en ligne</span>';
+    }
+    html += '</div>';
+
+    html += buildTable(
+      ['Ambassadeur', 'Statut', 'Connexions', 'Déconnexions', 'Temps total'],
+      data.ambassadorPresence,
+      function(r) {
+        var dotClass = r.is_online ? 'online' : 'offline';
+        return '<tr>' +
+          '<td><span class="status-dot ' + dotClass + '"></span>' + escHtml(r.full_name || r.user_id) + '</td>' +
+          '<td>' + (r.is_online ? '<span class="online-badge on">En ligne</span>' : '<span class="online-badge off">Hors ligne</span>') + '</td>' +
+          '<td>' + (r.connections || 0) + '</td>' +
+          '<td>' + (r.disconnections || 0) + '</td>' +
+          '<td>' + fmtDuration(r.total_online_seconds) + '</td>' +
+          '</tr>';
+      }
+    );
+
+    html += '</div>';
+  }
+
+  el('content').innerHTML = html;
+}
+</script>

@@ -4,7 +4,7 @@
 
 const APP_CONFIG = {
   APP_NAME: 'Syndic Ledger High-End',
-  VERSION: '3.0.0',
+  VERSION: '4.0.0',
   TIMEZONE: Session.getScriptTimeZone() || 'Indian/Antananarivo',
   HEARTBEAT_SECONDS: 45,
   SESSION_STALE_MINUTES: 2,
@@ -16,32 +16,38 @@ const APP_CONFIG = {
 const ROLES = {
   SUPER_ADMIN: 'super_admin',
   TEAM_LEADER: 'team_leader',
-  AMBASSADOR: 'ambassador'
+  AMBASSADOR:  'ambassador'
 };
 
+// Valeurs par défaut (fallback si les paramètres n'ont pas encore été personnalisés)
 const ENUMS = {
   USER_STATUS: ['Actif', 'Inactif', 'Suspendu'],
 
-  // Module Agrément (ex-Étude)
-  AGREMENT_TYPES:       ['GLI', 'IMMEUBLE'],
-  TYPE_CLIENT:          ['Locataire', 'Garant'],
-  PRIORITIES:           ['Basse', 'Normale', 'Haute', 'Urgente'],
-  AGREMENT_STATUS:      ['Initié', 'En attente de traitement', 'En cours de traitement', 'Validé', 'Refusé', 'Clos'],
-  MOTIF_VALIDATION:     ['Solvable', 'Non solvable'],
+  // Module Agrément — valeurs par défaut (surchargées par SETTINGS si personnalisées)
+  AGREMENT_TYPES:          ['GLI', 'IMMEUBLE'],
+  TYPE_CLIENT:             ['Locataire', 'Garant'],
+  PRIORITIES:              ['Basse', 'Normale', 'Haute', 'Urgente'],
+  AGREMENT_STATUS:         ['Initié', 'En attente de traitement', 'En cours de traitement', 'Validé', 'Refusé', 'Clos'],
+  MOTIF_VALIDATION:        ['Solvable', 'Non solvable'],
+
+  // Nouveaux enums v4 — Module Agrément
+  STATUTS_PRO:             ['CDI', 'Fonctionnaire titulaire', 'CDD', 'Retraité', 'Étudiant', 'TNS'],
+  COMPAGNIES:              ['AXA', 'ALLIANZ'],
+  STATUTS_FIN_TRAITEMENT:  ['Accepté', 'Refus', 'Attente de document', 'Sans suite', 'Faux dossier', 'PS'],
 
   // Module Sinistre
-  SINISTRE_SITUATIONS:  ['Nouvelle déclaration', 'Complément', 'En attente'],
-  SINISTRE_STATUTS:     ['Complet', 'Relance', 'Traité'],
-  SINISTRE_COMPLETUDE:  ['OK', 'KO'],
+  SINISTRE_SITUATIONS:     ['Nouvelle déclaration', 'Complément', 'En attente'],
+  SINISTRE_STATUTS:        ['Complet', 'Relance', 'Traité'],
+  SINISTRE_COMPLETUDE:     ['OK', 'KO'],
 
-  // Module Facture
-  FACTURE_STATUTS:      ['En cours', 'Traité'],
+  // Module Facture — workflow étendu v4
+  FACTURE_STATUTS:         ['En cours', 'Remonté', 'Vérifié', 'Traité'],
 
   // Module Résiliation
-  RESILIATION_ORIGINES:   ['Mail', 'BO'],
-  RESILIATION_COMPLETUDE: ['OK', 'KO'],
-  RESILIATION_RESIL:      ['Résil OK', 'Résil KO'],
-  RESILIATION_STATUTS:    ['En cours', 'Relance', 'Traité']
+  RESILIATION_ORIGINES:    ['Mail', 'BO'],
+  RESILIATION_COMPLETUDE:  ['OK', 'KO'],
+  RESILIATION_RESIL:       ['Résil OK', 'Résil KO'],
+  RESILIATION_STATUTS:     ['En cours', 'Relance', 'Traité']
 };
 
 const SCHEMA = {
@@ -53,36 +59,57 @@ const SCHEMA = {
     'id', 'name', 'team_leader_id', 'status', 'created_at', 'updated_at'
   ],
 
-  // Module Agrément (anciennement EN_ETUDES)
+  // Module Agrément v4 — multi-profils, solvabilité overridable
   AGREMENTS: [
-    'id', 'reference', 'type_dossier', 'priorite', 'client', 'adresse',
-    'type_client', 'ambassadeur_assigne', 'equipe_id', 'statut', 'motif_validation',
+    'id', 'reference',
+    // Infos dossier
+    'type_dossier', 'no_dossier', 'priorite', 'client', 'adresse',
+    'type_client', 'compagnie',
+    // Assignation
+    'ambassadeur_assigne', 'gestionnaire_plus', 'equipe_id',
+    // Statuts
+    'statut', 'motif_validation', 'statut_fin_traitement',
+    // Multi-profils
+    'nombre_profils', 'profils_json', 'plafond_final',
+    // Solvabilité mono-profil (rétro-compatibilité)
     'net_a_payer_1', 'net_a_payer_2', 'net_a_payer_3',
     'net_avant_impot_1', 'net_avant_impot_2', 'net_avant_impot_3',
     'brut_1', 'brut_2', 'brut_3',
-    'loyer', 'moyenne_net_a_payer', 'moyenne_net_avant_impot', 'moyenne_brut',
+    'loyer',
+    'moyenne_net_a_payer', 'moyenne_net_avant_impot', 'moyenne_brut',
     'ratio_max', 'plafond_loyer', 'resultat_solvabilite',
+    // Override manuel solvabilité
+    'solvabilite_override', 'solvabilite_commentaire',
+    'solvabilite_override_by', 'solvabilite_override_at',
+    // Audit
     'created_by', 'updated_by', 'created_at', 'updated_at', 'closed_at'
   ],
+
+  // Cohérences type_dossier → équipe (lecture seule, non bloquant depuis v4)
   AGREMENT_TYPE_TEAM_MAP: [
     'id', 'type_dossier', 'team_id', 'team_name', 'active', 'updated_at'
   ],
 
-  // Module Sinistre
+  // Module Sinistre v4 — commentaire + historique des mises à jour
   SINISTRES: [
     'id', 'reference', 'no_sinistre', 'no_contrat', 'date_reception',
-    'gestionnaire', 'completude', 'situation', 'statut',
+    'gestionnaire', 'commentaire', 'completude', 'situation', 'statut',
+    'historique_json',
     'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes'
   ],
 
-  // Module Facture
+  // Module Facture v4 — workflow Remonté / Vérifié
   FACTURES: [
     'id', 'reference', 'no_sinistre',
     'etape_verification', 'etape_calcul', 'etape_reglement',
-    'statut', 'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes'
+    'commentaire_traitement',
+    'statut',
+    'verifie_badge', 'verifie_at', 'verifie_par',
+    'remonte_at',
+    'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes'
   ],
 
-  // Module Résiliation
+  // Module Résiliation (inchangé)
   RESILIATIONS: [
     'id', 'reference', 'origine', 'mail', 'no_contrat',
     'completude', 'resil', 'commentaire', 'statut',
@@ -140,7 +167,7 @@ function nextId_(prefix) {
 
 function nextReference_(prefix) {
   const props = PropertiesService.getScriptProperties();
-  const key = 'SEQ_' + prefix;
+  const key   = 'SEQ_' + prefix;
   const current = Number(props.getProperty(key) || '0') + 1;
   props.setProperty(key, String(current));
   const datePart = Utilities.formatDate(new Date(), APP_CONFIG.TIMEZONE, 'yyyyMMdd');
@@ -149,6 +176,11 @@ function nextReference_(prefix) {
 
 function safeJson_(value) {
   try { return JSON.stringify(value); } catch (e) { return String(value); }
+}
+
+function safeParseJson_(str, fallback) {
+  if (!str) return fallback !== undefined ? fallback : [];
+  try { return JSON.parse(str); } catch(e) { return fallback !== undefined ? fallback : []; }
 }
 
 function indexBy_(rows, key) {
@@ -171,12 +203,20 @@ function secondsToHHMM_(seconds) {
   return ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2);
 }
 
-function average_(values) {
-  const safe = values.map(function(v) { return Number(v) || 0; });
+/**
+ * Calcule la moyenne d'un tableau de nombres.
+ * Ignore les valeurs nulles/vides si ignoreZero=true.
+ */
+function average_(values, ignoreZero) {
+  const safe = (values || []).map(function(v) { return Number(v) || 0; });
+  if (ignoreZero) {
+    const nonZero = safe.filter(function(v) { return v > 0; });
+    return nonZero.length ? nonZero.reduce(function(a, b) { return a + b; }, 0) / nonZero.length : 0;
+  }
   return safe.length ? safe.reduce(function(a, b) { return a + b; }, 0) / safe.length : 0;
 }
 
-// Formate un délai en secondes en "Xj Yh Zmin" lisible
+/** Formate un délai en secondes → "Xj Yh Zmin" */
 function formatDelai_(seconds) {
   const s = Number(seconds || 0);
   if (!s || s < 0) return '—';
@@ -188,7 +228,7 @@ function formatDelai_(seconds) {
   return minutes + 'min';
 }
 
-// Normalise une valeur en booléen stocké 'TRUE'/'FALSE'
+/** Normalise une valeur en booléen stocké 'TRUE'/'FALSE' */
 function toBool_(value) {
   const s = String(value || '').toLowerCase().trim();
   return (s === 'true' || s === '1' || s === 'yes' || s === 'oui') ? 'TRUE' : 'FALSE';
@@ -242,6 +282,15 @@ function roleCanManage_(actorRole, targetRole) {
   if (actorRole === ROLES.SUPER_ADMIN) return true;
   if (actorRole === ROLES.TEAM_LEADER) return targetRole === ROLES.AMBASSADOR;
   return false;
+}
+
+function normalizeDossierType_(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function isActiveRule_(value) {
+  const v = String(value || '').toLowerCase();
+  return v === 'true' || v === '1' || v === 'oui' || v === 'actif';
 }
 // ============================================================
 // SECTION 3 — BASE DE DONNÉES (GOOGLE SHEETS)
@@ -298,11 +347,11 @@ function ensureSheets_() {
 }
 
 function readTable_(name) {
-  const ss = getDatabase_();
+  const ss    = getDatabase_();
   const sheet = ss.getSheetByName(name);
   if (!sheet || sheet.getLastRow() <= 1) return [];
 
-  const values = sheet.getDataRange().getValues();
+  const values  = sheet.getDataRange().getValues();
   const headers = values[0].map(function(h) { return String(h || '').trim(); });
 
   return values.slice(1)
@@ -319,10 +368,10 @@ function readTable_(name) {
 }
 
 function upsertRow_(name, keyField, rowObj) {
-  const ss = getDatabase_();
-  const sheet = ss.getSheetByName(name);
+  const ss      = getDatabase_();
+  const sheet   = ss.getSheetByName(name);
   const headers = SCHEMA[name];
-  const values = sheet.getDataRange().getValues();
+  const values  = sheet.getDataRange().getValues();
   const keyIndex = headers.indexOf(keyField);
   if (keyIndex === -1) throw new Error('Clé primaire introuvable : ' + keyField);
 
@@ -348,12 +397,25 @@ function setSetting_(key, value) {
 
 function getSetting_(key, defaultValue) {
   const row = readTable_('SETTINGS').find(function(r) { return r.key === key; });
-  return row ? row.value : defaultValue;
+  return row ? row.value : (defaultValue !== undefined ? defaultValue : null);
 }
 
 function setSettingIfEmpty_(key, value) {
   const row = readTable_('SETTINGS').find(function(r) { return r.key === key; });
   if (!row) setSetting_(key, value);
+}
+
+/**
+ * Lit une liste paramétrable depuis SETTINGS (JSON).
+ * Si absente ou invalide, retourne le tableau de défaut.
+ */
+function getParametrableList_(settingKey, defaults) {
+  const stored = getSetting_('PARAM_' + settingKey, null);
+  if (stored) {
+    const parsed = safeParseJson_(stored, null);
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+  }
+  return defaults || [];
 }
 
 function generateSheetsStructure() {
@@ -372,7 +434,7 @@ function generateSheetsStructure() {
 function seedBaseData_() {
   const teams = readTable_('TEAMS');
   const users = readTable_('USERS');
-  const rules = readTable_('AGREMENT_TYPE_TEAM_MAP'); // anciennement EN_ETUDE_TYPE_TEAM_MAP
+  const rules = readTable_('AGREMENT_TYPE_TEAM_MAP');
 
   if (!teams.some(function(t) { return t.id === 'TEAM_GLI'; })) {
     upsertRow_('TEAMS', 'id', {
@@ -400,6 +462,7 @@ function seedBaseData_() {
     });
   }
 
+  // Cohérences type_dossier → équipe (optionnelles, non bloquantes depuis v4)
   if (!rules.some(function(r) {
     return String(r.type_dossier || '').toUpperCase() === 'GLI';
   })) {
@@ -421,13 +484,20 @@ function seedBaseData_() {
 
   setSettingIfEmpty_('SESSION_STALE_MINUTES', String(APP_CONFIG.SESSION_STALE_MINUTES));
   setSettingIfEmpty_('APP_VERSION', APP_CONFIG.VERSION);
+
+  // Seed paramètres par défaut si absents
+  setSettingIfEmpty_('PARAM_STATUTS_PRO', JSON.stringify(ENUMS.STATUTS_PRO));
+  setSettingIfEmpty_('PARAM_COMPAGNIES', JSON.stringify(ENUMS.COMPAGNIES));
+  setSettingIfEmpty_('PARAM_STATUTS_FIN_TRAITEMENT', JSON.stringify(ENUMS.STATUTS_FIN_TRAITEMENT));
+  setSettingIfEmpty_('PARAM_AGREMENT_STATUS', JSON.stringify(ENUMS.AGREMENT_STATUS));
+  setSettingIfEmpty_('PARAM_PRIORITIES', JSON.stringify(ENUMS.PRIORITIES));
 }
 
 // ── Audit log ────────────────────────────────────────────────
 function addAuditLog_(actor, actionType, entityType, entityId, summary, oldValue, newValue) {
   upsertRow_('AUDIT_LOG', 'id', {
     id: nextId_('AUD'),
-    timestamp: nowIso_(),
+    timestamp:   nowIso_(),
     user_id:  actor && (actor.user_id || actor.id || (actor.user && actor.user.id))  || '',
     login:    actor && (actor.login   || (actor.user && actor.user.login))            || '',
     role:     actor && (actor.role    || (actor.user && actor.user.role))             || '',
@@ -452,8 +522,8 @@ function addLoginLog_(userId, login, success, userAgent, sessionId, message) {
 
 // ── Logs publics ─────────────────────────────────────────────
 function getActivityLogs(token, limit) {
-  const session = requireSession_(token);
-  const max = Number(limit || 100);
+  const session   = requireSession_(token);
+  const max       = Number(limit || 100);
   const visibleIds = scopeUsers_(session, readTable_('USERS')).map(function(u) { return u.id; });
   return readTable_('AUDIT_LOG')
     .filter(function(row) {
@@ -464,8 +534,8 @@ function getActivityLogs(token, limit) {
 }
 
 function listLoginLogs(token, limit) {
-  const session = requireSession_(token);
-  const max = Number(limit || 100);
+  const session   = requireSession_(token);
+  const max       = Number(limit || 100);
   const visibleIds = scopeUsers_(session, readTable_('USERS')).map(function(u) { return u.id; });
   return readTable_('LOGIN_LOG')
     .filter(function(row) {
@@ -493,12 +563,11 @@ function scopeTeams_(session, teams) {
   return teams.filter(function(t) { return t.id === session.user.team_id; });
 }
 
-// Récupère les IDs des utilisateurs visibles par la session (helper interne)
 function visibleUserIds_(session) {
   return scopeUsers_(session, readTable_('USERS')).map(function(u) { return u.id; });
 }
 
-// Agrément (ex-En étude)
+// Agrément — v4 : l'ambassadeur voit ses dossiers assignés OU créés par lui
 function scopeAgrements_(session, rows) {
   if (session.role === ROLES.SUPER_ADMIN) return rows;
   if (session.role === ROLES.TEAM_LEADER) {
@@ -509,7 +578,6 @@ function scopeAgrements_(session, rows) {
   });
 }
 
-// Sinistre
 function scopeSinistres_(session, rows) {
   if (session.role === ROLES.SUPER_ADMIN) return rows;
   if (session.role === ROLES.TEAM_LEADER) {
@@ -519,7 +587,6 @@ function scopeSinistres_(session, rows) {
   return rows.filter(function(r) { return r.created_by === session.user.id; });
 }
 
-// Facture
 function scopeFactures_(session, rows) {
   if (session.role === ROLES.SUPER_ADMIN) return rows;
   if (session.role === ROLES.TEAM_LEADER) {
@@ -529,7 +596,6 @@ function scopeFactures_(session, rows) {
   return rows.filter(function(r) { return r.created_by === session.user.id; });
 }
 
-// Résiliation
 function scopeResiliations_(session, rows) {
   if (session.role === ROLES.SUPER_ADMIN) return rows;
   if (session.role === ROLES.TEAM_LEADER) {
@@ -568,11 +634,11 @@ function hasAnyOtherActiveSession_(userId) {
 
 function markPresenceLogin_(user, session) {
   const record = getOrCreatePresenceDay_(user, todayKey_());
-  record.first_login_at = record.first_login_at || session.started_at;
-  record.last_seen_at   = session.last_seen_at;
+  record.first_login_at   = record.first_login_at || session.started_at;
+  record.last_seen_at     = session.last_seen_at;
   record.connection_count = Number(record.connection_count || 0) + 1;
-  record.is_online  = 'TRUE';
-  record.updated_at = nowIso_();
+  record.is_online        = 'TRUE';
+  record.updated_at       = nowIso_();
   upsertRow_('PRESENCE_DAILY', 'id', record);
 }
 
@@ -606,8 +672,8 @@ function finalizeSession_(row, reason) {
   row.disconnect_reason = reason || 'closed';
   upsertRow_('SESSIONS', 'session_id', row);
 
-  const startedMs    = parseDateMs_(row.started_at);
-  const endMs        = parseDateMs_(row.closed_at);
+  const startedMs     = parseDateMs_(row.started_at);
+  const endMs         = parseDateMs_(row.closed_at);
   const onlineSeconds = Math.max(0, Math.round((endMs - startedMs) / 1000));
 
   markPresenceDisconnect_(user, row, onlineSeconds);
@@ -673,12 +739,12 @@ function listPresence(token, dateKey) {
 function getPresenceSummary(token, dateKey) {
   const rows = listPresence(token, dateKey);
   return {
-    date_key:           dateKey || todayKey_(),
-    total_users:        rows.length,
-    online_now:         rows.filter(function(r) { return String(r.currently_online) === 'TRUE'; }).length,
-    total_connections:  rows.reduce(function(n, r) { return n + Number(r.connection_count    || 0); }, 0),
-    total_disconnections: rows.reduce(function(n, r) { return n + Number(r.disconnection_count || 0); }, 0),
-    total_online_seconds: rows.reduce(function(n, r) { return n + Number(r.online_seconds     || 0); }, 0),
+    date_key:              dateKey || todayKey_(),
+    total_users:           rows.length,
+    online_now:            rows.filter(function(r) { return String(r.currently_online) === 'TRUE'; }).length,
+    total_connections:     rows.reduce(function(n, r) { return n + Number(r.connection_count     || 0); }, 0),
+    total_disconnections:  rows.reduce(function(n, r) { return n + Number(r.disconnection_count  || 0); }, 0),
+    total_online_seconds:  rows.reduce(function(n, r) { return n + Number(r.online_seconds       || 0); }, 0),
     rows: rows
   };
 }
@@ -785,18 +851,18 @@ function authenticateUser(login, password, userAgent) {
 
   const token   = Utilities.getUuid().replace(/-/g, '') + '_' + new Date().getTime();
   const session = {
-    session_id:       nextId_('SES'),
-    token:            token,
-    user_id:          user.id,
-    login:            user.login,
-    role:             user.role,
-    team_id:          user.team_id || '',
-    started_at:       nowIso_(),
-    last_seen_at:     nowIso_(),
-    closed_at:        '',
-    status:           'ACTIVE',
+    session_id:        nextId_('SES'),
+    token:             token,
+    user_id:           user.id,
+    login:             user.login,
+    role:              user.role,
+    team_id:           user.team_id || '',
+    started_at:        nowIso_(),
+    last_seen_at:      nowIso_(),
+    closed_at:         '',
+    status:            'ACTIVE',
     disconnect_reason: '',
-    user_agent:       String(userAgent || '')
+    user_agent:        String(userAgent || '')
   };
 
   upsertRow_('SESSIONS', 'session_id', session);
@@ -815,7 +881,7 @@ function authenticateUser(login, password, userAgent) {
 
 function heartbeatSession(token, meta) {
   const session = requireSession_(token);
-  const row = readTable_('SESSIONS').find(function(s) { return s.session_id === session.session_id; });
+  const row     = readTable_('SESSIONS').find(function(s) { return s.session_id === session.session_id; });
   if (!row || row.status !== 'ACTIVE') throw new Error('Session introuvable ou fermée.');
 
   row.last_seen_at = nowIso_();
@@ -831,7 +897,7 @@ function heartbeatSession(token, meta) {
 
 function logoutUser(token, reason) {
   const session = requireSession_(token);
-  const row = readTable_('SESSIONS').find(function(s) { return s.session_id === session.session_id; });
+  const row     = readTable_('SESSIONS').find(function(s) { return s.session_id === session.session_id; });
   if (row && row.status === 'ACTIVE') finalizeSession_(row, reason || 'manual_logout');
   clearSessionCache_(token);
   return { ok: true };
@@ -842,42 +908,50 @@ function registerOfflineSignal(token) {
   catch (e) { return { ok: false, message: e.message }; }
 }
 // ============================================================
-// SECTION 8 — MENU, PERMISSIONS, LOOKUPS
+// SECTION 8 — MENU, PERMISSIONS, LOOKUPS, PARAMÈTRES
 // ============================================================
 
 function buildMenu_(role) {
   const common = [
-    { key: 'dashboard',   label: 'Dashboard'    },
-    { key: 'agrements',   label: 'Agrément'     },
-    { key: 'sinistres',   label: 'Sinistre'     },
-    { key: 'factures',    label: 'Facture'      },
-    { key: 'resiliations',label: 'Résiliation'  },
-    { key: 'presence',    label: 'Pointage'     },
-    { key: 'history',     label: 'Historique'   },
-    { key: 'connections', label: 'Connexions'   }
+    { key: 'dashboard',    label: 'Dashboard'    },
+    { key: 'agrements',    label: 'Agrément'     },
+    { key: 'sinistres',    label: 'Sinistre'     },
+    { key: 'factures',     label: 'Facture'      },
+    { key: 'resiliations', label: 'Résiliation'  },
+    { key: 'presence',     label: 'Pointage'     },
+    { key: 'history',      label: 'Historique'   },
+    { key: 'connections',  label: 'Connexions'   }
   ];
 
   if (role === ROLES.SUPER_ADMIN) {
     return [
-      { key: 'users',       label: 'Utilisateurs' },
-      { key: 'teams',       label: 'Équipes'      },
-      { key: 'coherences',  label: 'Cohérences'   }
+      { key: 'users',      label: 'Utilisateurs' },
+      { key: 'teams',      label: 'Équipes'      },
+      { key: 'coherences', label: 'Cohérences'   },
+      { key: 'parametres', label: 'Paramètres'   }
     ].concat(common);
   }
   if (role === ROLES.TEAM_LEADER) {
-    return [{ key: 'users', label: 'Mon équipe' }].concat(common);
+    return [
+      { key: 'users',              label: 'Mon équipe'       },
+      { key: 'factures_remontees', label: 'Dossiers remontés'},
+      { key: 'parametres',         label: 'Paramètres'       }
+    ].concat(common);
   }
   return common;
 }
 
 function buildPermissions_(role) {
   return {
-    canManageUsers:      role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
-    canManageTeams:      role === ROLES.SUPER_ADMIN,
-    canViewCoherences:   role === ROLES.SUPER_ADMIN,
-    canCreateAgrement:   true,
-    canCreateSinistre:   true,
-    canCreateFacture:    true,
+    canManageUsers:       role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
+    canManageTeams:       role === ROLES.SUPER_ADMIN,
+    canViewCoherences:    role === ROLES.SUPER_ADMIN,
+    canManageSettings:    role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
+    canVerifierFactures:  role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
+    canReassigner:        role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
+    canCreateAgrement:    true,
+    canCreateSinistre:    true,
+    canCreateFacture:     true,
     canCreateResiliation: true
   };
 }
@@ -889,45 +963,86 @@ function getLookups(token) {
 
   return {
     // Communs
-    userStatuses:          ENUMS.USER_STATUS,
+    userStatuses:           ENUMS.USER_STATUS,
     // Agrément
-    agrementStatuses:      ENUMS.AGREMENT_STATUS,
-    agrementTypes:         ENUMS.AGREMENT_TYPES,
-    typeClientOptions:     ENUMS.TYPE_CLIENT,
-    priorities:            ENUMS.PRIORITIES,
+    agrementStatuses:       getParametrableList_('AGREMENT_STATUS',        ENUMS.AGREMENT_STATUS),
+    agrementTypes:          ENUMS.AGREMENT_TYPES,
+    typeClientOptions:      ENUMS.TYPE_CLIENT,
+    priorities:             getParametrableList_('PRIORITIES',              ENUMS.PRIORITIES),
     motifValidationOptions: ENUMS.MOTIF_VALIDATION,
+    // Agrément v4
+    statutsPro:             getParametrableList_('STATUTS_PRO',            ENUMS.STATUTS_PRO),
+    compagnies:             getParametrableList_('COMPAGNIES',             ENUMS.COMPAGNIES),
+    statutsFinTraitement:   getParametrableList_('STATUTS_FIN_TRAITEMENT', ENUMS.STATUTS_FIN_TRAITEMENT),
     // Sinistre
-    sinistreSituations:    ENUMS.SINISTRE_SITUATIONS,
-    sinistreStatuts:       ENUMS.SINISTRE_STATUTS,
-    sinistreCompletude:    ENUMS.SINISTRE_COMPLETUDE,
+    sinistreSituations:     ENUMS.SINISTRE_SITUATIONS,
+    sinistreStatuts:        ENUMS.SINISTRE_STATUTS,
+    sinistreCompletude:     ENUMS.SINISTRE_COMPLETUDE,
     // Facture
-    factureStatuts:        ENUMS.FACTURE_STATUTS,
+    factureStatuts:         ENUMS.FACTURE_STATUTS,
     // Résiliation
-    resiliationOrigines:   ENUMS.RESILIATION_ORIGINES,
-    resiliationCompletude: ENUMS.RESILIATION_COMPLETUDE,
-    resiliationResil:      ENUMS.RESILIATION_RESIL,
-    resiliationStatuts:    ENUMS.RESILIATION_STATUTS,
+    resiliationOrigines:    ENUMS.RESILIATION_ORIGINES,
+    resiliationCompletude:  ENUMS.RESILIATION_COMPLETUDE,
+    resiliationResil:       ENUMS.RESILIATION_RESIL,
+    resiliationStatuts:     ENUMS.RESILIATION_STATUTS,
     // Entités
-    teams:        teams.map(publicTeam_),
-    users:        users.map(publicUser_),
-    teamLeaders:  users.filter(function(u) { return u.role === ROLES.TEAM_LEADER; }).map(publicUser_),
-    ambassadors:  users.filter(function(u) { return u.role === ROLES.AMBASSADOR;  }).map(publicUser_)
+    teams:       teams.map(publicTeam_),
+    users:       users.map(publicUser_),
+    teamLeaders: users.filter(function(u) { return u.role === ROLES.TEAM_LEADER; }).map(publicUser_),
+    ambassadors: users.filter(function(u) { return u.role === ROLES.AMBASSADOR;  }).map(publicUser_)
   };
+}
+
+// ── Paramètres personnalisables ───────────────────────────────
+
+/** Retourne tous les paramètres personnalisables */
+function getParametres(token) {
+  const session = requireSession_(token);
+  if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
+  return {
+    STATUTS_PRO:            getParametrableList_('STATUTS_PRO',            ENUMS.STATUTS_PRO),
+    COMPAGNIES:             getParametrableList_('COMPAGNIES',             ENUMS.COMPAGNIES),
+    STATUTS_FIN_TRAITEMENT: getParametrableList_('STATUTS_FIN_TRAITEMENT', ENUMS.STATUTS_FIN_TRAITEMENT),
+    AGREMENT_STATUS:        getParametrableList_('AGREMENT_STATUS',        ENUMS.AGREMENT_STATUS),
+    PRIORITIES:             getParametrableList_('PRIORITIES',             ENUMS.PRIORITIES)
+  };
+}
+
+/**
+ * Sauvegarde les paramètres personnalisables.
+ * Seules les clés autorisées sont acceptées.
+ */
+function saveParametres(token, payload) {
+  const session = requireSession_(token);
+  if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
+
+  const data    = payload || {};
+  const allowed = ['STATUTS_PRO', 'COMPAGNIES', 'STATUTS_FIN_TRAITEMENT', 'AGREMENT_STATUS', 'PRIORITIES'];
+
+  allowed.forEach(function(key) {
+    if (data[key] && Array.isArray(data[key]) && data[key].length > 0) {
+      setSetting_('PARAM_' + key, JSON.stringify(data[key]));
+      addAuditLog_(session, 'UPDATE_SETTINGS', 'SETTINGS', key,
+        'Mise à jour paramètre : ' + key, null, data[key]);
+    }
+  });
+
+  return getParametres(token);
 }
 // ============================================================
 // SECTION 9 — UTILISATEURS & ÉQUIPES
 // ============================================================
 
 function listUsers(token) {
-  const session    = requireSession_(token);
-  const users      = scopeUsers_(session, readTable_('USERS'));
-  const teamsById  = indexBy_(readTable_('TEAMS'), 'id');
-  const usersById  = indexBy_(readTable_('USERS'), 'id');
+  const session   = requireSession_(token);
+  const users     = scopeUsers_(session, readTable_('USERS'));
+  const teamsById = indexBy_(readTable_('TEAMS'), 'id');
+  const usersById = indexBy_(readTable_('USERS'), 'id');
 
   return users.map(function(user) {
-    const row            = publicUser_(user);
-    row.team_name        = teamsById[row.team_id]        ? teamsById[row.team_id].name             : '';
-    row.team_leader_name = usersById[row.team_leader_id] ? usersById[row.team_leader_id].full_name : '';
+    const row             = publicUser_(user);
+    row.team_name         = teamsById[row.team_id]        ? teamsById[row.team_id].name              : '';
+    row.team_leader_name  = usersById[row.team_leader_id] ? usersById[row.team_leader_id].full_name  : '';
     return row;
   }).sort(function(a, b) {
     return String(a.full_name || '').localeCompare(String(b.full_name || ''), 'fr');
@@ -1002,20 +1117,20 @@ function saveUser(token, payload) {
 
 // ── Équipes ───────────────────────────────────────────────────
 function listTeams(token) {
-  const session  = requireSession_(token);
-  const teams    = scopeTeams_(session, readTable_('TEAMS'));
-  const users    = readTable_('USERS');
+  const session   = requireSession_(token);
+  const teams     = scopeTeams_(session, readTable_('TEAMS'));
+  const users     = readTable_('USERS');
   const agrements = readTable_('AGREMENTS');
 
   return teams.map(function(team) {
     return {
-      id:              team.id,
-      name:            team.name,
-      team_leader_id:  team.team_leader_id,
+      id:               team.id,
+      name:             team.name,
+      team_leader_id:   team.team_leader_id,
       team_leader_name: (users.find(function(u) { return u.id === team.team_leader_id; }) || {}).full_name || '',
-      status:          team.status,
-      created_at:      team.created_at,
-      updated_at:      team.updated_at,
+      status:           team.status,
+      created_at:       team.created_at,
+      updated_at:       team.updated_at,
       ambassadors_count: users.filter(function(u) {
         return u.team_id === team.id && u.role === ROLES.AMBASSADOR;
       }).length,
@@ -1052,17 +1167,11 @@ function saveTeam(token, payload) {
   return publicTeam_(row);
 }
 // ============================================================
-// SECTION 10 — MODULE AGRÉMENT (ex-En étude)
+// SECTION 10 — MODULE AGRÉMENT v4
+// Multi-profils · Solvabilité overridable · Réassignation
 // ============================================================
 
-function normalizeDossierType_(value) {
-  return String(value || '').trim().toUpperCase();
-}
-
-function isActiveRule_(value) {
-  const v = String(value || '').toLowerCase();
-  return v === 'true' || v === '1' || v === 'oui' || v === 'actif';
-}
+// ── Cohérences (lecture seule depuis v4) ─────────────────────
 
 function listAgrementTypeTeamRules(token) {
   const session = requireSession_(token);
@@ -1086,27 +1195,179 @@ function listAgrementTypeTeamRules(token) {
     });
 }
 
-function assignTeamByTypeDossier_(typeDossier) {
+/**
+ * Version NON BLOQUANTE de la résolution équipe par type de dossier.
+ * Retourne '' si aucune règle n'est trouvée (ne lève pas d'erreur).
+ * Conservée pour info / fallback optionnel — la règle n'est plus imposée.
+ */
+function assignTeamByTypeDossierOptional_(typeDossier) {
   const dossierType = normalizeDossierType_(typeDossier);
   const rule = readTable_('AGREMENT_TYPE_TEAM_MAP').find(function(r) {
     return normalizeDossierType_(r.type_dossier) === dossierType && isActiveRule_(r.active);
   });
-  if (!rule) {
-    throw new Error('Aucune cohérence trouvée dans AGREMENT_TYPE_TEAM_MAP pour : ' + dossierType);
-  }
-  const teamId = String(rule.team_id || '').trim();
-  if (!teamId) throw new Error('La règle ' + dossierType + ' ne contient pas de team_id.');
-  const team = readTable_('TEAMS').find(function(t) { return t.id === teamId; });
-  if (!team) throw new Error('Équipe introuvable pour team_id = ' + teamId);
-  return teamId;
+  if (!rule) return '';
+  return String(rule.team_id || '').trim();
 }
 
+// ── Calculs solvabilité ───────────────────────────────────────
+
+/**
+ * Calcule le plafond de loyer pour UN SEUL profil.
+ *
+ * Hypothèses documentées :
+ *  - Retraité : règle métier à définir. Structure prête → plafond = 0 par défaut.
+ *               Pour brancher : remplacer le case 'Retraité' ci-dessous.
+ *  - TNS      : idem.
+ *  - CDD ALLIANZ ≥12 mois : 37 % de la moyenne net imposable (règle standard).
+ *               Si la règle officielle diffère, modifier le else du case 'CDD'/ALLIANZ.
+ *
+ * @param {Object} profile
+ * @returns {{ plafond, revenu_complementaire, plafond_avec_revenu, avg_net_imposable, ratio_used, details }}
+ */
+function calculateProfilePlafond_(profile) {
+  const statutPro  = String(profile.statut_pro  || '').trim();
+  const typeClient = String(profile.type_client || 'Locataire').trim();
+  const compagnie  = String(profile.compagnie   || '').trim();
+
+  const ni = [
+    Number(profile.net_imposable_1 !== undefined ? profile.net_imposable_1 : (profile.net_imposable && profile.net_imposable[0] || 0)),
+    Number(profile.net_imposable_2 !== undefined ? profile.net_imposable_2 : (profile.net_imposable && profile.net_imposable[1] || 0)),
+    Number(profile.net_imposable_3 !== undefined ? profile.net_imposable_3 : (profile.net_imposable && profile.net_imposable[2] || 0))
+  ];
+
+  const avgNI = average_(ni);
+
+  let plafond   = 0;
+  let ratioUsed = 0;
+  let details   = '';
+
+  switch (statutPro) {
+    case 'CDI':
+    case 'Fonctionnaire titulaire':
+      ratioUsed = typeClient === 'Garant' ? 0.33 : 0.37;
+      plafond   = avgNI * ratioUsed;
+      details   = statutPro + ' · ratio ' + (ratioUsed * 100).toFixed(0) + '% · base ' + avgNI.toFixed(2);
+      break;
+
+    case 'CDD':
+      if (compagnie === 'AXA') {
+        ratioUsed = 0.25;
+        plafond   = avgNI * 0.25;
+        details   = 'CDD AXA · 25% de ' + avgNI.toFixed(2);
+      } else if (compagnie === 'ALLIANZ') {
+        if (profile.cdd_moins_12_mois === true || String(profile.cdd_moins_12_mois) === 'true') {
+          ratioUsed = 0.37;
+          plafond   = (avgNI / 2) * 0.37;
+          details   = 'CDD ALLIANZ <12 mois · 37% de (net imposable/2) = ' + (avgNI / 2).toFixed(2);
+        } else {
+          // HYPOTHÈSE : CDD ALLIANZ ≥12 mois → règle standard 37 % de la moyenne net imposable
+          ratioUsed = 0.37;
+          plafond   = avgNI * 0.37;
+          details   = 'CDD ALLIANZ ≥12 mois · 37% de ' + avgNI.toFixed(2) + ' (hypothèse standard)';
+        }
+      } else {
+        // CDD sans compagnie identifiée → 37 % par défaut
+        ratioUsed = 0.37;
+        plafond   = avgNI * 0.37;
+        details   = 'CDD (défaut) · 37% de ' + avgNI.toFixed(2);
+      }
+      break;
+
+    case 'Étudiant':
+      // Étudiant → Garant obligatoire, ratio 33 %
+      ratioUsed = 0.33;
+      plafond   = avgNI * 0.33;
+      details   = 'Étudiant · Garant · 33% de ' + avgNI.toFixed(2);
+      break;
+
+    case 'Retraité':
+      // TODO: Brancher la règle métier ici quand disponible.
+      // HYPOTHÈSE : Plafond = 0 en attendant la définition officielle.
+      plafond = 0;
+      details = 'Retraité · règle en attente de définition (plafond = 0 par défaut)';
+      break;
+
+    case 'TNS':
+      // TODO: Brancher la règle métier ici quand disponible.
+      // HYPOTHÈSE : Plafond = 0 en attendant la définition officielle.
+      plafond = 0;
+      details = 'TNS · règle en attente de définition (plafond = 0 par défaut)';
+      break;
+
+    default:
+      plafond = 0;
+      details = 'Statut pro inconnu : ' + statutPro;
+  }
+
+  // Revenu complémentaire par profil (case à cocher)
+  const revComp = (
+    profile.revenu_complementaire === true ||
+    String(profile.revenu_complementaire) === 'true'
+  ) ? Number(profile.revenu_complementaire_montant || 0) : 0;
+
+  return {
+    plafond:                 plafond,
+    revenu_complementaire:   revComp,
+    plafond_avec_revenu:     plafond + revComp,
+    avg_net_imposable:       avgNI,
+    ratio_used:              ratioUsed,
+    details:                 details
+  };
+}
+
+/**
+ * Calcul multi-profils.
+ * Appelable depuis le front via rpc('calculateMultiProfileSolvabiliteServer', payload).
+ *
+ * @param {Object} payload
+ * @param {string} payload.type_client
+ * @param {string} payload.compagnie
+ * @param {number} payload.loyer
+ * @param {Array}  payload.profils
+ */
+function calculateMultiProfileSolvabiliteServer(payload) {
+  const typeClient = String(payload.type_client || 'Locataire').trim();
+  const compagnie  = String(payload.compagnie   || '').trim();
+  const loyer      = Number(payload.loyer        || 0);
+  const profils    = Array.isArray(payload.profils) ? payload.profils : [];
+
+  // Si un profil est Étudiant → tout le dossier passe en Garant
+  const forceGarant = profils.some(function(p) { return p.statut_pro === 'Étudiant'; });
+  const effectifTypeClient = forceGarant ? 'Garant' : typeClient;
+
+  const profileResults = profils.map(function(profil, idx) {
+    const p = Object.assign({}, profil, {
+      type_client: effectifTypeClient,
+      compagnie:   compagnie
+    });
+    const result = calculateProfilePlafond_(p);
+    return Object.assign({ profil_index: idx + 1, statut_pro: profil.statut_pro || '' }, result);
+  });
+
+  const plafondTotal = profileResults.reduce(function(sum, r) {
+    return sum + r.plafond_avec_revenu;
+  }, 0);
+
+  return {
+    profils_calculs:      profileResults,
+    plafond_total:        plafondTotal,
+    loyer:                loyer,
+    type_client_effectif: effectifTypeClient,
+    compagnie:            compagnie,
+    resultat:             loyer <= plafondTotal ? 'Solvable' : 'Non solvable'
+  };
+}
+
+/**
+ * Calcul mono-profil — rétro-compatibilité avec l'ancien formulaire.
+ * Le "net imposable" = brut dans l'ancien modèle.
+ */
 function calculateSolvabiliteServer(payload) {
-  const typeClient       = String(payload.type_client || '');
-  const netAPayer        = payload.net_a_payer        || [0, 0, 0];
-  const netAvantImpot    = payload.net_avant_impot     || [0, 0, 0];
-  const brut             = payload.brut                || [0, 0, 0];
-  const loyer            = Number(payload.loyer        || 0);
+  const typeClient    = String(payload.type_client || '');
+  const netAPayer     = payload.net_a_payer     || [0, 0, 0];
+  const netAvantImpot = payload.net_avant_impot || [0, 0, 0];
+  const brut          = payload.brut            || [0, 0, 0];
+  const loyer         = Number(payload.loyer    || 0);
 
   const moyenneNetAPayer     = average_(netAPayer);
   const moyenneNetAvantImpot = average_(netAvantImpot);
@@ -1118,60 +1379,87 @@ function calculateSolvabiliteServer(payload) {
   return {
     net_a_payer: netAPayer, net_avant_impot: netAvantImpot, brut: brut,
     loyer: loyer,
-    moyenne_net_a_payer: moyenneNetAPayer,
+    moyenne_net_a_payer:     moyenneNetAPayer,
     moyenne_net_avant_impot: moyenneNetAvantImpot,
-    moyenne_brut: moyenneBrut,
-    ratio_max: ratioMax, plafond_loyer: plafondLoyer, resultat: resultat
+    moyenne_brut:            moyenneBrut,
+    ratio_max:               ratioMax,
+    plafond_loyer:           plafondLoyer,
+    resultat:                resultat
   };
 }
+
+// ── Hydratation ───────────────────────────────────────────────
 
 function hydrateAgrementRow_(row, usersById, teamsById) {
   const netAPayer     = [Number(row.net_a_payer_1 || 0),     Number(row.net_a_payer_2 || 0),     Number(row.net_a_payer_3 || 0)];
   const netAvantImpot = [Number(row.net_avant_impot_1 || 0), Number(row.net_avant_impot_2 || 0), Number(row.net_avant_impot_3 || 0)];
-  const brut          = [Number(row.brut_1 || 0),             Number(row.brut_2 || 0),             Number(row.brut_3 || 0)];
-  const hasSolvabilite = netAPayer.some(function(v) { return v !== 0; }) || Number(row.loyer || 0) !== 0;
+  const brut          = [Number(row.brut_1 || 0),            Number(row.brut_2 || 0),            Number(row.brut_3 || 0)];
+  const hasSolvabilite = netAPayer.some(function(v) { return v !== 0; })
+    || Number(row.loyer || 0) !== 0
+    || Number(row.plafond_final || 0) !== 0;
 
-  row.ambassadeur_assigne_name = usersById[row.ambassadeur_assigne] ? usersById[row.ambassadeur_assigne].full_name : '';
-  row.equipe_name              = teamsById[row.equipe_id]           ? teamsById[row.equipe_id].name               : '';
+  row.ambassadeur_assigne_name    = usersById[row.ambassadeur_assigne]    ? usersById[row.ambassadeur_assigne].full_name    : '';
+  row.gestionnaire_plus_name      = usersById[row.gestionnaire_plus]      ? usersById[row.gestionnaire_plus].full_name      : '';
+  row.equipe_name                 = teamsById[row.equipe_id]              ? teamsById[row.equipe_id].name                  : '';
+  row.solvabilite_override_by_name = usersById[row.solvabilite_override_by]
+    ? usersById[row.solvabilite_override_by].full_name : '';
+
   row.solvabilite = hasSolvabilite ? {
-    net_a_payer: netAPayer, net_avant_impot: netAvantImpot, brut: brut,
+    net_a_payer:             netAPayer,
+    net_avant_impot:         netAvantImpot,
+    brut:                    brut,
     loyer:                   Number(row.loyer                   || 0),
     moyenne_net_a_payer:     Number(row.moyenne_net_a_payer     || 0),
     moyenne_net_avant_impot: Number(row.moyenne_net_avant_impot || 0),
     moyenne_brut:            Number(row.moyenne_brut            || 0),
     ratio_max:               Number(row.ratio_max               || 0),
     plafond_loyer:           Number(row.plafond_loyer           || 0),
-    resultat:                row.resultat_solvabilite           || ''
+    plafond_final:           Number(row.plafond_final           || 0),
+    resultat:                row.resultat_solvabilite           || '',
+    override:                String(row.solvabilite_override)   === 'TRUE',
+    override_commentaire:    row.solvabilite_commentaire        || '',
+    override_by_name:        row.solvabilite_override_by_name   || '',
+    override_at:             row.solvabilite_override_at        || ''
   } : null;
+
+  // Profils JSON
+  row.profils = safeParseJson_(row.profils_json, []);
+
   return row;
 }
 
+// ── Lecture ───────────────────────────────────────────────────
+
 function listAgrements(token, filters) {
-  const session    = requireSession_(token);
-  const f          = filters || {};
-  const usersById  = indexBy_(readTable_('USERS'),  'id');
-  const teamsById  = indexBy_(readTable_('TEAMS'),  'id');
+  const session   = requireSession_(token);
+  const f         = filters || {};
+  const usersById = indexBy_(readTable_('USERS'), 'id');
+  const teamsById = indexBy_(readTable_('TEAMS'), 'id');
 
   return scopeAgrements_(session, readTable_('AGREMENTS'))
-    .filter(function(r) { return !f.statut       || r.statut === f.statut; })
+    .filter(function(r) { return !f.statut       || r.statut       === f.statut;       })
     .filter(function(r) { return !f.type_dossier || normalizeDossierType_(r.type_dossier) === normalizeDossierType_(f.type_dossier); })
     .filter(function(r) { return !f.search       || JSON.stringify(r).toLowerCase().indexOf(String(f.search).toLowerCase()) > -1; })
     .map(function(r)    { return hydrateAgrementRow_(Object.assign({}, r), usersById, teamsById); })
     .sort(sortDescBy_('updated_at'));
 }
 
+// ── Validation ────────────────────────────────────────────────
+
 function validateAgrementPayload_(row) {
-  if (!row.type_dossier)       throw new Error('Le type de dossier est obligatoire.');
-  if (!row.priorite)           throw new Error('La priorité est obligatoire.');
-  if (!row.client)             throw new Error('Le client est obligatoire.');
-  if (!row.adresse)            throw new Error('L\'adresse est obligatoire.');
-  if (!row.type_client)        throw new Error('Le type de client est obligatoire.');
+  if (!row.type_dossier)        throw new Error('Le type de dossier est obligatoire.');
+  if (!row.priorite)            throw new Error('La priorité est obligatoire.');
+  if (!row.client)              throw new Error('Le client est obligatoire.');
+  if (!row.adresse)             throw new Error('L\'adresse est obligatoire.');
+  if (!row.type_client)         throw new Error('Le type de client est obligatoire.');
   if (!row.ambassadeur_assigne) throw new Error('L\'ambassadeur assigné est obligatoire.');
-  if (!row.statut)             throw new Error('Le statut est obligatoire.');
+  if (!row.statut)              throw new Error('Le statut est obligatoire.');
   if (row.statut === 'Validé' && !row.motif_validation) {
     throw new Error('Le motif Solvable / Non solvable est obligatoire lorsque le statut est Validé.');
   }
 }
+
+// ── Sauvegarde ────────────────────────────────────────────────
 
 function saveAgrement(token, payload) {
   const session  = requireSession_(token);
@@ -1183,60 +1471,111 @@ function saveAgrement(token, payload) {
     throw new Error('Accès refusé à cet agrément.');
   }
 
-  let ambassadeurAssigne = String(data.ambassadeur_assigne || (existing && existing.ambassadeur_assigne) || '').trim();
   const users = readTable_('USERS');
 
-  if (session.role === ROLES.TEAM_LEADER) {
-    const target = users.find(function(u) { return u.id === ambassadeurAssigne; });
-    if (ambassadeurAssigne && (!target || target.team_id !== session.user.team_id)) {
-      throw new Error('L\'ambassadeur sélectionné n\'appartient pas à votre équipe.');
+  // ── Assignation ambassadeur ────────────────────────────────
+  // Règle : ambassadeur auto-assigné à lui-même à la création
+  let ambassadeurAssigne = String(data.ambassadeur_assigne || (existing && existing.ambassadeur_assigne) || '').trim();
+
+  if (session.role === ROLES.AMBASSADOR) {
+    // L'ambassadeur ne peut pas se réassigner à quelqu'un d'autre
+    ambassadeurAssigne = existing ? existing.ambassadeur_assigne : session.user.id;
+  } else if (session.role === ROLES.TEAM_LEADER) {
+    // TL : peut assigner à n'importe quel ambassadeur de son équipe
+    if (ambassadeurAssigne) {
+      const target = users.find(function(u) { return u.id === ambassadeurAssigne; });
+      if (!target || target.team_id !== session.user.team_id) {
+        throw new Error('L\'ambassadeur sélectionné n\'appartient pas à votre équipe.');
+      }
     }
   }
-  if (session.role === ROLES.AMBASSADOR) {
-    ambassadeurAssigne = session.user.id;
+  // Super Admin : assignation libre
+
+  // ── Équipe déterminée par l'ambassadeur (règle v4) ─────────
+  // RÈGLE : La cohérence type_dossier → équipe N'EST PLUS BLOQUANTE.
+  // L'équipe = équipe de l'ambassadeur assigné.
+  let equipeId = existing ? (existing.equipe_id || '') : '';
+  if (ambassadeurAssigne) {
+    const amb = users.find(function(u) { return u.id === ambassadeurAssigne; });
+    if (amb && amb.team_id) equipeId = amb.team_id;
+  }
+  // Fallback non bloquant : si toujours vide, essayer la règle AGREMENT_TYPE_TEAM_MAP
+  if (!equipeId) {
+    equipeId = assignTeamByTypeDossierOptional_(
+      data.type_dossier || (existing && existing.type_dossier) || ''
+    );
   }
 
-  const equipeId       = assignTeamByTypeDossier_(data.type_dossier || (existing && existing.type_dossier) || '');
-  const statut         = String(data.statut || (existing && existing.statut) || 'Initié').trim();
+  // ── Type client : Garant forcé si profil Étudiant ──────────
+  let typeClient = String(data.type_client || (existing && existing.type_client) || 'Locataire').trim();
+  const profils  = Array.isArray(data.profils)
+    ? data.profils
+    : safeParseJson_(data.profils_json, []);
+
+  if (profils.some(function(p) { return String(p.statut_pro || '') === 'Étudiant'; })) {
+    typeClient = 'Garant';
+  }
+
+  // ── Statut / motif ─────────────────────────────────────────
+  const statut          = String(data.statut || (existing && existing.statut) || 'Initié').trim();
   const motifValidation = statut === 'Validé'
     ? String(data.motif_validation || (existing && existing.motif_validation) || '').trim()
     : '';
-  const solv = data.solvabilite || null;
-  const now  = nowIso_();
+
+  const solv    = data.solvabilite || null;
+  const now     = nowIso_();
 
   const row = Object.assign({}, existing || {}, {
-    id:         existing ? existing.id        : nextId_('AGR'),
-    reference:  existing ? existing.reference : nextReference_('AGR'),
-    type_dossier:       normalizeDossierType_(data.type_dossier || (existing && existing.type_dossier) || ''),
-    priorite:           String(data.priorite    || (existing && existing.priorite)    || 'Normale').trim(),
-    client:             String(data.client      || (existing && existing.client)      || '').trim(),
-    adresse:            String(data.adresse     || (existing && existing.adresse)     || '').trim(),
-    type_client:        String(data.type_client || (existing && existing.type_client) || '').trim(),
+    id:          existing ? existing.id        : nextId_('AGR'),
+    reference:   existing ? existing.reference : nextReference_('AGR'),
+    // Infos dossier
+    type_dossier:        normalizeDossierType_(data.type_dossier || (existing && existing.type_dossier) || ''),
+    no_dossier:          String(data.no_dossier || (existing && existing.no_dossier) || '').trim(),
+    priorite:            String(data.priorite   || (existing && existing.priorite)   || 'Normale').trim(),
+    client:              String(data.client     || (existing && existing.client)     || '').trim(),
+    adresse:             String(data.adresse    || (existing && existing.adresse)    || '').trim(),
+    type_client:         typeClient,
+    compagnie:           String(data.compagnie  || (existing && existing.compagnie)  || '').trim(),
+    // Assignation
     ambassadeur_assigne: ambassadeurAssigne,
+    gestionnaire_plus:   String(data.gestionnaire_plus || (existing && existing.gestionnaire_plus) || '').trim(),
     equipe_id:           equipeId,
-    statut:              statut,
-    motif_validation:    motifValidation,
-    net_a_payer_1:    solv ? Number(solv.net_a_payer[0] || 0)     : Number((existing && existing.net_a_payer_1)    || 0),
-    net_a_payer_2:    solv ? Number(solv.net_a_payer[1] || 0)     : Number((existing && existing.net_a_payer_2)    || 0),
-    net_a_payer_3:    solv ? Number(solv.net_a_payer[2] || 0)     : Number((existing && existing.net_a_payer_3)    || 0),
-    net_avant_impot_1: solv ? Number(solv.net_avant_impot[0] || 0) : Number((existing && existing.net_avant_impot_1) || 0),
-    net_avant_impot_2: solv ? Number(solv.net_avant_impot[1] || 0) : Number((existing && existing.net_avant_impot_2) || 0),
-    net_avant_impot_3: solv ? Number(solv.net_avant_impot[2] || 0) : Number((existing && existing.net_avant_impot_3) || 0),
-    brut_1:  solv ? Number(solv.brut[0] || 0) : Number((existing && existing.brut_1)  || 0),
-    brut_2:  solv ? Number(solv.brut[1] || 0) : Number((existing && existing.brut_2)  || 0),
-    brut_3:  solv ? Number(solv.brut[2] || 0) : Number((existing && existing.brut_3)  || 0),
-    loyer:                   solv ? Number(solv.loyer || 0)                   : Number((existing && existing.loyer)                   || 0),
+    // Statuts
+    statut:                   statut,
+    motif_validation:         motifValidation,
+    statut_fin_traitement:    String(data.statut_fin_traitement || (existing && existing.statut_fin_traitement) || '').trim(),
+    // Multi-profils
+    nombre_profils:   Number(data.nombre_profils || (existing && existing.nombre_profils) || 1),
+    profils_json:     profils.length ? JSON.stringify(profils) : (existing ? (existing.profils_json || '') : ''),
+    plafond_final:    Number(data.plafond_final  || (existing && existing.plafond_final)  || 0),
+    // Solvabilité legacy (mono-profil rétro-compat)
+    net_a_payer_1:    solv ? Number(solv.net_a_payer && solv.net_a_payer[0] || 0)     : Number((existing && existing.net_a_payer_1)    || 0),
+    net_a_payer_2:    solv ? Number(solv.net_a_payer && solv.net_a_payer[1] || 0)     : Number((existing && existing.net_a_payer_2)    || 0),
+    net_a_payer_3:    solv ? Number(solv.net_a_payer && solv.net_a_payer[2] || 0)     : Number((existing && existing.net_a_payer_3)    || 0),
+    net_avant_impot_1: solv ? Number(solv.net_avant_impot && solv.net_avant_impot[0] || 0) : Number((existing && existing.net_avant_impot_1) || 0),
+    net_avant_impot_2: solv ? Number(solv.net_avant_impot && solv.net_avant_impot[1] || 0) : Number((existing && existing.net_avant_impot_2) || 0),
+    net_avant_impot_3: solv ? Number(solv.net_avant_impot && solv.net_avant_impot[2] || 0) : Number((existing && existing.net_avant_impot_3) || 0),
+    brut_1: solv ? Number(solv.brut && solv.brut[0] || 0) : Number((existing && existing.brut_1) || 0),
+    brut_2: solv ? Number(solv.brut && solv.brut[1] || 0) : Number((existing && existing.brut_2) || 0),
+    brut_3: solv ? Number(solv.brut && solv.brut[2] || 0) : Number((existing && existing.brut_3) || 0),
+    loyer:                   solv ? Number(solv.loyer || 0) : Number((existing && existing.loyer) || 0),
     moyenne_net_a_payer:     solv ? Number(solv.moyenne_net_a_payer || 0)     : Number((existing && existing.moyenne_net_a_payer)     || 0),
     moyenne_net_avant_impot: solv ? Number(solv.moyenne_net_avant_impot || 0) : Number((existing && existing.moyenne_net_avant_impot) || 0),
     moyenne_brut:            solv ? Number(solv.moyenne_brut || 0)            : Number((existing && existing.moyenne_brut)            || 0),
     ratio_max:               solv ? Number(solv.ratio_max || 0)               : Number((existing && existing.ratio_max)               || 0),
     plafond_loyer:           solv ? Number(solv.plafond_loyer || 0)           : Number((existing && existing.plafond_loyer)           || 0),
     resultat_solvabilite:    solv ? String(solv.resultat || '')               : String((existing && existing.resultat_solvabilite)    || ''),
+    // Override solvabilité (non réinitialisé lors d'un simple save)
+    solvabilite_override:    String((existing && existing.solvabilite_override)    || 'FALSE'),
+    solvabilite_commentaire: String((existing && existing.solvabilite_commentaire) || ''),
+    solvabilite_override_by: String((existing && existing.solvabilite_override_by) || ''),
+    solvabilite_override_at: String((existing && existing.solvabilite_override_at) || ''),
+    // Audit
     created_by:  existing ? existing.created_by : session.user.id,
     updated_by:  session.user.id,
     created_at:  existing ? existing.created_at : now,
     updated_at:  now,
-    closed_at:   statut === 'Clos' ? ((existing && existing.closed_at) ? existing.closed_at : now) : ''
+    closed_at:   statut === 'Clos' ? ((existing && existing.closed_at) || now) : ''
   });
 
   validateAgrementPayload_(row);
@@ -1248,8 +1587,105 @@ function saveAgrement(token, payload) {
   const teamsById = indexBy_(readTable_('TEAMS'), 'id');
   return hydrateAgrementRow_(Object.assign({}, row), usersById, teamsById);
 }
+
+// ── Override solvabilité ──────────────────────────────────────
+
+/**
+ * Permet à l'ambassadeur (et au-dessus) de rectifier manuellement
+ * le statut de solvabilité avec commentaire obligatoire.
+ * Audit enregistré.
+ */
+function overrideSolvabilite(token, agrementId, newResultat, commentaire) {
+  const session  = requireSession_(token);
+  const rows     = readTable_('AGREMENTS');
+  const existing = rows.find(function(r) { return r.id === agrementId; });
+
+  if (!existing)                                    throw new Error('Agrément introuvable.');
+  if (!scopeAgrements_(session, [existing]).length) throw new Error('Accès refusé.');
+
+  const valid = ['Solvable', 'Non solvable'];
+  if (!valid.includes(newResultat))            throw new Error('Résultat de solvabilité invalide.');
+  if (!String(commentaire || '').trim())       throw new Error('Le commentaire est obligatoire pour modifier le statut de solvabilité.');
+
+  const oldResultat = existing.resultat_solvabilite;
+  const now         = nowIso_();
+
+  const row = Object.assign({}, existing, {
+    resultat_solvabilite:    newResultat,
+    solvabilite_override:    'TRUE',
+    solvabilite_commentaire: String(commentaire).trim(),
+    solvabilite_override_by: session.user.id,
+    solvabilite_override_at: now,
+    updated_by:              session.user.id,
+    updated_at:              now
+  });
+
+  upsertRow_('AGREMENTS', 'id', row);
+  addAuditLog_(session, 'OVERRIDE_SOLVABILITE', 'AGREMENT', agrementId,
+    'Solvabilité modifiée manuellement : ' + oldResultat + ' → ' + newResultat + ' | ' + commentaire,
+    { resultat_solvabilite: oldResultat },
+    { resultat_solvabilite: newResultat, commentaire: String(commentaire).trim() }
+  );
+
+  const usersById = indexBy_(readTable_('USERS'), 'id');
+  const teamsById = indexBy_(readTable_('TEAMS'), 'id');
+  return hydrateAgrementRow_(Object.assign({}, row), usersById, teamsById);
+}
+
+// ── Réassignation ─────────────────────────────────────────────
+
+/**
+ * Team Leader ou Admin peut réassigner un dossier à un autre ambassadeur.
+ * L'ambassadeur ne peut pas réassigner.
+ */
+function reassignerAgrement(token, agrementId, newAmbassadeurId) {
+  const session  = requireSession_(token);
+
+  if (session.role === ROLES.AMBASSADOR) {
+    throw new Error('Les ambassadeurs ne peuvent pas réassigner les dossiers.');
+  }
+
+  const rows     = readTable_('AGREMENTS');
+  const existing = rows.find(function(r) { return r.id === agrementId; });
+
+  if (!existing)                                    throw new Error('Agrément introuvable.');
+  if (!scopeAgrements_(session, [existing]).length) throw new Error('Accès refusé.');
+
+  const users  = readTable_('USERS');
+  const newAmb = users.find(function(u) { return u.id === newAmbassadeurId; });
+  if (!newAmb || newAmb.role !== ROLES.AMBASSADOR)  throw new Error('Ambassadeur introuvable.');
+
+  if (session.role === ROLES.TEAM_LEADER && newAmb.team_id !== session.user.team_id) {
+    throw new Error('L\'ambassadeur sélectionné n\'appartient pas à votre équipe.');
+  }
+
+  const oldAmb = existing.ambassadeur_assigne;
+  const now    = nowIso_();
+
+  // Équipe mise à jour selon le nouvel ambassadeur
+  const newEquipeId = newAmb.team_id || existing.equipe_id;
+
+  const row = Object.assign({}, existing, {
+    ambassadeur_assigne: newAmbassadeurId,
+    equipe_id:           newEquipeId,
+    updated_by:          session.user.id,
+    updated_at:          now
+  });
+
+  upsertRow_('AGREMENTS', 'id', row);
+  addAuditLog_(session, 'REASSIGN', 'AGREMENT', agrementId,
+    'Réassignation : ' + oldAmb + ' → ' + newAmbassadeurId,
+    { ambassadeur_assigne: oldAmb, equipe_id: existing.equipe_id },
+    { ambassadeur_assigne: newAmbassadeurId, equipe_id: newEquipeId }
+  );
+
+  const usersById = indexBy_(readTable_('USERS'), 'id');
+  const teamsById = indexBy_(readTable_('TEAMS'), 'id');
+  return hydrateAgrementRow_(Object.assign({}, row), usersById, teamsById);
+}
 // ============================================================
-// SECTION 11 — MODULE SINISTRE
+// SECTION 11 — MODULE SINISTRE v4
+// Commentaire · Historique · Re-traitement après mise à jour
 // ============================================================
 
 function listSinistres(token, filters) {
@@ -1266,6 +1702,7 @@ function listSinistres(token, filters) {
     .map(function(r) {
       r.created_by_name = usersById[r.created_by] ? usersById[r.created_by].full_name : '';
       r.delai_formate   = formatDelai_(r.delai_secondes);
+      r.historique      = safeParseJson_(r.historique_json, []);
       return r;
     })
     .sort(sortDescBy_('updated_at'));
@@ -1281,8 +1718,16 @@ function saveSinistre(token, payload) {
     throw new Error('Accès refusé à ce sinistre.');
   }
 
-  const noSinistre = String(data.no_sinistre || (existing && existing.no_sinistre) || '').trim();
-  const noContrat  = String(data.no_contrat  || (existing && existing.no_contrat)  || '').trim();
+  const wasTraite = existing && existing.statut === 'Traité';
+
+  // Règle : mise à jour d'un dossier traité → commentaire obligatoire
+  if (wasTraite && !String(data.commentaire || '').trim()) {
+    throw new Error('Un commentaire est obligatoire pour modifier un sinistre déjà traité.');
+  }
+
+  const noSinistre    = String(data.no_sinistre || (existing && existing.no_sinistre) || '').trim();
+  const noContrat     = String(data.no_contrat  || (existing && existing.no_contrat)  || '').trim();
+  const commentaire   = String(data.commentaire || (existing && existing.commentaire) || '').trim();
   if (!noSinistre) throw new Error('Le N° de sinistre est obligatoire.');
   if (!noContrat)  throw new Error('Le N° de contrat est obligatoire.');
 
@@ -1292,16 +1737,33 @@ function saveSinistre(token, payload) {
   // ── Règles métier situation & statut ──────────────────────
   let situation, statut;
 
-  if (completude === 'OK') {
+  if (wasTraite) {
+    // Dossier traité remis à jour → repasse en traitement
+    statut    = completude === 'OK' ? 'Complet' : 'Relance';
+    situation = 'Complément';
+  } else if (completude === 'OK') {
     statut    = 'Complet';
     situation = isNew ? 'Nouvelle déclaration' : 'Complément';
   } else if (completude === 'KO') {
     statut    = 'Relance';
-    situation = 'En attente';   // KO → toujours "En attente"
+    situation = 'En attente';
   } else {
-    // Pas encore de complétude renseignée
-    statut    = existing ? (existing.statut    || 'Relance')               : 'Relance';
+    statut    = existing ? (existing.statut    || 'Relance') : 'Relance';
     situation = isNew    ? 'Nouvelle déclaration' : (existing.situation || 'Complément');
+  }
+
+  // ── Historique des mises à jour ───────────────────────────
+  const historique = safeParseJson_(existing && existing.historique_json, []);
+  if (existing) {
+    historique.push({
+      timestamp:   nowIso_(),
+      user_id:     session.user.id,
+      user_name:   session.user.full_name,
+      action:      wasTraite ? 'MISE_A_JOUR_APRES_TRAITEMENT' : 'MISE_A_JOUR',
+      commentaire: commentaire,
+      old_statut:  existing.statut,
+      new_statut:  statut
+    });
   }
 
   const now = nowIso_();
@@ -1312,42 +1774,66 @@ function saveSinistre(token, payload) {
     no_contrat:    noContrat,
     date_reception: String(data.date_reception || (existing && existing.date_reception) || '').trim(),
     gestionnaire:   String(data.gestionnaire   || (existing && existing.gestionnaire)   || '').trim(),
+    commentaire:    commentaire,
     completude:     completude,
     situation:      situation,
     statut:         statut,
+    historique_json: JSON.stringify(historique),
     created_by:    existing ? existing.created_by : session.user.id,
     created_at:    existing ? existing.created_at : now,
     updated_at:    now,
-    traite_at:     existing ? (existing.traite_at     || '') : '',
-    delai_secondes: existing ? (existing.delai_secondes || 0) : 0
+    // Réinitialisation du traitement si remise en travail
+    traite_at:      wasTraite ? '' : (existing ? (existing.traite_at || '') : ''),
+    delai_secondes: wasTraite ? 0  : (existing ? (existing.delai_secondes || 0) : 0)
   });
 
   upsertRow_('SINISTRES', 'id', row);
-  addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'SINISTRE', row.id,
-    'Enregistrement sinistre', existing, row);
+  addAuditLog_(
+    session,
+    existing ? (wasTraite ? 'UPDATE_AFTER_TREATMENT' : 'UPDATE') : 'CREATE',
+    'SINISTRE', row.id,
+    wasTraite ? 'Sinistre remis en traitement après mise à jour' : 'Enregistrement sinistre',
+    existing, row
+  );
   return row;
 }
 
-// Clôture un sinistre et calcule le délai de traitement
+/**
+ * Clôture un sinistre et calcule le délai de traitement.
+ * Fonctionne aussi pour les dossiers remis en traitement après une mise à jour.
+ */
 function traiterSinistre(token, id) {
   const session  = requireSession_(token);
   const rows     = readTable_('SINISTRES');
   const existing = rows.find(function(r) { return r.id === id; });
 
-  if (!existing)                                        throw new Error('Sinistre introuvable.');
-  if (!scopeSinistres_(session, [existing]).length)     throw new Error('Accès refusé.');
-  if (existing.statut === 'Traité')                     throw new Error('Ce sinistre est déjà traité.');
+  if (!existing)                                    throw new Error('Sinistre introuvable.');
+  if (!scopeSinistres_(session, [existing]).length) throw new Error('Accès refusé.');
+  if (existing.statut === 'Traité')                 throw new Error('Ce sinistre est déjà traité. Faites une mise à jour avant de re-traiter.');
 
   const now       = nowIso_();
   const createdMs = parseDateMs_(existing.created_at);
   const nowMs     = parseDateMs_(now);
   const delai     = Math.max(0, Math.round((nowMs - createdMs) / 1000));
 
+  // Historique : enregistre l'action Traité
+  const historique = safeParseJson_(existing.historique_json, []);
+  historique.push({
+    timestamp:   now,
+    user_id:     session.user.id,
+    user_name:   session.user.full_name,
+    action:      'TRAITE',
+    commentaire: '',
+    old_statut:  existing.statut,
+    new_statut:  'Traité'
+  });
+
   const row = Object.assign({}, existing, {
-    statut:         'Traité',
-    traite_at:      now,
-    delai_secondes: delai,
-    updated_at:     now
+    statut:          'Traité',
+    traite_at:       now,
+    delai_secondes:  delai,
+    updated_at:      now,
+    historique_json: JSON.stringify(historique)
   });
 
   upsertRow_('SINISTRES', 'id', row);
@@ -1356,10 +1842,12 @@ function traiterSinistre(token, id) {
   const usersById = indexBy_(readTable_('USERS'), 'id');
   row.created_by_name = usersById[row.created_by] ? usersById[row.created_by].full_name : '';
   row.delai_formate   = formatDelai_(row.delai_secondes);
+  row.historique      = safeParseJson_(row.historique_json, []);
   return row;
 }
 // ============================================================
-// SECTION 12 — MODULE FACTURE
+// SECTION 12 — MODULE FACTURE v4
+// Étapes partielles · Workflow Remonté / Vérifié
 // ============================================================
 
 function listFactures(token, filters) {
@@ -1374,12 +1862,38 @@ function listFactures(token, filters) {
     })
     .map(function(r) {
       r.created_by_name = usersById[r.created_by] ? usersById[r.created_by].full_name : '';
+      r.verifie_par_name = usersById[r.verifie_par] ? usersById[r.verifie_par].full_name : '';
       r.delai_formate   = formatDelai_(r.delai_secondes);
       r.progression     = [r.etape_verification, r.etape_calcul, r.etape_reglement]
         .filter(function(v) { return String(v) === 'TRUE'; }).length;
       return r;
     })
-    .sort(sortDescBy_('updated_at'));
+    // Dossiers Vérifié remontent en tête de liste
+    .sort(function(a, b) {
+      const av = String(a.verifie_badge) === 'TRUE' ? 1 : 0;
+      const bv = String(b.verifie_badge) === 'TRUE' ? 1 : 0;
+      if (bv !== av) return bv - av;
+      return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
+    });
+}
+
+/** Liste uniquement les dossiers en statut "Remonté" (pour Team Leaders / Admin) */
+function listFacturesRemontees(token) {
+  const session   = requireSession_(token);
+  if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
+
+  const usersById = indexBy_(readTable_('USERS'), 'id');
+
+  return scopeFactures_(session, readTable_('FACTURES'))
+    .filter(function(r) { return r.statut === 'Remonté'; })
+    .map(function(r) {
+      r.created_by_name = usersById[r.created_by] ? usersById[r.created_by].full_name : '';
+      r.delai_formate   = formatDelai_(r.delai_secondes);
+      r.progression     = [r.etape_verification, r.etape_calcul, r.etape_reglement]
+        .filter(function(v) { return String(v) === 'TRUE'; }).length;
+      return r;
+    })
+    .sort(sortDescBy_('remonte_at'));
 }
 
 function saveFacture(token, payload) {
@@ -1409,11 +1923,16 @@ function saveFacture(token, payload) {
     etape_reglement: data.etape_reglement !== undefined
       ? toBool_(data.etape_reglement)
       : (existing ? (existing.etape_reglement || 'FALSE') : 'FALSE'),
+    commentaire_traitement: String(data.commentaire_traitement || (existing && existing.commentaire_traitement) || '').trim(),
     statut:        existing ? (existing.statut || 'En cours') : 'En cours',
+    verifie_badge: existing ? (existing.verifie_badge || 'FALSE') : 'FALSE',
+    verifie_at:    existing ? (existing.verifie_at    || '')      : '',
+    verifie_par:   existing ? (existing.verifie_par   || '')      : '',
+    remonte_at:    existing ? (existing.remonte_at    || '')      : '',
     created_by:    existing ? existing.created_by : session.user.id,
     created_at:    existing ? existing.created_at : now,
     updated_at:    now,
-    traite_at:     existing ? (existing.traite_at     || '') : '',
+    traite_at:      existing ? (existing.traite_at     || '') : '',
     delai_secondes: existing ? (existing.delai_secondes || 0) : 0
   });
 
@@ -1423,30 +1942,66 @@ function saveFacture(token, payload) {
   return row;
 }
 
-// Clôture une facture (toutes les étapes doivent être cochées)
-function traiterFacture(token, id) {
+/**
+ * Traite ou remonte une facture.
+ *
+ * Logique :
+ *  1. Toutes les étapes cochées → traitement direct (statut = Traité)
+ *  2. Dossier Vérifié par TL → traitement autorisé même si étapes incomplètes
+ *  3. Étapes incomplètes sans vérification → commentaire obligatoire → statut = Remonté
+ *
+ * @param {string}  token
+ * @param {string}  id
+ * @param {Object}  options         - { commentaire }
+ */
+function traiterFacture(token, id, options) {
   const session  = requireSession_(token);
   const rows     = readTable_('FACTURES');
   const existing = rows.find(function(r) { return r.id === id; });
+  const opts     = options || {};
 
-  if (!existing)                                     throw new Error('Facture introuvable.');
-  if (!scopeFactures_(session, [existing]).length)   throw new Error('Accès refusé.');
-  if (existing.statut === 'Traité')                  throw new Error('Cette facture est déjà traitée.');
+  if (!existing)                                    throw new Error('Facture introuvable.');
+  if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
+  if (existing.statut === 'Traité')                 throw new Error('Cette facture est déjà traitée.');
 
-  if (
-    String(existing.etape_verification) !== 'TRUE' ||
-    String(existing.etape_calcul)       !== 'TRUE' ||
-    String(existing.etape_reglement)    !== 'TRUE'
-  ) {
-    throw new Error('Les 3 étapes doivent être complétées avant de clôturer la facture.');
+  const veri      = String(existing.etape_verification) === 'TRUE';
+  const calc      = String(existing.etape_calcul)        === 'TRUE';
+  const regl      = String(existing.etape_reglement)     === 'TRUE';
+  const allDone   = veri && calc && regl;
+  const isVerifie = String(existing.verifie_badge)       === 'TRUE';
+  const commentaire = String(opts.commentaire || '').trim();
+
+  // Cas 3 : étapes incomplètes, pas encore vérifiée → Remonté
+  if (!allDone && !isVerifie) {
+    if (!commentaire) {
+      throw new Error('Un commentaire est obligatoire pour justifier les étapes non complétées.');
+    }
+    const now_r = nowIso_();
+    const row_r = Object.assign({}, existing, {
+      commentaire_traitement: commentaire,
+      statut:     'Remonté',
+      remonte_at: now_r,
+      updated_at: now_r
+    });
+    upsertRow_('FACTURES', 'id', row_r);
+    addAuditLog_(session, 'REMONTE', 'FACTURE', row_r.id,
+      'Facture remontée pour vérification TL. Commentaire : ' + commentaire, existing, row_r);
+    const uid_r = indexBy_(readTable_('USERS'), 'id');
+    row_r.created_by_name = uid_r[row_r.created_by] ? uid_r[row_r.created_by].full_name : '';
+    row_r.delai_formate   = formatDelai_(row_r.delai_secondes);
+    row_r.progression     = [row_r.etape_verification, row_r.etape_calcul, row_r.etape_reglement]
+      .filter(function(v) { return String(v) === 'TRUE'; }).length;
+    return Object.assign(row_r, { is_remonte: true });
   }
 
+  // Cas 1 & 2 : traitement final
   const now       = nowIso_();
   const createdMs = parseDateMs_(existing.created_at);
   const nowMs     = parseDateMs_(now);
   const delai     = Math.max(0, Math.round((nowMs - createdMs) / 1000));
 
   const row = Object.assign({}, existing, {
+    commentaire_traitement: commentaire || (existing.commentaire_traitement || ''),
     statut:         'Traité',
     traite_at:      now,
     delai_secondes: delai,
@@ -1454,16 +2009,60 @@ function traiterFacture(token, id) {
   });
 
   upsertRow_('FACTURES', 'id', row);
-  addAuditLog_(session, 'UPDATE', 'FACTURE', row.id, 'Facture traitée', existing, row);
+  addAuditLog_(session, 'TRAITE', 'FACTURE', row.id,
+    isVerifie ? 'Facture traitée (après vérification TL)' : 'Facture traitée',
+    existing, row);
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
-  row.created_by_name = usersById[row.created_by] ? usersById[row.created_by].full_name : '';
-  row.delai_formate   = formatDelai_(row.delai_secondes);
-  row.progression     = 3;
+  row.created_by_name  = usersById[row.created_by]  ? usersById[row.created_by].full_name  : '';
+  row.verifie_par_name = usersById[row.verifie_par] ? usersById[row.verifie_par].full_name : '';
+  row.delai_formate    = formatDelai_(row.delai_secondes);
+  row.progression      = 3;
+  return row;
+}
+
+/**
+ * Vérification d'un dossier remonté par un Team Leader ou Admin.
+ * Après vérification : statut = 'Vérifié', verifie_badge = 'TRUE'.
+ * Le dossier revient dans la liste Factures et remonte en tête.
+ */
+function verifierFacture(token, id) {
+  const session  = requireSession_(token);
+
+  if (session.role === ROLES.AMBASSADOR) {
+    throw new Error('Seuls les Team Leaders et Admins peuvent vérifier les factures.');
+  }
+
+  const rows     = readTable_('FACTURES');
+  const existing = rows.find(function(r) { return r.id === id; });
+
+  if (!existing)                                    throw new Error('Facture introuvable.');
+  if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
+  if (existing.statut !== 'Remonté')                throw new Error('Cette facture n\'est pas en statut "Remonté".');
+
+  const now = nowIso_();
+  const row = Object.assign({}, existing, {
+    statut:       'Vérifié',
+    verifie_badge: 'TRUE',
+    verifie_at:   now,
+    verifie_par:  session.user.id,
+    updated_at:   now
+  });
+
+  upsertRow_('FACTURES', 'id', row);
+  addAuditLog_(session, 'VERIFIE', 'FACTURE', row.id,
+    'Facture vérifiée par ' + session.user.full_name, existing, row);
+
+  const usersById = indexBy_(readTable_('USERS'), 'id');
+  row.created_by_name  = usersById[row.created_by]  ? usersById[row.created_by].full_name  : '';
+  row.verifie_par_name = usersById[row.verifie_par] ? usersById[row.verifie_par].full_name : '';
+  row.delai_formate    = formatDelai_(row.delai_secondes);
+  row.progression      = [row.etape_verification, row.etape_calcul, row.etape_reglement]
+    .filter(function(v) { return String(v) === 'TRUE'; }).length;
   return row;
 }
 // ============================================================
-// SECTION 13 — MODULE RÉSILIATION
+// SECTION 13 — MODULE RÉSILIATION (inchangé)
 // ============================================================
 
 function listResiliations(token, filters) {
@@ -1525,42 +2124,34 @@ function saveResiliation(token, payload) {
   return row;
 }
 
-// Soumet une résiliation avec calcul du délai et transition de statut
 function soumettreResiliation(token, id, payload) {
   const session  = requireSession_(token);
   const rows     = readTable_('RESILIATIONS');
   const existing = rows.find(function(r) { return r.id === id; });
 
-  if (!existing)                                          throw new Error('Résiliation introuvable.');
-  if (!scopeResiliations_(session, [existing]).length)    throw new Error('Accès refusé.');
-  if (existing.statut === 'Traité')                       throw new Error('Cette résiliation est déjà traitée.');
+  if (!existing)                                        throw new Error('Résiliation introuvable.');
+  if (!scopeResiliations_(session, [existing]).length)  throw new Error('Accès refusé.');
+  if (existing.statut === 'Traité')                     throw new Error('Cette résiliation est déjà traitée.');
 
   const data        = payload || {};
   const completude  = String(data.completude  || existing.completude  || '').trim();
   const resil       = String(data.resil       || existing.resil       || '').trim();
   const commentaire = String(data.commentaire || existing.commentaire || '').trim();
 
-  // ── Validation métier ─────────────────────────────────────
-  if (!completude) throw new Error('La complétude est obligatoire.');
-  if (completude === 'OK' && !resil) throw new Error('Le résultat Résil est obligatoire.');
+  if (!completude)                                     throw new Error('La complétude est obligatoire.');
+  if (completude === 'OK' && !resil)                   throw new Error('Le résultat Résil est obligatoire.');
   if (completude === 'OK' && resil === 'Résil KO' && !commentaire) {
     throw new Error('Le commentaire est obligatoire quand Résil = KO.');
   }
 
-  // ── Statut résultant ──────────────────────────────────────
   let statut;
-  if (completude === 'KO') {
-    statut = 'Relance';
-  } else if (completude === 'OK' && resil) {
-    statut = 'Traité';
-  } else {
-    statut = 'En cours';
-  }
+  if (completude === 'KO')              statut = 'Relance';
+  else if (completude === 'OK' && resil) statut = 'Traité';
+  else                                   statut = 'En cours';
 
   const now       = nowIso_();
   const createdMs = parseDateMs_(existing.created_at);
-  const nowMs     = parseDateMs_(now);
-  const delai     = Math.max(0, Math.round((nowMs - createdMs) / 1000));
+  const delai     = Math.max(0, Math.round((parseDateMs_(now) - createdMs) / 1000));
 
   const row = Object.assign({}, existing, {
     completude:   completude,
@@ -1604,7 +2195,7 @@ function buildTeamPerformance_() {
     return {
       equipe:              team.name,
       ambassadeurs:        users.filter(function(u) { return u.team_id === team.id && u.role === ROLES.AMBASSADOR; }).length,
-      agréments_ouverts:  agrements.filter(function(d) { return d.equipe_id === team.id && d.statut !== 'Clos'; }).length
+      'agréments_ouverts': agrements.filter(function(d) { return d.equipe_id === team.id && d.statut !== 'Clos'; }).length
     };
   }).sort(function(a, b) { return b['agréments_ouverts'] - a['agréments_ouverts']; });
 }
@@ -1615,16 +2206,16 @@ function buildAmbassadorPerformance_(session) {
 
   return users.map(function(user) {
     return {
-      nom:                user.full_name,
-      agréments_ouverts: agrements.filter(function(d) { return d.ambassadeur_assigne === user.id && d.statut !== 'Clos'; }).length,
-      validés:            agrements.filter(function(d) { return d.ambassadeur_assigne === user.id && d.statut === 'Validé'; }).length
+      nom:                 user.full_name,
+      'agréments_ouverts': agrements.filter(function(d) { return d.ambassadeur_assigne === user.id && d.statut !== 'Clos'; }).length,
+      validés:             agrements.filter(function(d) { return d.ambassadeur_assigne === user.id && d.statut === 'Validé'; }).length
     };
   }).sort(function(a, b) { return b['agréments_ouverts'] - a['agréments_ouverts']; });
 }
 
 function buildModuleStats_(session) {
-  const sinistres   = scopeSinistres_(session,   readTable_('SINISTRES'));
-  const factures    = scopeFactures_(session,    readTable_('FACTURES'));
+  const sinistres    = scopeSinistres_(session,    readTable_('SINISTRES'));
+  const factures     = scopeFactures_(session,     readTable_('FACTURES'));
   const resiliations = scopeResiliations_(session, readTable_('RESILIATIONS'));
 
   return {
@@ -1635,9 +2226,11 @@ function buildModuleStats_(session) {
       traites:  sinistres.filter(function(r) { return r.statut === 'Traité';   }).length
     },
     facture: {
-      total:    factures.length,
-      en_cours: factures.filter(function(r) { return r.statut === 'En cours'; }).length,
-      traites:  factures.filter(function(r) { return r.statut === 'Traité';   }).length
+      total:     factures.length,
+      en_cours:  factures.filter(function(r) { return r.statut === 'En cours';  }).length,
+      remontees: factures.filter(function(r) { return r.statut === 'Remonté';   }).length,
+      verifiees: factures.filter(function(r) { return r.statut === 'Vérifié';   }).length,
+      traites:   factures.filter(function(r) { return r.statut === 'Traité';    }).length
     },
     resiliation: {
       total:    resiliations.length,
@@ -1651,8 +2244,6 @@ function buildModuleStats_(session) {
 function getDashboardData(token) {
   const session  = requireSession_(token);
   const presence = getPresenceSummary(token, todayKey_());
-
-  // Présence ambassadeurs pour le dashboard (scoped)
   const ambassadorPresence = presence.rows.filter(function(r) { return r.role === ROLES.AMBASSADOR; });
   const moduleStats        = buildModuleStats_(session);
 
@@ -1668,8 +2259,8 @@ function getDashboardData(token) {
         { label: 'Équipes',                value: teams.length,                                                               tone: 'neutral' },
         { label: 'Agréments ouverts',      value: agrements.filter(function(d) { return d.statut !== 'Clos'; }).length,      tone: 'warning' },
         { label: 'Agréments validés',      value: agrements.filter(function(d) { return d.statut === 'Validé'; }).length,    tone: 'success' },
-        { label: 'Sinistres actifs',       value: moduleStats.sinistre.total   - moduleStats.sinistre.traites,                tone: 'warning' },
-        { label: 'Factures en cours',      value: moduleStats.facture.en_cours,                                               tone: 'warning' },
+        { label: 'Sinistres actifs',       value: moduleStats.sinistre.total - moduleStats.sinistre.traites,                  tone: 'warning' },
+        { label: 'Factures remontées',     value: moduleStats.facture.remontees,                                              tone: 'danger'  },
         { label: 'Connexions du jour',     value: presence.total_connections,                                                 tone: 'primary' },
         { label: 'Déconnexions du jour',   value: presence.total_disconnections,                                              tone: 'danger'  }
       ],
@@ -1692,7 +2283,8 @@ function getDashboardData(token) {
         { label: 'En attente',          value: agrements.filter(function(d) { return d.statut === 'En attente de traitement'; }).length,         tone: 'warning' },
         { label: 'En cours',            value: agrements.filter(function(d) { return d.statut === 'En cours de traitement'; }).length,           tone: 'warning' },
         { label: 'Validés',             value: agrements.filter(function(d) { return d.statut === 'Validé'; }).length,                           tone: 'success' },
-        { label: 'Connexions du jour',  value: presence.total_connections,                                                                        tone: 'primary' }
+        { label: 'Factures remontées',  value: moduleStats.facture.remontees,                                                                    tone: 'danger'  },
+        { label: 'Connexions du jour',  value: presence.total_connections,                                                                       tone: 'primary' }
       ],
       statusBreakdown:    buildStatusBreakdown_(agrements, 'statut'),
       performance:        buildAmbassadorPerformance_(session),

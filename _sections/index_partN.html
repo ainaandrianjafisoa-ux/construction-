@@ -1,0 +1,102 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PART N — Historique & Connexions
+═══════════════════════════════════════════════════════════════ */
+
+/* ═══ HISTORIQUE (audit log) ═══════════════════════════════ */
+function renderHistorique() {
+  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  google.script.run
+    .withSuccessHandler(paintHistorique)
+    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .listAuditLogs(S.token, { limit: 200 });
+}
+
+function paintHistorique(rows) {
+  rows = rows || [];
+  var html = '<div class="card">';
+  html += '<div class="card-head">';
+  html += '<span class="fw8">Historique des actions</span>';
+  html += '<span class="chip t-muted">' + rows.length + ' entrées</span>';
+  html += '</div>';
+
+  if (!rows.length) {
+    html += '<div class="empty">Aucun enregistrement.</div></div>';
+    el('content').innerHTML = html;
+    return;
+  }
+
+  html += buildTable(
+    ['Date', 'Utilisateur', 'Action', 'Module', 'ID entité', 'Détail'],
+    rows,
+    function(r) {
+      var actionTone = {
+        CREATE:   'cp',
+        UPDATE:   'cw',
+        DELETE:   'cd',
+        LOGIN:    'cs',
+        LOGOUT:   '',
+        OVERRIDE: 'cg'
+      }[r.action] || '';
+      return '<tr>' +
+        '<td class="fs-sm t-muted">' + fmtDateTime(r.timestamp) + '</td>' +
+        '<td class="fw7">' + escHtml(r.user_name || r.user_id || '—') + '</td>' +
+        '<td><span class="chip ' + actionTone + '">' + escHtml(r.action || '—') + '</span></td>' +
+        '<td class="fs-sm">' + escHtml(r.entity_type || '—') + '</td>' +
+        '<td class="fs-xs t-muted" style="font-family:monospace;">' + escHtml(r.entity_id || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.description || '—') + '</td>' +
+        '</tr>';
+    }
+  );
+
+  html += '</div>';
+  el('content').innerHTML = html;
+}
+
+/* ═══ CONNEXIONS ════════════════════════════════════════════ */
+function renderConnexions() {
+  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  google.script.run
+    .withSuccessHandler(paintConnexions)
+    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .listSessions(S.token, { limit: 150 });
+}
+
+function paintConnexions(rows) {
+  rows = rows || [];
+  var html = '<div class="card">';
+  html += '<div class="card-head">';
+  html += '<span class="fw8">Journaux de connexion</span>';
+  html += '<span class="chip t-muted">' + rows.length + ' entrées</span>';
+  html += '</div>';
+
+  if (!rows.length) {
+    html += '<div class="empty">Aucun journal.</div></div>';
+    el('content').innerHTML = html;
+    return;
+  }
+
+  html += buildTable(
+    ['Utilisateur', 'Rôle', 'Connexion', 'Déconnexion', 'Durée', 'IP / Agent'],
+    rows,
+    function(r) {
+      var duration = '';
+      if (r.connected_at && r.disconnected_at) {
+        var ms = new Date(r.disconnected_at) - new Date(r.connected_at);
+        duration = fmtDuration(Math.round(ms / 1000));
+      }
+      return '<tr>' +
+        '<td class="fw7">' + escHtml(r.user_name || r.user_id || '—') + '</td>' +
+        '<td class="fs-sm">' + escHtml(r.role || '—') + '</td>' +
+        '<td class="fs-sm">' + fmtDateTime(r.connected_at) + '</td>' +
+        '<td class="fs-sm t-muted">' + (r.disconnected_at ? fmtDateTime(r.disconnected_at) : '<span class="online-badge on" style="font-size:.72rem;">Actif</span>') + '</td>' +
+        '<td class="fs-sm">' + (duration || '—') + '</td>' +
+        '<td class="fs-xs t-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(r.user_agent || r.ip || '—') + '</td>' +
+        '</tr>';
+    }
+  );
+
+  html += '</div>';
+  el('content').innerHTML = html;
+}
+</script>

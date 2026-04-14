@@ -1,0 +1,535 @@
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BOOT
+════════════════════════════════════════════════════════════ -->
+<div id="boot" class="boot">
+  <div class="card-boot">
+    <div class="brand">
+      <div class="brand-mark">SL</div>
+      <div>
+        <strong>Syndic Ledger</strong>
+        <small>Initialisation…</small>
+      </div>
+    </div>
+    <div class="progress"><span></span></div>
+    <p id="boot-msg" class="sub" style="margin-top:14px;font-size:.84rem;">Chargement en cours…</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LOGIN
+════════════════════════════════════════════════════════════ -->
+<div id="login" class="login hidden">
+  <div class="card-login">
+    <div class="brand">
+      <div class="brand-mark">SL</div>
+      <div>
+        <strong>Syndic Ledger</strong>
+        <small>Plateforme de gestion</small>
+      </div>
+    </div>
+    <h2 class="hero-title">Connexion</h2>
+    <p class="sub" style="margin-bottom:22px;">Accédez à votre espace de gestion.</p>
+
+    <div id="login-err" class="info-box danger hidden" style="margin-bottom:14px;">
+      <span>⚠</span><span id="login-err-msg"></span>
+    </div>
+
+    <div class="grid" style="gap:14px;">
+      <div class="field">
+        <label for="login-user">Identifiant</label>
+        <input type="text" id="login-user" placeholder="Votre identifiant" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="login-pass">Mot de passe</label>
+        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+      </div>
+    </div>
+
+    <button class="b1 save-btn" id="btn-login" style="width:100%;margin-top:18px;">
+      <span class="label">Se connecter</span>
+      <span class="spinner hidden"><i></i></span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SHELL (app)
+════════════════════════════════════════════════════════════ -->
+<div id="app" class="shell hidden">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">SL</div>
+      <div>
+        <strong>Syndic Ledger</strong>
+        <small id="sb-scope"></small>
+      </div>
+    </div>
+
+    <nav class="nav" id="main-nav">
+      <!-- Buttons injected by JS -->
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar" id="sb-avatar">?</div>
+      <div class="user-info">
+        <div class="user-name" id="sb-name">—</div>
+        <div class="user-role" id="sb-role">—</div>
+      </div>
+      <span class="ver-chip" id="sb-ver">v1</span>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+
+    <!-- Top bar -->
+    <div class="top">
+      <div>
+        <h1 id="top-title">Tableau de bord</h1>
+        <p class="sub" id="top-sub" style="margin:0;font-size:.8rem;"></p>
+      </div>
+      <div class="row" style="gap:8px;flex-shrink:0;">
+        <button class="theme-toggle" id="btn-theme" title="Basculer thème">☀</button>
+        <button class="b3 fs-sm" id="btn-logout" style="min-height:36px;padding:0 14px;">Déconnexion</button>
+      </div>
+    </div>
+
+    <!-- Content area -->
+    <div id="content" class="content"></div>
+
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODALES
+════════════════════════════════════════════════════════════ -->
+
+<!-- ── Modal Agrément ── -->
+<div id="modal-agrement" class="overlay hidden">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <div>
+        <h2 id="mag-title">Nouveau dossier agrément</h2>
+        <div class="sub" id="mag-ref"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-agrement')">✕</button>
+    </div>
+
+    <div class="modal-scroll" id="mag-scroll">
+      <!-- Section 1 : Infos dossier -->
+      <div class="sec-title">Informations dossier</div>
+      <div class="g2">
+        <div class="field">
+          <label>N° dossier</label>
+          <input type="text" id="mag-no-dossier" placeholder="Ex : DOS-2024-001">
+        </div>
+        <div class="field">
+          <label>Compagnie</label>
+          <select id="mag-compagnie"></select>
+        </div>
+      </div>
+      <div class="g3" style="margin-top:12px;">
+        <div class="field">
+          <label>Type dossier</label>
+          <select id="mag-type-dossier">
+            <option value="">— Sélectionner —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Type client</label>
+          <select id="mag-type-client">
+            <option value="Locataire">Locataire</option>
+            <option value="Garant">Garant</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Priorité</label>
+          <select id="mag-priority">
+            <option value="">— Priorité —</option>
+          </select>
+        </div>
+      </div>
+      <div class="g2" style="margin-top:12px;">
+        <div class="field">
+          <label>Ambassadeur assigné</label>
+          <select id="mag-ambassadeur">
+            <option value="">— Auto —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Gestionnaire Plus (optionnel)</label>
+          <input type="text" id="mag-gestionnaire-plus" placeholder="Nom gestionnaire +">
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Loyer mensuel (€)</label>
+        <input type="number" id="mag-loyer" placeholder="0.00" min="0" step="0.01">
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Section 2 : Nombre de profils -->
+      <div class="sec-title">Profils</div>
+      <div class="g2">
+        <div class="field">
+          <label>Nombre de profils</label>
+          <select id="mag-nb-profils">
+            <option value="1">1 profil</option>
+            <option value="2">2 profils</option>
+            <option value="3">3 profils</option>
+            <option value="4">4 profils</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Onglets profils -->
+      <div class="profil-tabs" id="mag-profil-tabs" style="margin-top:14px;"></div>
+
+      <!-- Profil forms (dynamiques) -->
+      <div id="mag-profil-forms"></div>
+
+      <!-- Solvabilité summary -->
+      <div id="mag-solv-summary" class="hidden">
+        <div class="divider"></div>
+        <div class="sec-title">Synthèse solvabilité</div>
+        <div class="profils-summary" id="mag-profils-summary-strip"></div>
+        <div class="calc-total" id="mag-calc-total">
+          <span>Plafond total</span>
+          <span class="val" id="mag-total-val">—</span>
+        </div>
+        <div id="mag-solv-band" class="solv-band hidden"></div>
+        <!-- Override -->
+        <div id="mag-override-zone" class="override-zone hidden">
+          <div class="override-title">⚠ Dérogation solvabilité</div>
+          <div class="g2">
+            <div class="field">
+              <label>Nouveau résultat</label>
+              <select id="mag-override-resultat">
+                <option value="Solvable">Solvable</option>
+                <option value="Non solvable">Non solvable</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Motif obligatoire</label>
+              <input type="text" id="mag-override-comment" placeholder="Motif de la dérogation">
+            </div>
+          </div>
+          <button class="b2" id="btn-mag-override" style="margin-top:10px;">Valider la dérogation</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Section 3 : Notes -->
+      <div class="field">
+        <label>Commentaire</label>
+        <textarea id="mag-commentaire" placeholder="Commentaire libre…" rows="3"></textarea>
+      </div>
+
+      <!-- Statut fin de traitement (si Admin/TL) -->
+      <div id="mag-fin-zone" class="hidden" style="margin-top:12px;">
+        <div class="g2">
+          <div class="field">
+            <label>Statut fin de traitement</label>
+            <select id="mag-statut-fin">
+              <option value="">— Choisir —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Statut dossier</label>
+            <select id="mag-statut">
+              <option value="">— Choisir —</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div><!-- /modal-scroll -->
+
+    <div class="modal-foot">
+      <button class="b3" onclick="closeModal('modal-agrement')">Annuler</button>
+      <button class="b1 save-btn" id="btn-mag-save">
+        <span class="label">Enregistrer</span>
+        <span class="spinner hidden"><i></i></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Sinistre ── -->
+<div id="modal-sinistre" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2 id="msi-title">Nouveau sinistre</h2>
+        <div class="sub" id="msi-ref"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-sinistre')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="g2">
+        <div class="field">
+          <label>N° contrat</label>
+          <input type="text" id="msi-no-contrat" placeholder="N° contrat">
+        </div>
+        <div class="field">
+          <label>Type</label>
+          <select id="msi-type">
+            <option value="">— Type —</option>
+          </select>
+        </div>
+      </div>
+      <div class="g2" style="margin-top:12px;">
+        <div class="field">
+          <label>Assuré</label>
+          <input type="text" id="msi-assure" placeholder="Nom de l'assuré">
+        </div>
+        <div class="field">
+          <label>Montant (€)</label>
+          <input type="number" id="msi-montant" placeholder="0.00" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Commentaire</label>
+        <textarea id="msi-commentaire" placeholder="Description / observation…" rows="3"></textarea>
+      </div>
+
+      <!-- Zone traitement (si pas nouveau) -->
+      <div id="msi-traiter-zone" class="traiter-zone hidden">
+        <div class="tz-title">Traitement</div>
+
+        <!-- Avertissement re-traitement -->
+        <div id="msi-retreatment-warning" class="info-box warning hidden" style="margin-bottom:12px;">
+          <span>⚠</span>
+          <span>Ce dossier a déjà été traité. Toute modification réinitialisera le statut et nécessitera un nouveau traitement.</span>
+        </div>
+
+        <div class="field">
+          <label>Statut</label>
+          <select id="msi-statut">
+            <option value="Complet">Complet</option>
+            <option value="Relance">Relance</option>
+            <option value="Traité">Traité</option>
+          </select>
+        </div>
+        <button class="bs" id="btn-msi-traiter" style="margin-top:12px;width:100%;">
+          Marquer comme Traité
+        </button>
+      </div>
+
+      <!-- Timeline historique -->
+      <div id="msi-timeline-zone" class="hidden" style="margin-top:18px;">
+        <div class="sec-title">Historique</div>
+        <div class="timeline" id="msi-timeline"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="b3" onclick="closeModal('modal-sinistre')">Annuler</button>
+      <button class="b1 save-btn" id="btn-msi-save">
+        <span class="label">Enregistrer</span>
+        <span class="spinner hidden"><i></i></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Facture ── -->
+<div id="modal-facture" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2 id="mfa-title">Nouvelle facture</h2>
+        <div class="sub" id="mfa-ref"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-facture')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="g2">
+        <div class="field">
+          <label>N° contrat</label>
+          <input type="text" id="mfa-no-contrat" placeholder="N° contrat">
+        </div>
+        <div class="field">
+          <label>Montant (€)</label>
+          <input type="number" id="mfa-montant" placeholder="0.00" min="0" step="0.01">
+        </div>
+      </div>
+      <div class="g2" style="margin-top:12px;">
+        <div class="field">
+          <label>Émetteur</label>
+          <input type="text" id="mfa-emetteur" placeholder="Nom émetteur">
+        </div>
+        <div class="field">
+          <label>Date facture</label>
+          <input type="date" id="mfa-date">
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Commentaire traitement</label>
+        <textarea id="mfa-commentaire" placeholder="Observations, raison de remontée…" rows="3"></textarea>
+      </div>
+
+      <!-- Zone traitement facture -->
+      <div id="mfa-traiter-zone" class="traiter-zone hidden">
+        <div class="tz-title">Traitement</div>
+
+        <!-- Badge vérifié (si applicable) -->
+        <div id="mfa-verified-strip" class="hidden" style="margin-bottom:12px;">
+          <span class="badge-verified">✔ Vérifié par TL</span>
+          <span id="mfa-verifie-par" class="t-muted fs-sm" style="margin-left:8px;"></span>
+        </div>
+
+        <!-- Remontée strip -->
+        <div id="mfa-remonte-strip" class="remonte-strip hidden">
+          ⚑ Dossier remonté — en attente de vérification
+        </div>
+
+        <!-- Étapes checklist -->
+        <div class="steps" id="mfa-steps"></div>
+
+        <!-- Bouton Vérifier TL -->
+        <button class="verifier-btn" id="btn-mfa-verifier" style="width:100%;margin-bottom:10px;display:none;">
+          ✦ Vérifier (TL)
+        </button>
+
+        <!-- Bouton Traiter -->
+        <button class="bs" id="btn-mfa-traiter" style="width:100%;">
+          Marquer comme Traité
+        </button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="b3" onclick="closeModal('modal-facture')">Annuler</button>
+      <button class="b1 save-btn" id="btn-mfa-save">
+        <span class="label">Enregistrer</span>
+        <span class="spinner hidden"><i></i></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Résiliation ── -->
+<div id="modal-resiliation" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h2 id="mre-title">Nouvelle résiliation</h2>
+        <div class="sub" id="mre-ref"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-resiliation')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="g2">
+        <div class="field">
+          <label>N° contrat <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="mre-no-contrat" placeholder="N° contrat">
+        </div>
+        <div class="field">
+          <label>Origine <span style="color:var(--danger)">*</span></label>
+          <select id="mre-origine">
+            <option value="">— Sélectionner —</option>
+            <option value="Mail">Mail</option>
+            <option value="Courrier">Courrier</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Mail</label>
+        <input type="email" id="mre-mail" placeholder="email@exemple.com">
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Commentaire</label>
+        <textarea id="mre-commentaire" placeholder="Observations…" rows="3"></textarea>
+      </div>
+
+      <!-- Zone soumission -->
+      <div id="mre-soumettre-zone" class="traiter-zone hidden">
+        <div class="tz-title">Soumission</div>
+        <div class="g2">
+          <div class="field">
+            <label>Complétude <span style="color:var(--danger)">*</span></label>
+            <select id="mre-completude">
+              <option value="">— Sélectionner —</option>
+              <option value="OK">OK</option>
+              <option value="KO">KO (Relance)</option>
+            </select>
+          </div>
+          <div class="field" id="mre-resil-field" style="display:none;">
+            <label>Résultat Résil <span style="color:var(--danger)">*</span></label>
+            <select id="mre-resil">
+              <option value="">— Sélectionner —</option>
+              <option value="Résil OK">Résil OK</option>
+              <option value="Résil KO">Résil KO</option>
+            </select>
+          </div>
+        </div>
+        <div id="mre-comment-field" class="field hidden" style="margin-top:12px;">
+          <label>Commentaire obligatoire</label>
+          <textarea id="mre-soumettre-commentaire" placeholder="Motif du KO…" rows="2"></textarea>
+        </div>
+        <button class="b1" id="btn-mre-soumettre" style="width:100%;margin-top:14px;">Soumettre</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="b3" onclick="closeModal('modal-resiliation')">Annuler</button>
+      <button class="b1 save-btn" id="btn-mre-save">
+        <span class="label">Enregistrer</span>
+        <span class="spinner hidden"><i></i></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Paramètres ── -->
+<div id="modal-parametres" class="overlay hidden">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <div>
+        <h2>Paramètres</h2>
+        <div class="sub">Configuration des listes déroulantes</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-parametres')">✕</button>
+    </div>
+    <div class="modal-scroll">
+      <div id="param-lists-container"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="b3" onclick="closeModal('modal-parametres')">Fermer</button>
+      <button class="b1 save-btn" id="btn-param-save">
+        <span class="label">Enregistrer tout</span>
+        <span class="spinner hidden"><i></i></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Réassignation ── -->
+<div id="modal-reassign" class="overlay hidden">
+  <div class="modal modal-narrow">
+    <div class="modal-head">
+      <h2>Réassigner le dossier</h2>
+      <button class="modal-close" onclick="closeModal('modal-reassign')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Nouvel ambassadeur</label>
+        <select id="reassign-ambassadeur"></select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="b3" onclick="closeModal('modal-reassign')">Annuler</button>
+      <button class="b1" id="btn-reassign-confirm">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toasts ── -->
+<div class="toasts" id="toasts"></div>
+
+</body>
+</html>
