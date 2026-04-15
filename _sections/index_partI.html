@@ -353,26 +353,27 @@ function paintMagSolvSummary(result, loyer) {
   if (!result) return;
   var zone = el('mag-solv-summary');
   if (zone) zone.classList.remove('hidden');
+  var profilsResult = result.profils_calculs || result.profils || [];
 
   /* Per-profil result in form */
-  (result.profils || []).forEach(function(pr, i) {
+  profilsResult.forEach(function(pr, i) {
     var resEl = el('mag-profil-result-' + i);
     if (!resEl) return;
     resEl.style.display = '';
     resEl.innerHTML =
       '<div style="display:flex;justify-content:space-between;font-size:.83rem;">' +
       '<span class="t-muted">Plafond calculé</span>' +
-      '<span class="fw7 t-gold">' + fmtEuro(pr.plafond || 0) + '</span>' +
+      '<span class="fw7 t-gold">' + fmtEuro(pr.plafond_avec_revenu || pr.plafond || 0) + '</span>' +
       '</div>';
   });
 
   /* Summary strip */
   var strip = el('mag-profils-summary-strip');
   if (strip) {
-    strip.innerHTML = (result.profils || []).map(function(pr, i) {
+    strip.innerHTML = profilsResult.map(function(pr, i) {
       return '<div class="profil-sum-cell">' +
         '<div class="psn">Profil ' + (i + 1) + '</div>' +
-        '<div class="psv">' + fmtEuro(pr.plafond || 0) + '</div>' +
+        '<div class="psv">' + fmtEuro(pr.plafond_avec_revenu || pr.plafond || 0) + '</div>' +
         '</div>';
     }).join('') +
     '<div class="profil-sum-cell gold">' +
