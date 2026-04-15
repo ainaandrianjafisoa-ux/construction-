@@ -6,8 +6,8 @@ const APP_CONFIG = {
   APP_NAME: 'Syndic Ledger High-End',
   VERSION: '4.0.0',
   TIMEZONE: Session.getScriptTimeZone() || 'Indian/Antananarivo',
-  HEARTBEAT_SECONDS: 45,
-  SESSION_STALE_MINUTES: 2,
+  HEARTBEAT_SECONDS: 90,
+  SESSION_STALE_MINUTES: 20,
   SESSION_CACHE_TTL: 21600,
   DEFAULT_ADMIN_LOGIN: 'superadmin',
   DEFAULT_ADMIN_PASSWORD: 'ChangeMe123!'
@@ -916,11 +916,12 @@ function registerOfflineSignal(token) {
  */
 function loginUser(login, password) {
   const sessionPayload = authenticateUser(login, password, '');
+  // Ne pas charger getDashboardData ici : trop de lectures Sheets en série.
+  // Le front appellera getBootstrapData() en async juste après l'affichage.
   return {
-    token:     sessionPayload.token,
-    session:   sessionPayload,
-    lookups:   getLookups(sessionPayload.token),
-    dashboard: getDashboardData(sessionPayload.token)
+    token:   sessionPayload.token,
+    session: sessionPayload,
+    lookups: getLookups(sessionPayload.token)
   };
 }
 
@@ -2432,10 +2433,11 @@ function doGet() {
 }
 
 function getBootstrapData(token) {
+  // Utilisé pour reprendre une session existante (F5 / retour onglet).
+  // Charge session + lookups uniquement ; le dashboard est demandé séparément.
   const session = requireSession_(token);
   return {
-    session:   buildSessionPayload_(session),
-    lookups:   getLookups(token),
-    dashboard: getDashboardData(token)
+    session: buildSessionPayload_(session),
+    lookups: getLookups(token)
   };
 }
