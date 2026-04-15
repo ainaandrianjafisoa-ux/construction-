@@ -121,7 +121,7 @@ function openAgrementModal(agrId) {
   populateSelect(el('mag-priority'), lk.priorities || ['Normale', 'Haute', 'Basse'], r.priority, '— Priorité —');
 
   /* Ambassadeur */
-  var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'AMBASSADOR'; });
+  var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'ambassador'; });
   populateSelect(el('mag-ambassadeur'), ambassadeurs, r.ambassadeur_assigne, '— Auto —');
 
   /* Gestionnaire+ */
@@ -463,7 +463,7 @@ function doOverrideSolvabilite() {
 function openReassignModal(agrId) {
   _magReassignId = agrId;
   var lk = S.lookups || {};
-  var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'AMBASSADOR'; });
+  var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'ambassador'; });
   var sel = el('reassign-ambassadeur');
   populateSelect(sel, ambassadeurs, null, '— Sélectionner —');
   el('btn-reassign-confirm').onclick = function() { doReassign(); };

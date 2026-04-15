@@ -53,7 +53,7 @@ function openUserModal(userId) {
   var isNew = !userId;
 
   var teams = (S.lookups && S.lookups.teams) ? S.lookups.teams : [];
-  var roles = ['AMBASSADOR', 'TEAM_LEADER', 'SUPER_ADMIN'];
+  var roles = ['ambassador', 'team_leader', 'super_admin'];
 
   var html = '<div class="overlay" id="modal-user" onclick="if(event.target===this)closeModal(\'modal-user\')">';
   html += '<div class="modal modal-narrow">';
@@ -154,7 +154,7 @@ function paintTeams(rows) {
     _teams,
     function(t) {
       var ambCount = (S.lookups && S.lookups.users)
-        ? S.lookups.users.filter(function(u){ return u.team_id === t.id && u.role === 'AMBASSADOR'; }).length
+        ? S.lookups.users.filter(function(u){ return u.team_id === t.id && u.role === 'ambassador'; }).length
         : '—';
       return '<tr>' +
         '<td class="fw7">' + escHtml(t.name) + '</td>' +

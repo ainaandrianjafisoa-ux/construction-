@@ -2234,70 +2234,75 @@ document.addEventListener('DOMContentLoaded', function() {
 ═══════════════════════════════════════════════════════════════ */
 
 /* ── Menu definitions ────────────────────────────────────────── */
+/* Rôles en minuscules — correspondent aux valeurs réelles de la BDD */
+var R_ALL  = ['super_admin', 'team_leader', 'ambassador'];
+var R_MGMT = ['super_admin', 'team_leader'];
+var R_ADM  = ['super_admin'];
+
 var VIEWS = {
   dashboard: {
     label: 'Tableau de bord',
     icon:  '◉',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER', 'AMBASSADOR']
+    roles: R_ALL
   },
   agrements: {
     label: 'Agréments',
     icon:  '✦',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER', 'AMBASSADOR']
+    roles: R_ALL
   },
   sinistres: {
     label: 'Sinistres',
     icon:  '⚡',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER', 'AMBASSADOR']
+    roles: R_ALL
   },
   factures: {
     label: 'Factures',
     icon:  '◈',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER', 'AMBASSADOR']
+    roles: R_ALL
   },
   resiliations: {
     label: 'Résiliations',
     icon:  '✂',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER', 'AMBASSADOR']
+    roles: R_ALL
   },
   'factures-remontees': {
     label: 'Factures remontées',
     icon:  '⚑',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER'],
+    roles: R_MGMT,
     perm:  'canVerifierFactures',
-    sep:   true   // draw separator before
+    sep:   true
   },
   presence: {
     label: 'Présence',
     icon:  '⊛',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER'],
+    roles: R_MGMT,
     sep:   true
   },
   historique: {
     label: 'Historique',
     icon:  '⊙',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER']
+    roles: R_MGMT
   },
   connexions: {
     label: 'Connexions',
     icon:  '↗',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER']
+    roles: R_MGMT
   },
   users: {
     label: 'Utilisateurs',
     icon:  '◎',
-    roles: ['SUPER_ADMIN'],
+    roles: R_ADM,
     sep:   true
   },
   teams: {
     label: 'Équipes',
     icon:  '⬡',
-    roles: ['SUPER_ADMIN']
+    roles: R_ADM
   },
   parametres: {
     label: 'Paramètres',
     icon:  '⚙',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER'],
+    roles: R_MGMT,
     perm:  'canManageSettings',
     sep:   true
   }
@@ -2699,7 +2704,7 @@ function openUserModal(userId) {
   var isNew = !userId;
 
   var teams = (S.lookups && S.lookups.teams) ? S.lookups.teams : [];
-  var roles = ['AMBASSADOR', 'TEAM_LEADER', 'SUPER_ADMIN'];
+  var roles = ['ambassador', 'team_leader', 'super_admin'];
 
   var html = '<div class="overlay" id="modal-user" onclick="if(event.target===this)closeModal(\'modal-user\')">';
   html += '<div class="modal modal-narrow">';
@@ -2800,7 +2805,7 @@ function paintTeams(rows) {
     _teams,
     function(t) {
       var ambCount = (S.lookups && S.lookups.users)
-        ? S.lookups.users.filter(function(u){ return u.team_id === t.id && u.role === 'AMBASSADOR'; }).length
+        ? S.lookups.users.filter(function(u){ return u.team_id === t.id && u.role === 'ambassador'; }).length
         : '—';
       return '<tr>' +
         '<td class="fw7">' + escHtml(t.name) + '</td>' +
@@ -2987,7 +2992,7 @@ function openAgrementModal(agrId) {
   populateSelect(el('mag-priority'), lk.priorities || ['Normale', 'Haute', 'Basse'], r.priority, '— Priorité —');
 
   /* Ambassadeur */
-  var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'AMBASSADOR'; });
+  var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'ambassador'; });
   populateSelect(el('mag-ambassadeur'), ambassadeurs, r.ambassadeur_assigne, '— Auto —');
 
   /* Gestionnaire+ */
@@ -3329,7 +3334,7 @@ function doOverrideSolvabilite() {
 function openReassignModal(agrId) {
   _magReassignId = agrId;
   var lk = S.lookups || {};
-  var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'AMBASSADOR'; });
+  var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'ambassador'; });
   var sel = el('reassign-ambassadeur');
   populateSelect(sel, ambassadeurs, null, '— Sélectionner —');
   el('btn-reassign-confirm').onclick = function() { doReassign(); };

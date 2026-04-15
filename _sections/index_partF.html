@@ -4,70 +4,75 @@
 ═══════════════════════════════════════════════════════════════ */
 
 /* ── Menu definitions ────────────────────────────────────────── */
+/* Rôles en minuscules — correspondent aux valeurs réelles de la BDD */
+var R_ALL  = ['super_admin', 'team_leader', 'ambassador'];
+var R_MGMT = ['super_admin', 'team_leader'];
+var R_ADM  = ['super_admin'];
+
 var VIEWS = {
   dashboard: {
     label: 'Tableau de bord',
     icon:  '◉',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER', 'AMBASSADOR']
+    roles: R_ALL
   },
   agrements: {
     label: 'Agréments',
     icon:  '✦',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER', 'AMBASSADOR']
+    roles: R_ALL
   },
   sinistres: {
     label: 'Sinistres',
     icon:  '⚡',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER', 'AMBASSADOR']
+    roles: R_ALL
   },
   factures: {
     label: 'Factures',
     icon:  '◈',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER', 'AMBASSADOR']
+    roles: R_ALL
   },
   resiliations: {
     label: 'Résiliations',
     icon:  '✂',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER', 'AMBASSADOR']
+    roles: R_ALL
   },
   'factures-remontees': {
     label: 'Factures remontées',
     icon:  '⚑',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER'],
+    roles: R_MGMT,
     perm:  'canVerifierFactures',
-    sep:   true   // draw separator before
+    sep:   true
   },
   presence: {
     label: 'Présence',
     icon:  '⊛',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER'],
+    roles: R_MGMT,
     sep:   true
   },
   historique: {
     label: 'Historique',
     icon:  '⊙',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER']
+    roles: R_MGMT
   },
   connexions: {
     label: 'Connexions',
     icon:  '↗',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER']
+    roles: R_MGMT
   },
   users: {
     label: 'Utilisateurs',
     icon:  '◎',
-    roles: ['SUPER_ADMIN'],
+    roles: R_ADM,
     sep:   true
   },
   teams: {
     label: 'Équipes',
     icon:  '⬡',
-    roles: ['SUPER_ADMIN']
+    roles: R_ADM
   },
   parametres: {
     label: 'Paramètres',
     icon:  '⚙',
-    roles: ['SUPER_ADMIN', 'TEAM_LEADER'],
+    roles: R_MGMT,
     perm:  'canManageSettings',
     sep:   true
   }
