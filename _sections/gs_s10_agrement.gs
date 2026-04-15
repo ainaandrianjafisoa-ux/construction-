@@ -61,10 +61,17 @@ function calculateProfilePlafond_(profile) {
   const typeClient = String(profile.type_client || 'Locataire').trim();
   const compagnie  = String(profile.compagnie   || '').trim();
 
+  // Compat front/back :
+  // - net_imposable_1..3 (back historique)
+  // - net_imposable[]       (variante)
+  // - salaires[]            (front module Agrément)
+  const sourceNI = Array.isArray(profile.net_imposable)
+    ? profile.net_imposable
+    : (Array.isArray(profile.salaires) ? profile.salaires : []);
   const ni = [
-    Number(profile.net_imposable_1 !== undefined ? profile.net_imposable_1 : (profile.net_imposable && profile.net_imposable[0] || 0)),
-    Number(profile.net_imposable_2 !== undefined ? profile.net_imposable_2 : (profile.net_imposable && profile.net_imposable[1] || 0)),
-    Number(profile.net_imposable_3 !== undefined ? profile.net_imposable_3 : (profile.net_imposable && profile.net_imposable[2] || 0))
+    Number(profile.net_imposable_1 !== undefined ? profile.net_imposable_1 : (sourceNI[0] || 0)),
+    Number(profile.net_imposable_2 !== undefined ? profile.net_imposable_2 : (sourceNI[1] || 0)),
+    Number(profile.net_imposable_3 !== undefined ? profile.net_imposable_3 : (sourceNI[2] || 0))
   ];
 
   const avgNI = average_(ni);
@@ -132,10 +139,13 @@ function calculateProfilePlafond_(profile) {
   }
 
   // Revenu complémentaire par profil (case à cocher)
+  const revCompMontant = profile.revenu_complementaire_montant !== undefined
+    ? profile.revenu_complementaire_montant
+    : (profile.montant_complementaire !== undefined ? profile.montant_complementaire : 0);
   const revComp = (
     profile.revenu_complementaire === true ||
     String(profile.revenu_complementaire) === 'true'
-  ) ? Number(profile.revenu_complementaire_montant || 0) : 0;
+  ) ? Number(revCompMontant || 0) : 0;
 
   return {
     plafond:                 plafond,
@@ -182,6 +192,8 @@ function calculateMultiProfileSolvabiliteServer(payload) {
 
   return {
     profils_calculs:      profileResults,
+    // Alias de compat pour les clients qui lisent encore `result.profils`
+    profils:              profileResults,
     plafond_total:        plafondTotal,
     loyer:                loyer,
     type_client_effectif: effectifTypeClient,
@@ -390,7 +402,9 @@ function saveAgrement(token, payload) {
     brut_1: solv ? Number(solv.brut && solv.brut[0] || 0) : Number((existing && existing.brut_1) || 0),
     brut_2: solv ? Number(solv.brut && solv.brut[1] || 0) : Number((existing && existing.brut_2) || 0),
     brut_3: solv ? Number(solv.brut && solv.brut[2] || 0) : Number((existing && existing.brut_3) || 0),
-    loyer:                   solv ? Number(solv.loyer || 0) : Number((existing && existing.loyer) || 0),
+    loyer:                   solv
+      ? Number(solv.loyer || 0)
+      : Number((data.loyer !== undefined ? data.loyer : ((existing && existing.loyer) || 0)) || 0),
     moyenne_net_a_payer:     solv ? Number(solv.moyenne_net_a_payer || 0)     : Number((existing && existing.moyenne_net_a_payer)     || 0),
     moyenne_net_avant_impot: solv ? Number(solv.moyenne_net_avant_impot || 0) : Number((existing && existing.moyenne_net_avant_impot) || 0),
     moyenne_brut:            solv ? Number(solv.moyenne_brut || 0)            : Number((existing && existing.moyenne_brut)            || 0),
