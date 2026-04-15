@@ -102,7 +102,7 @@ const SCHEMA = {
   FACTURES: [
     'id', 'reference', 'no_sinistre',
     'etape_verification', 'etape_calcul', 'etape_reglement',
-    'commentaire_traitement',
+    'commentaire_traitement', 'commentaire_verification',
     'statut',
     'verifie_badge', 'verifie_at', 'verifie_par',
     'remonte_at',
@@ -552,7 +552,9 @@ function scopeUsers_(session, users) {
   if (session.role === ROLES.SUPER_ADMIN) return users;
   if (session.role === ROLES.TEAM_LEADER) {
     return users.filter(function(u) {
-      return u.team_id === session.user.team_id || u.id === session.user.id;
+      return u.team_id        === session.user.team_id
+          || u.team_leader_id === session.user.id
+          || u.id             === session.user.id;
     });
   }
   return users.filter(function(u) { return u.id === session.user.id; });
@@ -1194,6 +1196,36 @@ function saveUser(token, payload) {
   return publicUser_(row);
 }
 
+// ── Changement de mot de passe (self-service) ─────────────────
+function changePassword(token, payload) {
+  const session = requireSession_(token);
+  const data    = payload || {};
+  const current = String(data.current_password || '').trim();
+  const newPwd  = String(data.new_password     || '').trim();
+
+  if (!current)          throw new Error('Le mot de passe actuel est requis.');
+  if (!newPwd)           throw new Error('Le nouveau mot de passe est requis.');
+  if (newPwd.length < 6) throw new Error('Le mot de passe doit contenir au moins 6 caractères.');
+  if (current === newPwd) throw new Error('Le nouveau mot de passe doit être différent de l\'actuel.');
+
+  const users = readTable_('USERS');
+  const user  = users.find(function(u) { return u.id === session.user.id; });
+  if (!user) throw new Error('Utilisateur introuvable.');
+
+  if (hashPassword_(current) !== user.password_hash) {
+    throw new Error('Mot de passe actuel incorrect.');
+  }
+
+  const row = Object.assign({}, user, {
+    password_hash: hashPassword_(newPwd),
+    updated_at:    nowIso_()
+  });
+  upsertRow_('USERS', 'id', row);
+  addAuditLog_(session, 'CHANGE_PASSWORD', 'USER', session.user.id,
+    'Changement de mot de passe par ' + session.user.full_name, null, null);
+  return { ok: true };
+}
+
 // ── Équipes ───────────────────────────────────────────────────
 function listTeams(token) {
   const session   = requireSession_(token);
@@ -1222,7 +1254,18 @@ function listTeams(token) {
 
 function saveTeam(token, payload) {
   const session = requireSession_(token);
-  if (session.role !== ROLES.SUPER_ADMIN) throw new Error('Seul le Super Admin peut gérer les équipes.');
+  const data_pre = payload || {};
+
+  if (session.role === ROLES.TEAM_LEADER) {
+    // TL peut uniquement mettre à jour sa propre équipe (pas en créer une nouvelle)
+    if (!data_pre.id) throw new Error('Vous ne pouvez pas créer une équipe.');
+    const myTeam = readTable_('TEAMS').find(function(t) { return t.id === data_pre.id; });
+    if (!myTeam || myTeam.team_leader_id !== session.user.id) {
+      throw new Error('Vous ne pouvez modifier que votre propre équipe.');
+    }
+  } else if (session.role !== ROLES.SUPER_ADMIN) {
+    throw new Error('Droits insuffisants pour gérer les équipes.');
+  }
 
   const data     = payload || {};
   const teams    = readTable_('TEAMS');
@@ -2105,8 +2148,9 @@ function traiterFacture(token, id, options) {
  * Après vérification : statut = 'Vérifié', verifie_badge = 'TRUE'.
  * Le dossier revient dans la liste Factures et remonte en tête.
  */
-function verifierFacture(token, id) {
+function verifierFacture(token, id, options) {
   const session  = requireSession_(token);
+  const opts     = options || {};
 
   if (session.role === ROLES.AMBASSADOR) {
     throw new Error('Seuls les Team Leaders et Admins peuvent vérifier les factures.');
@@ -2119,18 +2163,21 @@ function verifierFacture(token, id) {
   if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
   if (existing.statut !== 'Remonté')                throw new Error('Cette facture n\'est pas en statut "Remonté".');
 
+  const commentaire = String(opts.commentaire || '').trim();
   const now = nowIso_();
   const row = Object.assign({}, existing, {
-    statut:       'Vérifié',
-    verifie_badge: 'TRUE',
-    verifie_at:   now,
-    verifie_par:  session.user.id,
-    updated_at:   now
+    statut:                   'Vérifié',
+    verifie_badge:            'TRUE',
+    verifie_at:               now,
+    verifie_par:              session.user.id,
+    commentaire_verification: commentaire,
+    updated_at:               now
   });
 
   upsertRow_('FACTURES', 'id', row);
   addAuditLog_(session, 'VERIFIE', 'FACTURE', row.id,
-    'Facture vérifiée par ' + session.user.full_name, existing, row);
+    'Facture vérifiée par ' + session.user.full_name +
+    (commentaire ? ' — ' + commentaire : ''), existing, row);
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   row.created_by_name  = usersById[row.created_by]  ? usersById[row.created_by].full_name  : '';

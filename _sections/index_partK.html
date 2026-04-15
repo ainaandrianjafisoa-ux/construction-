@@ -239,7 +239,7 @@ function doVerifierFacture(facId) {
       renderFactures();
     })
     .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
-    .verifierFacture(S.token, facId);
+    .verifierFacture(S.token, facId, {});
 }
 
 /* ═══ FACTURES REMONTÉES (vue TL) ════════════════════════════ */
@@ -272,7 +272,7 @@ function paintFacturesRemontees(rows) {
         '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.created_by_name || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + fmtDateTime(r.remonte_at || r.updated_at) + '</td>' +
-        '<td><button class="verifier-btn fs-xs" style="min-height:32px;padding:0 12px;" onclick="quickVerifierFacture(\'' + r.id + '\')">✦ Vérifier</button></td>' +
+        '<td><button class="verifier-btn fs-xs" style="min-height:32px;padding:0 12px;" onclick="openVerifModal(\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\',\'' + escHtml(r.created_by_name||'') + '\')">✦ Vérifier</button></td>' +
         '</tr>';
     }
   );
@@ -281,13 +281,49 @@ function paintFacturesRemontees(rows) {
   el('content').innerHTML = html;
 }
 
-function quickVerifierFacture(facId) {
+var _verifFacId = null;
+
+function openVerifModal(facId, facRef, createdBy) {
+  _verifFacId = facId;
+
+  var prev = el('modal-verif-fac');
+  if (prev) prev.remove();
+
+  var html = '<div class="overlay" id="modal-verif-fac" onclick="if(event.target===this)closeModal(\'modal-verif-fac\')">';
+  html += '<div class="modal modal-narrow"><div class="modal-head">';
+  html += '<h2>Vérifier la facture</h2>';
+  html += '<button class="modal-close" onclick="closeModal(\'modal-verif-fac\')">✕</button>';
+  html += '</div><div class="modal-body">';
+  html += '<div class="fs-sm" style="margin-bottom:14px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--glass);border:1px solid var(--line);">';
+  html += '<strong>' + escHtml(facRef) + '</strong>';
+  if (createdBy) html += ' <span class="t-muted">— par ' + escHtml(createdBy) + '</span>';
+  html += '</div>';
+  html += '<div class="field"><label>Commentaire de vérification <span class="t-muted fs-xs">(facultatif)</span></label>';
+  html += '<textarea id="verif-comment" rows="3" placeholder="Ex : Documents conformes, procédure validée…" style="width:100%;resize:vertical;"></textarea></div>';
+  html += '</div><div class="modal-foot">';
+  html += '<button class="b3" onclick="closeModal(\'modal-verif-fac\')">Annuler</button>';
+  html += '<button class="verifier-btn save-btn" id="btn-verif-confirm" onclick="doVerifModalConfirm()">';
+  html += '<span class="label">✦ Confirmer la vérification</span><span class="spinner hidden"><i></i></span>';
+  html += '</button></div></div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+  openModal('modal-verif-fac');
+}
+
+function doVerifModalConfirm() {
+  var btn       = el('btn-verif-confirm');
+  var commentaire = el('verif-comment') ? el('verif-comment').value.trim() : '';
+  setBtnLoading(btn, true);
   google.script.run
     .withSuccessHandler(function() {
-      toast('Facture vérifiée.', 'success');
+      setBtnLoading(btn, false);
+      closeModal('modal-verif-fac');
+      var m = el('modal-verif-fac');
+      if (m) setTimeout(function() { m.remove(); }, 250);
+      toast('Facture vérifiée — retournée dans la liste.', 'success');
       renderFacturesRemontees();
     })
-    .withFailureHandler(function(e) { gasFailureHandler(e); })
-    .verifierFacture(S.token, facId);
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .verifierFacture(S.token, _verifFacId, { commentaire: commentaire });
 }
 </script>

@@ -342,9 +342,52 @@ function doLogout() {
   el('login-pass').value = '';
 }
 
+/* ── Profil / Changement de mot de passe ────────────────────── */
+function openProfileModal() {
+  ['cp-current', 'cp-new', 'cp-confirm'].forEach(function(id) {
+    var f = el(id);
+    if (f) { f.value = ''; f.classList.remove('invalid'); }
+  });
+  openModal('modal-profile');
+  setTimeout(function() { var f = el('cp-current'); if (f) f.focus(); }, 60);
+}
+
+function doChangePassword() {
+  var btn     = el('btn-cp-save');
+  var current = el('cp-current').value;
+  var newPwd  = el('cp-new').value;
+  var confirm = el('cp-confirm').value;
+
+  markRequired('cp-current', !current);
+  markRequired('cp-new',     !newPwd);
+  markRequired('cp-confirm', !confirm);
+  if (!current || !newPwd || !confirm) {
+    toast('Tous les champs sont obligatoires.', 'error'); return;
+  }
+  if (newPwd !== confirm) {
+    markRequired('cp-confirm', true);
+    toast('Les mots de passe ne correspondent pas.', 'error'); return;
+  }
+  if (newPwd.length < 6) {
+    markRequired('cp-new', true);
+    toast('Minimum 6 caractères requis.', 'error'); return;
+  }
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-profile');
+      toast('Mot de passe modifié avec succès.', 'success');
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .changePassword(S.token, { current_password: current, new_password: newPwd });
+}
+
 /* ── DOMContentLoaded ────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
   initLogin();
   boot();
+  el('btn-profile').addEventListener('click', openProfileModal);
 });
 </script>

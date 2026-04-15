@@ -80,6 +80,7 @@
         <div class="user-name" id="sb-name">—</div>
         <div class="user-role" id="sb-role">—</div>
       </div>
+      <button class="theme-toggle" id="btn-profile" title="Modifier mon mot de passe" style="font-size:.82rem;">🔑</button>
       <span class="ver-chip" id="sb-ver">v1</span>
     </div>
   </aside>
@@ -488,6 +489,39 @@
       <button class="b3" onclick="closeModal('modal-parametres')">Fermer</button>
       <button class="b1 save-btn" id="btn-param-save">
         <span class="label">Enregistrer tout</span>
+        <span class="spinner hidden"><i></i></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Profil / Changement de mot de passe ── -->
+<div id="modal-profile" class="overlay hidden" onclick="if(event.target===this)closeModal('modal-profile')">
+  <div class="modal modal-narrow">
+    <div class="modal-head">
+      <h2>Modifier mon mot de passe</h2>
+      <button class="modal-close" onclick="closeModal('modal-profile')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid" style="gap:14px;">
+        <div class="field">
+          <label>Mot de passe actuel <span class="req">*</span></label>
+          <input type="password" id="cp-current" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div class="field">
+          <label>Nouveau mot de passe <span class="req">*</span></label>
+          <input type="password" id="cp-new" placeholder="••••••••" autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label>Confirmer le nouveau mot de passe <span class="req">*</span></label>
+          <input type="password" id="cp-confirm" placeholder="••••••••" autocomplete="new-password">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="b3" onclick="closeModal('modal-profile')">Annuler</button>
+      <button class="b1 save-btn" id="btn-cp-save" onclick="doChangePassword()">
+        <span class="label">Modifier</span>
         <span class="spinner hidden"><i></i></span>
       </button>
     </div>

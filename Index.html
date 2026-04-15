@@ -1201,6 +1201,7 @@ button { overflow: hidden; }
         <div class="user-name" id="sb-name">—</div>
         <div class="user-role" id="sb-role">—</div>
       </div>
+      <button class="theme-toggle" id="btn-profile" title="Modifier mon mot de passe" style="font-size:.82rem;">🔑</button>
       <span class="ver-chip" id="sb-ver">v1</span>
     </div>
   </aside>
@@ -1615,6 +1616,39 @@ button { overflow: hidden; }
   </div>
 </div>
 
+<!-- ── Modal Profil / Changement de mot de passe ── -->
+<div id="modal-profile" class="overlay hidden" onclick="if(event.target===this)closeModal('modal-profile')">
+  <div class="modal modal-narrow">
+    <div class="modal-head">
+      <h2>Modifier mon mot de passe</h2>
+      <button class="modal-close" onclick="closeModal('modal-profile')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid" style="gap:14px;">
+        <div class="field">
+          <label>Mot de passe actuel <span class="req">*</span></label>
+          <input type="password" id="cp-current" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div class="field">
+          <label>Nouveau mot de passe <span class="req">*</span></label>
+          <input type="password" id="cp-new" placeholder="••••••••" autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label>Confirmer le nouveau mot de passe <span class="req">*</span></label>
+          <input type="password" id="cp-confirm" placeholder="••••••••" autocomplete="new-password">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="b3" onclick="closeModal('modal-profile')">Annuler</button>
+      <button class="b1 save-btn" id="btn-cp-save" onclick="doChangePassword()">
+        <span class="label">Modifier</span>
+        <span class="spinner hidden"><i></i></span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal Réassignation ── -->
 <div id="modal-reassign" class="overlay hidden">
   <div class="modal modal-narrow">
@@ -1981,10 +2015,53 @@ function doLogout() {
   el('login-pass').value = '';
 }
 
+/* ── Profil / Changement de mot de passe ────────────────────── */
+function openProfileModal() {
+  ['cp-current', 'cp-new', 'cp-confirm'].forEach(function(id) {
+    var f = el(id);
+    if (f) { f.value = ''; f.classList.remove('invalid'); }
+  });
+  openModal('modal-profile');
+  setTimeout(function() { var f = el('cp-current'); if (f) f.focus(); }, 60);
+}
+
+function doChangePassword() {
+  var btn     = el('btn-cp-save');
+  var current = el('cp-current').value;
+  var newPwd  = el('cp-new').value;
+  var confirm = el('cp-confirm').value;
+
+  markRequired('cp-current', !current);
+  markRequired('cp-new',     !newPwd);
+  markRequired('cp-confirm', !confirm);
+  if (!current || !newPwd || !confirm) {
+    toast('Tous les champs sont obligatoires.', 'error'); return;
+  }
+  if (newPwd !== confirm) {
+    markRequired('cp-confirm', true);
+    toast('Les mots de passe ne correspondent pas.', 'error'); return;
+  }
+  if (newPwd.length < 6) {
+    markRequired('cp-new', true);
+    toast('Minimum 6 caractères requis.', 'error'); return;
+  }
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-profile');
+      toast('Mot de passe modifié avec succès.', 'success');
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .changePassword(S.token, { current_password: current, new_password: newPwd });
+}
+
 /* ── DOMContentLoaded ────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
   initLogin();
   boot();
+  el('btn-profile').addEventListener('click', openProfileModal);
 });
 </script>
 <script>
@@ -2056,7 +2133,7 @@ var VIEWS = {
   teams: {
     label: 'Équipes',
     icon:  '⬡',
-    roles: R_ADM
+    roles: R_MGMT
   },
   parametres: {
     label: 'Paramètres',
@@ -2478,14 +2555,18 @@ function renderUsers() {
 
 function paintUsers(rows) {
   _users = rows || [];
+  var myRole = S.session && S.session.user ? S.session.user.role : '';
+  var perms  = S.permissions || {};
+
   var html = '<div class="card">';
-  html += '<div class="card-head">';
-  html += '<span class="fw8">Utilisateurs</span>';
-  html += '<button class="b1" onclick="openUserModal(null)">+ Nouveau</button>';
+  html += '<div class="card-head"><span class="fw8">Utilisateurs</span>';
+  if (perms.canManageUsers) {
+    html += '<button class="b1" onclick="openUserModal(null)">+ Nouveau</button>';
+  }
   html += '</div>';
 
   html += buildTable(
-    ['Nom', 'Login', 'Rôle', 'Équipe', 'Statut', 'Actions'],
+    ['Nom', 'Login', 'Rôle', 'Team Leader', 'Équipe', 'Statut', 'Actions'],
     _users,
     function(u) {
       var teamName = '';
@@ -2493,15 +2574,21 @@ function paintUsers(rows) {
         var t = S.lookups.teams.find(function(x){ return x.id === u.team_id; });
         if (t) teamName = t.name;
       }
+      var tlName = u.team_leader_name || '—';
+      var canEdit   = myRole === 'super_admin' || (myRole === 'team_leader' && u.role === 'ambassador');
+      var canToggle = canEdit && u.id !== (S.session && S.session.user ? S.session.user.id : '');
       return '<tr>' +
-        '<td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="width:28px;height:28px;font-size:.72rem;">' + initials(u.full_name) + '</div>' + escHtml(u.full_name) + '</div></td>' +
+        '<td><div style="display:flex;align-items:center;gap:8px;">' +
+          '<div class="avatar" style="width:28px;height:28px;font-size:.72rem;">' + initials(u.full_name) + '</div>' +
+          escHtml(u.full_name) + '</div></td>' +
         '<td class="t-muted fs-sm">' + escHtml(u.login) + '</td>' +
         '<td>' + statusChip(u.role) + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(tlName) + '</td>' +
         '<td class="fs-sm">' + escHtml(teamName || '—') + '</td>' +
         '<td>' + statusChip(u.status) + '</td>' +
         '<td><div style="display:flex;gap:6px;">' +
-          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openUserModal(\'' + u.id + '\')">✎</button>' +
-          '<button class="bd fs-xs" style="min-height:30px;padding:0 10px;" onclick="toggleUserStatus(\'' + u.id + '\',\'' + escHtml(u.status) + '\')">' + (u.status === 'Actif' ? 'Désactiver' : 'Activer') + '</button>' +
+          (canEdit ? '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openUserModal(\'' + u.id + '\')">✎</button>' : '') +
+          (canToggle ? '<button class="bd fs-xs" style="min-height:30px;padding:0 10px;" onclick="toggleUserStatus(\'' + u.id + '\',\'' + escHtml(u.status) + '\')">' + (u.status === 'Actif' ? 'Désactiver' : 'Activer') + '</button>' : '') +
         '</div></td>' +
         '</tr>';
     }
@@ -2510,72 +2597,116 @@ function paintUsers(rows) {
   el('content').innerHTML = html;
 }
 
+/* ── Modal création/édition utilisateur ─────────────────────── */
 function openUserModal(userId) {
-  var u = userId ? (_users.find(function(x){ return x.id === userId; }) || {}) : {};
-  var isNew = !userId;
+  var u        = userId ? (_users.find(function(x){ return x.id === userId; }) || {}) : {};
+  var isNew    = !userId;
+  var myRole   = S.session && S.session.user ? S.session.user.role : '';
+  var isAdmin  = myRole === 'super_admin';
 
-  var teams = (S.lookups && S.lookups.teams) ? S.lookups.teams : [];
-  var roles = ['ambassador', 'team_leader', 'super_admin'];
+  var teams       = (S.lookups && S.lookups.teams)       ? S.lookups.teams       : [];
+  var teamLeaders = (S.lookups && S.lookups.teamLeaders) ? S.lookups.teamLeaders : [];
+
+  // TL ne peut créer/modifier que des ambassadeurs
+  var roles = isAdmin ? ['ambassador', 'team_leader', 'super_admin'] : ['ambassador'];
+  var currentRole = u.role || 'ambassador';
 
   var html = '<div class="overlay" id="modal-user" onclick="if(event.target===this)closeModal(\'modal-user\')">';
-  html += '<div class="modal modal-narrow">';
-  html += '<div class="modal-head">';
-  html += '<h2>' + (isNew ? 'Nouvel utilisateur' : 'Modifier — ' + escHtml(u.full_name || '')) + '</h2>';
+  html += '<div class="modal modal-narrow"><div class="modal-head">';
+  html += '<h2>' + (isNew ? (isAdmin ? 'Nouvel utilisateur' : 'Nouvel ambassadeur') : 'Modifier — ' + escHtml(u.full_name || '')) + '</h2>';
   html += '<button class="modal-close" onclick="closeModal(\'modal-user\')">✕</button>';
-  html += '</div><div class="modal-body">';
+  html += '</div><div class="modal-body"><div class="grid" style="gap:14px;">';
 
-  html += '<div class="grid" style="gap:12px;">';
-  html += '<div class="field"><label>Nom complet</label><input type="text" id="u-name" value="' + escHtml(u.full_name || '') + '" placeholder="Nom Prénom"></div>';
-  html += '<div class="field"><label>Login</label><input type="text" id="u-login" value="' + escHtml(u.login || '') + '" placeholder="identifiant.login"></div>';
+  html += '<div class="field"><label>Nom complet <span class="req">*</span></label>' +
+    '<input type="text" id="u-name" value="' + escHtml(u.full_name || '') + '" placeholder="Prénom Nom"></div>';
+  html += '<div class="field"><label>Login <span class="req">*</span></label>' +
+    '<input type="text" id="u-login" value="' + escHtml(u.login || '') + '" placeholder="prenom.nom" autocomplete="off"></div>';
   if (isNew) {
-    html += '<div class="field"><label>Mot de passe</label><input type="password" id="u-pass" placeholder="Mot de passe initial"></div>';
+    html += '<div class="field"><label>Mot de passe <span class="req">*</span></label>' +
+      '<input type="password" id="u-pass" placeholder="••••••••" autocomplete="new-password"></div>';
   }
 
-  html += '<div class="field"><label>Rôle</label><select id="u-role">';
+  // Rôle — admin: tous; TL: ambassadeur uniquement
+  html += '<div class="field"><label>Rôle</label><select id="u-role" onchange="onUserRoleChange()"' + (!isAdmin ? ' disabled' : '') + '>';
   roles.forEach(function(r) {
-    html += '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + r + '</option>';
+    html += '<option value="' + r + '"' + (currentRole === r ? ' selected' : '') + '>' + r + '</option>';
   });
   html += '</select></div>';
 
-  html += '<div class="field"><label>Équipe</label><select id="u-team"><option value="">— Aucune —</option>';
-  teams.forEach(function(t) {
-    html += '<option value="' + t.id + '"' + (u.team_id === t.id ? ' selected' : '') + '>' + escHtml(t.name) + '</option>';
-  });
-  html += '</select></div>';
+  // Team Leader — affiché pour admin quand rôle = ambassador; auto pour TL
+  var showTL = isAdmin ? (currentRole === 'ambassador') : true;
+  html += '<div class="field' + (showTL ? '' : ' hidden') + '" id="u-tl-field"><label>Team Leader <span class="req">*</span></label>';
+  if (isAdmin) {
+    html += '<select id="u-tl"><option value="">— Sélectionner —</option>';
+    teamLeaders.forEach(function(tl) {
+      html += '<option value="' + tl.id + '"' + (u.team_leader_id === tl.id ? ' selected' : '') + '>' + escHtml(tl.full_name) + '</option>';
+    });
+    html += '</select>';
+  } else {
+    // TL voit son propre nom en lecture seule
+    var myName = S.session && S.session.user ? S.session.user.full_name : '';
+    var myId   = S.session && S.session.user ? S.session.user.id        : '';
+    html += '<input type="hidden" id="u-tl" value="' + escHtml(myId) + '">';
+    html += '<div class="chip cs" style="display:inline-block;margin-top:2px;">' + escHtml(myName) + ' <span class="t-muted fs-xs">(vous)</span></div>';
+  }
   html += '</div>';
 
-  html += '</div><div class="modal-foot">';
+  // Équipe — admin seulement
+  if (isAdmin) {
+    html += '<div class="field"><label>Équipe</label><select id="u-team"><option value="">— Aucune —</option>';
+    teams.forEach(function(t) {
+      html += '<option value="' + t.id + '"' + (u.team_id === t.id ? ' selected' : '') + '>' + escHtml(t.name) + '</option>';
+    });
+    html += '</select></div>';
+  }
+
+  html += '</div></div><div class="modal-foot">';
   html += '<button class="b3" onclick="closeModal(\'modal-user\')">Annuler</button>';
   html += '<button class="b1 save-btn" id="btn-user-save" onclick="saveUser(\'' + (userId||'') + '\')">';
   html += '<span class="label">Enregistrer</span><span class="spinner hidden"><i></i></span>';
   html += '</button></div></div></div>';
 
+  var prev = el('modal-user');
+  if (prev) prev.remove();
   document.body.insertAdjacentHTML('beforeend', html);
   openModal('modal-user');
+  setTimeout(function() { var f = el('u-name'); if (f) f.focus(); }, 60);
+}
+
+function onUserRoleChange() {
+  var role    = el('u-role') ? el('u-role').value : '';
+  var tlField = el('u-tl-field');
+  if (tlField) tlField.classList.toggle('hidden', role !== 'ambassador');
 }
 
 function saveUser(userId) {
-  var btn  = el('btn-user-save');
+  var btn   = el('btn-user-save');
+  var name  = el('u-name').value.trim();
+  var login = el('u-login').value.trim();
+  markRequired('u-name',  !name);
+  markRequired('u-login', !login);
+  if (!name || !login) { toast('Nom et login obligatoires.', 'error'); return; }
+
   var payload = {
-    id:        userId || '',
-    full_name: el('u-name').value.trim(),
-    login:     el('u-login').value.trim(),
-    role:      el('u-role').value,
-    team_id:   el('u-team').value
+    id:             userId || '',
+    full_name:      name,
+    login:          login,
+    role:           el('u-role').value,
+    team_id:        el('u-team')  ? el('u-team').value  : '',
+    team_leader_id: el('u-tl')    ? el('u-tl').value    : ''
   };
   var passEl = el('u-pass');
   if (passEl) payload.password = passEl.value;
-
-  if (!payload.full_name || !payload.login) { toast('Nom et login obligatoires.', 'error'); return; }
 
   setBtnLoading(btn, true);
   google.script.run
     .withSuccessHandler(function() {
       setBtnLoading(btn, false);
       closeModal('modal-user');
-      document.getElementById('modal-user').remove();
+      var m = el('modal-user');
+      if (m) setTimeout(function() { m.remove(); }, 250);
       toast('Utilisateur enregistré.', 'success');
-      renderUsers();
+      reload(); // recharge la vue active (Utilisateurs ou Équipes)
     })
     .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveUser(S.token, payload);
@@ -2584,7 +2715,7 @@ function saveUser(userId) {
 function toggleUserStatus(userId, currentStatus) {
   var newStatus = currentStatus === 'Actif' ? 'Inactif' : 'Actif';
   google.script.run
-    .withSuccessHandler(function() { toast('Statut mis à jour.', 'success'); renderUsers(); })
+    .withSuccessHandler(function() { toast('Statut mis à jour.', 'success'); reload(); })
     .withFailureHandler(function(e) { gasFailureHandler(e); })
     .saveUser(S.token, { id: userId, status: newStatus });
 }
@@ -2593,7 +2724,7 @@ function toggleUserStatus(userId, currentStatus) {
 var _teams = [];
 
 function renderTeams() {
-  el('content').innerHTML = buildSkeletonTable(5);
+  el('content').innerHTML = buildSkeletonTable(4);
   google.script.run
     .withSuccessHandler(paintTeams)
     .withFailureHandler(function(e) { gasFailureHandler(e); })
@@ -2602,73 +2733,183 @@ function renderTeams() {
 
 function paintTeams(rows) {
   _teams = rows || [];
+  var myRole  = S.session && S.session.user ? S.session.user.role : '';
+  var isAdmin = myRole === 'super_admin';
+  var myId    = S.session && S.session.user ? S.session.user.id : '';
+
   var html = '<div class="card">';
-  html += '<div class="card-head">';
-  html += '<span class="fw8">Équipes</span>';
-  html += '<button class="b1" onclick="openTeamModal(null)">+ Nouvelle</button>';
+  html += '<div class="card-head"><span class="fw8">Équipes</span>';
+  if (isAdmin) {
+    html += '<button class="b1" onclick="openTeamModal(null)">+ Nouvelle équipe</button>';
+  }
   html += '</div>';
 
-  html += buildTable(
-    ['Nom', 'Type dossier associé', 'Ambassadeurs', 'Actions'],
-    _teams,
-    function(t) {
-      var ambCount = (S.lookups && S.lookups.users)
-        ? S.lookups.users.filter(function(u){ return u.team_id === t.id && u.role === 'ambassador'; }).length
-        : '—';
-      return '<tr>' +
-        '<td class="fw7">' + escHtml(t.name) + '</td>' +
-        '<td class="t-muted fs-sm">' + escHtml(t.type_dossier || '—') + '</td>' +
-        '<td>' + ambCount + '</td>' +
-        '<td><button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openTeamModal(\'' + t.id + '\')">✎</button></td>' +
-        '</tr>';
+  if (!_teams.length) {
+    html += '<div class="empty">Aucune équipe.</div></div>';
+    el('content').innerHTML = html;
+    return;
+  }
+
+  if (isAdmin) {
+    /* ── Vue admin : tableau de toutes les équipes ── */
+    html += buildTable(
+      ['Nom', 'Team Leader', 'Ambassadeurs', 'Dossiers', 'Actions'],
+      _teams,
+      function(t) {
+        return '<tr>' +
+          '<td class="fw7">' + escHtml(t.name) + '</td>' +
+          '<td class="fs-sm t-muted">' + escHtml(t.team_leader_name || '—') + '</td>' +
+          '<td>' + (t.ambassadors_count || 0) + '</td>' +
+          '<td>' + (t.agrements_count   || 0) + '</td>' +
+          '<td><button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openTeamModal(\'' + t.id + '\')">✎</button></td>' +
+          '</tr>';
+      }
+    );
+  } else {
+    /* ── Vue TL : sa propre équipe + liste ambassadeurs ── */
+    var team = _teams[0];
+    if (!team) {
+      html += '<div class="empty">Aucune équipe assignée à votre compte.</div></div>';
+      el('content').innerHTML = html;
+      return;
     }
-  );
+
+    // Carte équipe
+    html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">';
+    html += '<div class="kpi" style="flex:1;min-width:140px;cursor:default;">';
+    html += '<div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Équipe</div>';
+    html += '<div class="v" style="font-size:1.2rem;">' + escHtml(team.name) + '</div>';
+    html += '</div>';
+    html += '<div class="kpi" style="flex:1;min-width:100px;cursor:default;">';
+    html += '<div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Ambassadeurs</div>';
+    html += '<div class="v">' + (team.ambassadors_count || 0) + '</div>';
+    html += '</div>';
+    html += '<div class="kpi" style="flex:1;min-width:100px;cursor:default;">';
+    html += '<div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Dossiers</div>';
+    html += '<div class="v">' + (team.agrements_count || 0) + '</div>';
+    html += '</div>';
+    html += '<div style="display:flex;align-items:center;">';
+    html += '<button class="b3 fs-xs" style="min-height:36px;padding:0 14px;" onclick="openTeamModal(\'' + team.id + '\')">✎ Modifier l\'équipe</button>';
+    html += '</div></div>';
+
+    // Liste des ambassadeurs
+    html += '<div class="card-head" style="margin-bottom:12px;padding:0;">';
+    html += '<span class="fw7">Mes ambassadeurs</span>';
+    html += '<button class="b1" onclick="openUserModal(null)">+ Ajouter ambassadeur</button>';
+    html += '</div>';
+
+    // Ambassadeurs depuis lookups (scope déjà filtré par le backend)
+    var ambassadors = (S.lookups && S.lookups.users)
+      ? S.lookups.users.filter(function(u) {
+          return u.role === 'ambassador' && u.team_leader_id === myId;
+        })
+      : [];
+
+    if (!ambassadors.length) {
+      html += '<div class="empty">Aucun ambassadeur dans votre équipe.</div>';
+    } else {
+      html += buildTable(
+        ['Nom', 'Login', 'Statut', 'Actions'],
+        ambassadors,
+        function(u) {
+          return '<tr>' +
+            '<td><div style="display:flex;align-items:center;gap:8px;">' +
+              '<div class="avatar" style="width:26px;height:26px;font-size:.7rem;">' + initials(u.full_name) + '</div>' +
+              escHtml(u.full_name) +
+            '</div></td>' +
+            '<td class="t-muted fs-sm">' + escHtml(u.login) + '</td>' +
+            '<td>' + statusChip(u.status) + '</td>' +
+            '<td><div style="display:flex;gap:6px;">' +
+              '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openTLUserEdit(\'' + u.id + '\')">✎</button>' +
+              '<button class="bd fs-xs" style="min-height:30px;padding:0 10px;" onclick="toggleUserStatus(\'' + u.id + '\',\'' + escHtml(u.status) + '\')">' + (u.status === 'Actif' ? 'Désactiver' : 'Activer') + '</button>' +
+            '</div></td>' +
+            '</tr>';
+        }
+      );
+    }
+  }
 
   html += '</div>';
   el('content').innerHTML = html;
 }
 
+/* Edition d'un ambassadeur depuis la vue TL (sans nécessiter _users chargé) */
+function openTLUserEdit(userId) {
+  // Charge les détails de cet utilisateur avant d'ouvrir le modal
+  google.script.run
+    .withSuccessHandler(function(rows) {
+      _users = rows || [];
+      openUserModal(userId);
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .listUsers(S.token, {});
+}
+
+/* ── Modal équipe ────────────────────────────────────────────── */
 function openTeamModal(teamId) {
-  var t = teamId ? (_teams.find(function(x){ return x.id === teamId; }) || {}) : {};
-  var isNew = !teamId;
+  var t       = teamId ? (_teams.find(function(x){ return x.id === teamId; }) || {}) : {};
+  var isNew   = !teamId;
+  var isAdmin = S.session && S.session.user && S.session.user.role === 'super_admin';
+  var teamLeaders = (S.lookups && S.lookups.teamLeaders) ? S.lookups.teamLeaders : [];
 
   var html = '<div class="overlay" id="modal-team" onclick="if(event.target===this)closeModal(\'modal-team\')">';
-  html += '<div class="modal modal-narrow">';
-  html += '<div class="modal-head">';
+  html += '<div class="modal modal-narrow"><div class="modal-head">';
   html += '<h2>' + (isNew ? 'Nouvelle équipe' : 'Modifier — ' + escHtml(t.name || '')) + '</h2>';
   html += '<button class="modal-close" onclick="closeModal(\'modal-team\')">✕</button>';
-  html += '</div><div class="modal-body">';
-  html += '<div class="grid" style="gap:12px;">';
-  html += '<div class="field"><label>Nom de l\'équipe</label><input type="text" id="t-name" value="' + escHtml(t.name || '') + '" placeholder="Nom de l\'équipe"></div>';
-  html += '<div class="field"><label>Type dossier (informatif)</label><input type="text" id="t-type" value="' + escHtml(t.type_dossier || '') + '" placeholder="Ex : CDI, CDD…"></div>';
-  html += '</div></div>';
-  html += '<div class="modal-foot">';
+  html += '</div><div class="modal-body"><div class="grid" style="gap:14px;">';
+
+  html += '<div class="field"><label>Nom de l\'équipe <span class="req">*</span></label>' +
+    '<input type="text" id="t-name" value="' + escHtml(t.name || '') + '" placeholder="Ex: Équipe GLI"></div>';
+
+  if (isAdmin) {
+    // Admin : assigner un Team Leader
+    html += '<div class="field"><label>Team Leader</label><select id="t-tl"><option value="">— Aucun —</option>';
+    teamLeaders.forEach(function(tl) {
+      html += '<option value="' + tl.id + '"' + (t.team_leader_id === tl.id ? ' selected' : '') + '>' + escHtml(tl.full_name) + '</option>';
+    });
+    html += '</select></div>';
+    // Statut
+    html += '<div class="field"><label>Statut</label><select id="t-status">';
+    ['Actif', 'Inactif'].forEach(function(s) {
+      html += '<option value="' + s + '"' + (( t.status || 'Actif') === s ? ' selected' : '') + '>' + s + '</option>';
+    });
+    html += '</select></div>';
+  }
+
+  html += '</div></div><div class="modal-foot">';
   html += '<button class="b3" onclick="closeModal(\'modal-team\')">Annuler</button>';
   html += '<button class="b1 save-btn" id="btn-team-save" onclick="saveTeam(\'' + (teamId||'') + '\')">';
   html += '<span class="label">Enregistrer</span><span class="spinner hidden"><i></i></span>';
   html += '</button></div></div></div>';
 
+  var prev = el('modal-team');
+  if (prev) prev.remove();
   document.body.insertAdjacentHTML('beforeend', html);
   openModal('modal-team');
 }
 
 function saveTeam(teamId) {
-  var btn = el('btn-team-save');
+  var btn  = el('btn-team-save');
+  var name = el('t-name').value.trim();
+  markRequired('t-name', !name);
+  if (!name) { toast('Le nom est obligatoire.', 'error'); return; }
+
   var payload = {
-    id:           teamId || '',
-    name:         el('t-name').value.trim(),
-    type_dossier: el('t-type').value.trim()
+    id:             teamId || '',
+    name:           name,
+    team_leader_id: el('t-tl')     ? el('t-tl').value     : '',
+    status:         el('t-status') ? el('t-status').value  : 'Actif'
   };
-  if (!payload.name) { toast('Le nom est obligatoire.', 'error'); return; }
 
   setBtnLoading(btn, true);
   google.script.run
     .withSuccessHandler(function() {
       setBtnLoading(btn, false);
       closeModal('modal-team');
-      document.getElementById('modal-team').remove();
+      var m = el('modal-team');
+      if (m) setTimeout(function() { m.remove(); }, 250);
       toast('Équipe enregistrée.', 'success');
-      renderTeams();
+      reload();
     })
     .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveTeam(S.token, payload);
@@ -3572,7 +3813,7 @@ function doVerifierFacture(facId) {
       renderFactures();
     })
     .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
-    .verifierFacture(S.token, facId);
+    .verifierFacture(S.token, facId, {});
 }
 
 /* ═══ FACTURES REMONTÉES (vue TL) ════════════════════════════ */
@@ -3605,7 +3846,7 @@ function paintFacturesRemontees(rows) {
         '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.created_by_name || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + fmtDateTime(r.remonte_at || r.updated_at) + '</td>' +
-        '<td><button class="verifier-btn fs-xs" style="min-height:32px;padding:0 12px;" onclick="quickVerifierFacture(\'' + r.id + '\')">✦ Vérifier</button></td>' +
+        '<td><button class="verifier-btn fs-xs" style="min-height:32px;padding:0 12px;" onclick="openVerifModal(\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\',\'' + escHtml(r.created_by_name||'') + '\')">✦ Vérifier</button></td>' +
         '</tr>';
     }
   );
@@ -3614,14 +3855,50 @@ function paintFacturesRemontees(rows) {
   el('content').innerHTML = html;
 }
 
-function quickVerifierFacture(facId) {
+var _verifFacId = null;
+
+function openVerifModal(facId, facRef, createdBy) {
+  _verifFacId = facId;
+
+  var prev = el('modal-verif-fac');
+  if (prev) prev.remove();
+
+  var html = '<div class="overlay" id="modal-verif-fac" onclick="if(event.target===this)closeModal(\'modal-verif-fac\')">';
+  html += '<div class="modal modal-narrow"><div class="modal-head">';
+  html += '<h2>Vérifier la facture</h2>';
+  html += '<button class="modal-close" onclick="closeModal(\'modal-verif-fac\')">✕</button>';
+  html += '</div><div class="modal-body">';
+  html += '<div class="fs-sm" style="margin-bottom:14px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--glass);border:1px solid var(--line);">';
+  html += '<strong>' + escHtml(facRef) + '</strong>';
+  if (createdBy) html += ' <span class="t-muted">— par ' + escHtml(createdBy) + '</span>';
+  html += '</div>';
+  html += '<div class="field"><label>Commentaire de vérification <span class="t-muted fs-xs">(facultatif)</span></label>';
+  html += '<textarea id="verif-comment" rows="3" placeholder="Ex : Documents conformes, procédure validée…" style="width:100%;resize:vertical;"></textarea></div>';
+  html += '</div><div class="modal-foot">';
+  html += '<button class="b3" onclick="closeModal(\'modal-verif-fac\')">Annuler</button>';
+  html += '<button class="verifier-btn save-btn" id="btn-verif-confirm" onclick="doVerifModalConfirm()">';
+  html += '<span class="label">✦ Confirmer la vérification</span><span class="spinner hidden"><i></i></span>';
+  html += '</button></div></div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+  openModal('modal-verif-fac');
+}
+
+function doVerifModalConfirm() {
+  var btn       = el('btn-verif-confirm');
+  var commentaire = el('verif-comment') ? el('verif-comment').value.trim() : '';
+  setBtnLoading(btn, true);
   google.script.run
     .withSuccessHandler(function() {
-      toast('Facture vérifiée.', 'success');
+      setBtnLoading(btn, false);
+      closeModal('modal-verif-fac');
+      var m = el('modal-verif-fac');
+      if (m) setTimeout(function() { m.remove(); }, 250);
+      toast('Facture vérifiée — retournée dans la liste.', 'success');
       renderFacturesRemontees();
     })
-    .withFailureHandler(function(e) { gasFailureHandler(e); })
-    .verifierFacture(S.token, facId);
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .verifierFacture(S.token, _verifFacId, { commentaire: commentaire });
 }
 </script>
 <script>
