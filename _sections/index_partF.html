@@ -1,6 +1,6 @@
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   PART F — Navigation, routing, top bar
+   PART F — Navigation, routing, top bar, shared helpers
 ═══════════════════════════════════════════════════════════════ */
 
 /* ── Menu definitions ────────────────────────────────────────── */
@@ -78,6 +78,10 @@ var VIEWS = {
   }
 };
 
+/* Order array for directional transitions */
+var _navViewKeys  = Object.keys(VIEWS);
+var _navPrevIndex = -1;
+
 /* ── Build nav ───────────────────────────────────────────────── */
 function buildNav() {
   const role  = S.session && S.session.user ? S.session.user.role : '';
@@ -106,8 +110,12 @@ function buildNav() {
   });
 }
 
-/* ── Navigate ────────────────────────────────────────────────── */
+/* ── Navigate (with directional transitions) ─────────────────── */
 function navigate(view) {
+  var newIdx  = _navViewKeys.indexOf(view);
+  var isBack  = _navPrevIndex > -1 && newIdx > -1 && newIdx < _navPrevIndex;
+  if (newIdx > -1) _navPrevIndex = newIdx;
+
   S.activeView = view;
 
   // Highlight active button
@@ -118,64 +126,100 @@ function navigate(view) {
 
   // Update top bar
   var vDef = VIEWS[view] || {};
-  el('top-title').textContent  = vDef.label || view;
-  el('top-sub').textContent    = S.dashboard ? S.dashboard.scopeLabel : '';
+  el('top-title').textContent = vDef.label || view;
+  el('top-sub').textContent   = S.dashboard ? S.dashboard.scopeLabel : '';
 
-  // Render view
+  // Directional animation
   var content = el('content');
   content.innerHTML = '';
-  content.className = 'content animate';
-
-  // Reset animation
-  void content.offsetWidth; // reflow trick
+  content.className = 'content ' + (isBack ? 'animate-back' : 'animate');
+  void content.offsetWidth; // reflow — force animation restart
 
   switch (view) {
-    case 'dashboard':          renderDashboard();      break;
-    case 'agrements':          renderAgrements();      break;
-    case 'sinistres':          renderSinistres();      break;
-    case 'factures':           renderFactures();       break;
-    case 'resiliations':       renderResiliations();   break;
+    case 'dashboard':          renderDashboard();         break;
+    case 'agrements':          renderAgrements();         break;
+    case 'sinistres':          renderSinistres();         break;
+    case 'factures':           renderFactures();          break;
+    case 'resiliations':       renderResiliations();      break;
     case 'factures-remontees': renderFacturesRemontees(); break;
-    case 'presence':           renderPresence();       break;
-    case 'historique':         renderHistorique();     break;
-    case 'connexions':         renderConnexions();     break;
-    case 'users':              renderUsers();          break;
-    case 'teams':              renderTeams();          break;
-    case 'parametres':         renderParametres();     break;
+    case 'presence':           renderPresence();          break;
+    case 'historique':         renderHistorique();        break;
+    case 'connexions':         renderConnexions();        break;
+    case 'users':              renderUsers();             break;
+    case 'teams':              renderTeams();             break;
+    case 'parametres':         renderParametres();        break;
     default:
       content.innerHTML = '<div class="empty">Vue inconnue : ' + escHtml(view) + '</div>';
   }
 }
 
-/* ── Open / close modal ──────────────────────────────────────── */
+/* ── Modal helpers ───────────────────────────────────────────── */
+function _animatedCloseOverlay(overlay) {
+  if (!overlay || overlay.classList.contains('closing')) return;
+  var modal = overlay.querySelector('.modal');
+  overlay.classList.add('closing');
+  if (modal) modal.classList.add('closing');
+  setTimeout(function() {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('closing');
+    if (modal) modal.classList.remove('closing');
+    document.body.style.overflow = '';
+  }, 220);
+}
+
 function openModal(id) {
-  el(id).classList.remove('hidden');
+  var overlay = el(id);
+  if (!overlay) return;
+  overlay.classList.remove('hidden', 'closing');
+  var modal = overlay.querySelector('.modal');
+  if (modal) modal.classList.remove('closing');
   document.body.style.overflow = 'hidden';
 }
 
 function closeModal(id) {
-  el(id).classList.add('hidden');
-  document.body.style.overflow = '';
+  var overlay = el(id);
+  if (!overlay) return;
+  _animatedCloseOverlay(overlay);
 }
 
 /* Close overlay on backdrop click */
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('overlay')) {
-    e.target.classList.add('hidden');
-    document.body.style.overflow = '';
+    _animatedCloseOverlay(e.target);
   }
 });
 
 /* Close on Escape */
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    var open = document.querySelector('.overlay:not(.hidden)');
-    if (open) {
-      open.classList.add('hidden');
-      document.body.style.overflow = '';
-    }
+    var open = document.querySelector('.overlay:not(.hidden):not(.closing)');
+    if (open) _animatedCloseOverlay(open);
   }
 });
+
+/* ── Field validation helper ─────────────────────────────────── */
+function markRequired(fieldId, isInvalid) {
+  var inp = el(fieldId);
+  if (!inp) return;
+  inp.classList.toggle('invalid', !!isInvalid);
+}
+
+/* ── Skeleton loading table ──────────────────────────────────── */
+function buildSkeletonTable(rowCount) {
+  var html = '<div class="card">';
+  html += '<div class="card-head"><div class="skeleton" style="width:140px;height:18px;border-radius:4px;"></div></div>';
+  html += '<div class="skeleton-table">';
+  for (var i = 0; i < (rowCount || 5); i++) {
+    html += '<div class="skeleton-row">';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:0 0 70px;max-width:70px;"></div>';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:2;"></div>';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:1;"></div>';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:0 0 50px;max-width:50px;"></div>';
+    html += '</div>';
+  }
+  html += '</div></div>';
+  return html;
+}
 
 /* ── Generic table builder ───────────────────────────────────── */
 function buildTable(headers, rows, rowFn) {

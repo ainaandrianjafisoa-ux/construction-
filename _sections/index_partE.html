@@ -8,7 +8,7 @@
 /* ── State global ────────────────────────────────────────────── */
 const S = {
   token:       null,
-  session:     null,   // { user, role, team_id }
+  session:     null,
   permissions: null,
   lookups:     null,
   dashboard:   null,
@@ -17,29 +17,80 @@ const S = {
   darkMode:    localStorage.getItem('theme') === 'dark'
 };
 
-/* ── Helpers ─────────────────────────────────────────────────── */
-function show(id)  { document.getElementById(id).classList.remove('hidden'); }
-function hide(id)  { document.getElementById(id).classList.add('hidden'); }
+/* ── Helpers DOM ─────────────────────────────────────────────── */
+function show(id)  { const e = document.getElementById(id); if (e) e.classList.remove('hidden'); }
+function hide(id)  { const e = document.getElementById(id); if (e) e.classList.add('hidden'); }
 function el(id)    { return document.getElementById(id); }
 
-function toast(msg, type) {
-  type = type || 'info';
+/* ── Toast (avec barre de progression + bouton ✕) ───────────── */
+var _toastLimit = 4;
+function toast(msg, type, durationMs) {
+  type       = type       || 'info';
+  durationMs = durationMs || 4500;
+
+  const wrap = el('toasts');
+  if (!wrap) return;
+
+  // Limiter le nombre de toasts visibles
+  const existing = wrap.querySelectorAll('.toast');
+  if (existing.length >= _toastLimit) existing[0].remove();
+
   const box = document.createElement('div');
   box.className = 'toast ' + type;
-  box.textContent = msg;
-  el('toasts').appendChild(box);
-  setTimeout(function() { box.remove(); }, 4200);
+
+  const msgEl = document.createElement('span');
+  msgEl.className   = 'toast-msg';
+  msgEl.textContent = msg;
+
+  const closeEl = document.createElement('button');
+  closeEl.className   = 'toast-close';
+  closeEl.textContent = '✕';
+  closeEl.onclick     = function() { _removeToast(box); };
+
+  const barEl = document.createElement('div');
+  barEl.className = 'toast-bar';
+  const fillEl = document.createElement('div');
+  fillEl.className = 'toast-bar-fill';
+  barEl.appendChild(fillEl);
+
+  box.appendChild(msgEl);
+  box.appendChild(closeEl);
+  box.appendChild(barEl);
+  wrap.appendChild(box);
+
+  // Animer la barre
+  requestAnimationFrame(function() {
+    fillEl.style.transition = 'width ' + durationMs + 'ms linear';
+    fillEl.style.width = '0%';
+  });
+
+  const tid = setTimeout(function() { _removeToast(box); }, durationMs);
+  box._tid = tid;
 }
 
-function setBtnLoading(btn, on) {
-  if (!btn) return;
-  const sp = btn.querySelector('.spinner');
-  const lb = btn.querySelector('.label');
-  btn.disabled = on;
-  if (sp) sp.classList.toggle('hidden', !on);
-  if (lb) lb.style.opacity = on ? '0' : '';
+function _removeToast(box) {
+  if (!box.parentNode) return;
+  clearTimeout(box._tid);
+  box.style.animation = 'slideOutRight .2s var(--ease) forwards';
+  setTimeout(function() { if (box.parentNode) box.remove(); }, 210);
 }
 
+/* ── Ripple sur bouton ───────────────────────────────────────── */
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('button:not(:disabled)');
+  if (!btn || btn.classList.contains('toast-close') || btn.classList.contains('remove-tag')) return;
+  const rect   = btn.getBoundingClientRect();
+  const size   = Math.max(rect.width, rect.height) * 1.8;
+  const x      = e.clientX - rect.left - size / 2;
+  const y      = e.clientY - rect.top  - size / 2;
+  const ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  ripple.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + x + 'px;top:' + y + 'px;';
+  btn.appendChild(ripple);
+  setTimeout(function() { if (ripple.parentNode) ripple.remove(); }, 600);
+}, true);
+
+/* ── Helpers formatage ───────────────────────────────────────── */
 function fmtEuro(n) {
   return (Number(n) || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 }
@@ -60,7 +111,6 @@ function fmtDuration(s) {
   const m = Math.floor((s % 3600) / 60);
   return h ? h + 'h ' + m + 'min' : m + 'min';
 }
-
 function initials(name) {
   if (!name) return '?';
   const parts = String(name).trim().split(/\s+/);
@@ -68,23 +118,31 @@ function initials(name) {
     ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
     : String(name).substring(0, 2).toUpperCase();
 }
-
 function escHtml(s) {
   return String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
 function parseHistorique(row) {
-  try { return JSON.parse(row.historique_json || '[]'); }
-  catch(e) { return []; }
+  try { return JSON.parse(row.historique_json || '[]'); } catch(e) { return []; }
+}
+function parseProfils(row) {
+  try { return JSON.parse(row.profils_json || '[]'); } catch(e) { return []; }
 }
 
-function parseProfils(row) {
-  try { return JSON.parse(row.profils_json || '[]'); }
-  catch(e) { return []; }
+/* ── KPI count-up ────────────────────────────────────────────── */
+function animateCountUp(el, target, duration) {
+  if (!el) return;
+  duration = duration || 700;
+  const start = performance.now();
+  const from  = 0;
+  function step(now) {
+    const p = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    el.textContent = Math.round(from + (target - from) * ease);
+    if (p < 1) requestAnimationFrame(step);
+    else el.textContent = target;
+  }
+  requestAnimationFrame(step);
 }
 
 /* ── Theme ───────────────────────────────────────────────────── */
@@ -93,11 +151,42 @@ function applyTheme() {
   const btn = el('btn-theme');
   if (btn) btn.textContent = S.darkMode ? '☾' : '☀';
 }
-
 function toggleTheme() {
   S.darkMode = !S.darkMode;
   localStorage.setItem('theme', S.darkMode ? 'dark' : 'light');
   applyTheme();
+}
+
+/* ── Gestion session expirée ─────────────────────────────────── */
+function handleSessionExpired() {
+  if (S.heartbeat) clearInterval(S.heartbeat);
+  S.token = null;
+  sessionStorage.removeItem('token');
+  // Fermer toute modale ouverte
+  document.querySelectorAll('.overlay:not(.hidden)').forEach(function(o) {
+    o.classList.add('hidden');
+  });
+  document.body.style.overflow = '';
+  hide('app');
+  show('login');
+  el('login-user').value = '';
+  el('login-pass').value = '';
+  // Afficher message
+  const errMsg = el('login-err-msg');
+  const errBox = el('login-err');
+  if (errMsg) errMsg.textContent = 'Votre session a expiré. Veuillez vous reconnecter.';
+  if (errBox) errBox.classList.remove('hidden');
+}
+
+/* Intercepteur global des erreurs GAS "session expirée" */
+function gasFailureHandler(e, btn) {
+  if (btn) setBtnLoading(btn, false);
+  const msg = (e && e.message) ? e.message : String(e);
+  if (msg.toLowerCase().indexOf('expir') > -1 || msg.toLowerCase().indexOf('session') > -1) {
+    handleSessionExpired();
+  } else {
+    toast(msg, 'error');
+  }
 }
 
 /* ── Boot ────────────────────────────────────────────────────── */
@@ -127,13 +216,14 @@ function showLogin() {
   if (inp) setTimeout(function() { inp.focus(); }, 80);
 }
 
+/* Bootstrap : session reprise (F5). Dashboard chargé en async. */
 function onBootstrapData(data) {
   hide('boot');
   if (!data || data.error) { showLogin(); return; }
   S.session     = data.session;
   S.permissions = data.session && data.session.permissions ? data.session.permissions : {};
   S.lookups     = data.lookups;
-  S.dashboard   = data.dashboard;
+  S.dashboard   = null; // sera chargé en async par renderDashboard
   startApp();
 }
 
@@ -164,12 +254,12 @@ function doLogin() {
     .withSuccessHandler(function(data) {
       setBtnLoading(btn, false);
       if (data && data.token) {
-        S.token = data.token;
+        S.token       = data.token;
         sessionStorage.setItem('token', data.token);
         S.session     = data.session;
         S.permissions = data.session && data.session.permissions ? data.session.permissions : {};
         S.lookups     = data.lookups;
-        S.dashboard   = data.dashboard;
+        S.dashboard   = null; // chargé en async dans renderDashboard
         startApp();
       } else {
         errMsg.textContent = (data && data.error) ? data.error : 'Identifiants incorrects.';
@@ -178,7 +268,7 @@ function doLogin() {
     })
     .withFailureHandler(function(e) {
       setBtnLoading(btn, false);
-      errMsg.textContent = e.message || 'Erreur de connexion.';
+      errMsg.textContent = (e && e.message) ? e.message : 'Erreur de connexion.';
       errBox.classList.remove('hidden');
     })
     .loginUser(login, password);
@@ -198,26 +288,43 @@ function startApp() {
 
 /* ── Hydrate shell ───────────────────────────────────────────── */
 function hydrateShell() {
-  const u = S.session && S.session.user ? S.session.user : {};
+  const u    = S.session && S.session.user ? S.session.user : {};
   const name = u.full_name || '—';
-  const role = u.role || '—';
-
-  el('sb-name').textContent  = name;
-  el('sb-role').textContent  = role;
-  el('sb-scope').textContent = S.dashboard ? S.dashboard.scopeLabel : '';
+  el('sb-name').textContent   = name;
+  el('sb-role').textContent   = u.role || '—';
+  el('sb-scope').textContent  = '';
   el('sb-avatar').textContent = initials(name);
-  el('sb-ver').textContent   = 'v2.0';
+  el('sb-ver').textContent    = 'v2.0';
 }
 
-/* ── Heartbeat ───────────────────────────────────────────────── */
+/* ── Helpers ─────────────────────────────────────────────────── */
+function setBtnLoading(btn, on) {
+  if (!btn) return;
+  const sp = btn.querySelector('.spinner');
+  const lb = btn.querySelector('.label');
+  btn.disabled = on;
+  if (sp) sp.classList.toggle('hidden', !on);
+  if (lb) lb.style.opacity = on ? '0' : '';
+}
+
+/* ── Heartbeat — intervalle basé sur la config serveur ──────── */
 function startHeartbeat() {
   if (S.heartbeat) clearInterval(S.heartbeat);
+  // heartbeatSeconds retourné par le backend (défaut 90s), x1000 → ms
+  const intervalMs = ((S.session && S.session.heartbeatSeconds) || 90) * 1000;
   S.heartbeat = setInterval(function() {
+    if (!S.token) return;
     google.script.run
       .withSuccessHandler(function() {})
-      .withFailureHandler(function() {})
+      .withFailureHandler(function(e) {
+        // Si la session a expiré pendant un heartbeat → reconnecter
+        const msg = (e && e.message) ? e.message.toLowerCase() : '';
+        if (msg.indexOf('expir') > -1 || msg.indexOf('session') > -1) {
+          handleSessionExpired();
+        }
+      })
       .heartbeat(S.token);
-  }, 270000); // 4.5 min
+  }, intervalMs);
 }
 
 /* ── Logout ──────────────────────────────────────────────────── */
@@ -230,15 +337,9 @@ function doLogout() {
   S.token = null;
   sessionStorage.removeItem('token');
   hide('app');
-  hide('login');
-  show('boot');
-  el('boot-msg').textContent = 'Déconnexion…';
-  setTimeout(function() {
-    hide('boot');
-    show('login');
-    el('login-user').value = '';
-    el('login-pass').value = '';
-  }, 600);
+  show('login');
+  el('login-user').value = '';
+  el('login-pass').value = '';
 }
 
 /* ── DOMContentLoaded ────────────────────────────────────────── */

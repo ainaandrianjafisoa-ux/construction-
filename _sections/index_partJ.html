@@ -1,6 +1,6 @@
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   PART J — Module Sinistre (commentaire, historique, re-traitement)
+   PART J — Module Sinistre
 ═══════════════════════════════════════════════════════════════ */
 
 var _sinistres  = [];
@@ -8,10 +8,10 @@ var _msiCurrent = null;
 
 /* ── List ─────────────────────────────────────────────────── */
 function renderSinistres() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintSinistres)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listSinistres(S.token, {});
 }
 
@@ -22,9 +22,9 @@ function paintSinistres(rows) {
   html += '<div class="card-head">';
   html += '<span class="fw8">Sinistres</span>';
   html += '<div style="display:flex;gap:8px;align-items:center;">';
-  html += '<input type="text" id="si-search" placeholder="Recherche…" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 12px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" oninput="filterSinistres()">';
-  html += '<select id="si-filter-statut" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 10px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" onchange="filterSinistres()"><option value="">Tous statuts</option>';
-  ['Complet', 'Relance', 'Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
+  html += '<input type="text" id="si-search" placeholder="Recherche…" class="filter-input" oninput="filterSinistres()">';
+  html += '<select id="si-filter-statut" class="filter-select" onchange="filterSinistres()"><option value="">Tous statuts</option>';
+  ['Complet','Relance','Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
   html += '</select>';
   html += '<button class="b1" onclick="openSinistreModal(null)">+ Nouveau</button>';
   html += '</div></div>';
@@ -37,11 +37,10 @@ function paintSinistres(rows) {
 function filterSinistres() {
   var search = el('si-search') ? el('si-search').value.toLowerCase() : '';
   var statut = el('si-filter-statut') ? el('si-filter-statut').value : '';
-  var filtered = _sinistres.filter(function(r) {
+  paintSinistresTable(_sinistres.filter(function(r) {
     return (!statut || r.statut === statut) &&
            (!search || JSON.stringify(r).toLowerCase().indexOf(search) > -1);
-  });
-  paintSinistresTable(filtered);
+  }));
 }
 
 function paintSinistresTable(rows) {
@@ -50,15 +49,15 @@ function paintSinistresTable(rows) {
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucun sinistre.</div>'; return; }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° contrat', 'Type', 'Assuré', 'Montant', 'Statut', 'Délai', 'Modifié', 'Actions'],
+    ['Référence', 'N° sinistre', 'N° contrat', 'Gestionnaire', 'Complétude', 'Statut', 'Délai', 'Modifié', 'Actions'],
     rows,
     function(r) {
       return '<tr>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
+        '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
         '<td class="fs-sm">' + escHtml(r.no_contrat || '—') + '</td>' +
-        '<td class="fs-sm">' + escHtml(r.type || '—') + '</td>' +
-        '<td>' + escHtml(r.assure || '—') + '</td>' +
-        '<td class="fw7">' + (r.montant ? fmtEuro(r.montant) : '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.gestionnaire || '—') + '</td>' +
+        '<td>' + (r.completude ? statusChip(r.completude) : '—') + '</td>' +
         '<td>' + statusChip(r.statut) + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.delai_formate || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + fmtDate(r.updated_at) + '</td>' +
@@ -71,38 +70,28 @@ function paintSinistresTable(rows) {
 /* ── Open modal ──────────────────────────────────────────── */
 function openSinistreModal(sinId) {
   _msiCurrent = sinId ? (_sinistres.find(function(x){ return x.id === sinId; }) || null) : null;
-  var r   = _msiCurrent || {};
-  var lk  = S.lookups || {};
+  var r = _msiCurrent || {};
 
-  el('msi-title').textContent = sinId ? 'Modifier sinistre' : 'Nouveau sinistre';
-  el('msi-ref').textContent   = r.reference || '';
-  el('msi-no-contrat').value  = r.no_contrat || '';
-  el('msi-assure').value      = r.assure || '';
-  el('msi-montant').value     = r.montant || '';
-  el('msi-commentaire').value = r.commentaire || '';
+  el('msi-title').textContent     = sinId ? 'Modifier sinistre' : 'Nouveau sinistre';
+  el('msi-ref').textContent       = r.reference || '';
+  el('msi-no-sinistre').value     = r.no_sinistre  || '';
+  el('msi-no-contrat').value      = r.no_contrat   || '';
+  el('msi-gestionnaire').value    = r.gestionnaire  || '';
+  el('msi-commentaire').value     = r.commentaire   || '';
 
-  /* Type select */
-  populateSelect(el('msi-type'), lk.sinistresTypes || ['Dégâts des eaux', 'Incendie', 'Vol', 'Autre'], r.type, '— Type —');
+  var completudeEl = el('msi-completude');
+  if (completudeEl) completudeEl.value = r.completude || '';
 
   /* Zone traitement */
-  var traiterZone = el('msi-traiter-zone');
+  var traiterZone  = el('msi-traiter-zone');
   var timelineZone = el('msi-timeline-zone');
 
   if (sinId) {
     traiterZone.classList.remove('hidden');
-    el('msi-statut').value = r.statut || 'Complet';
-
-    /* Re-traitement warning */
     var rwEl = el('msi-retreatment-warning');
-    if (r.statut === 'Traité') {
-      rwEl.classList.remove('hidden');
-    } else {
-      rwEl.classList.add('hidden');
-    }
-
+    if (rwEl) rwEl.classList.toggle('hidden', r.statut !== 'Traité');
     el('btn-msi-traiter').onclick = function() { doTraiterSinistre(sinId); };
 
-    /* Timeline */
     var hist = parseHistorique(r);
     if (hist.length) {
       timelineZone.classList.remove('hidden');
@@ -121,32 +110,39 @@ function openSinistreModal(sinId) {
 
 function paintSinistreTimeline(hist) {
   var tl = el('msi-timeline');
+  if (!tl) return;
   tl.innerHTML = hist.map(function(h) {
-    var dotType = h.action === 'CREATE' ? 'create' : (h.action === 'TRAITE' ? 'traite' : 'update');
-    var icon = { CREATE: '+', UPDATE: '✎', TRAITE: '✔' }[h.action] || '•';
+    var dotType = { CREATE:'create', TRAITE:'traite' }[h.action] || 'update';
+    var icon    = { CREATE:'+', TRAITE:'✔', MISE_A_JOUR:'✎', MISE_A_JOUR_APRES_TRAITEMENT:'⚑' }[h.action] || '•';
     return '<div class="timeline-item">' +
       '<div class="tl-dot ' + dotType + '">' + icon + '</div>' +
       '<div class="tl-content">' +
-      '<div class="tl-action">' + escHtml(h.label || h.action) + '</div>' +
-      '<div class="tl-meta">' + escHtml(h.by_name || h.by || '') + ' — ' + fmtDateTime(h.at) + '</div>' +
-      (h.commentaire ? '<div class="tl-note">' + escHtml(h.commentaire) + '</div>' : '') +
-      '</div>' +
-      '</div>';
+        '<div class="tl-action">' + escHtml(h.action || h.label || '') + '</div>' +
+        '<div class="tl-meta">' + escHtml(h.user_name || h.by || '') + ' — ' + fmtDateTime(h.timestamp || h.at) + '</div>' +
+        (h.commentaire ? '<div class="tl-note">' + escHtml(h.commentaire) + '</div>' : '') +
+      '</div></div>';
   }).join('');
 }
 
-/* ── Save sinistre (create/update) ───────────────────────── */
+/* ── Save ─────────────────────────────────────────────────── */
 function saveSinistreModal() {
   var btn = el('btn-msi-save');
+  var noSin = el('msi-no-sinistre').value.trim();
+  var noCon = el('msi-no-contrat').value.trim();
+
+  // Validation visuelle
+  markRequired('msi-no-sinistre', !noSin);
+  markRequired('msi-no-contrat',  !noCon);
+  if (!noSin || !noCon) { toast('Les champs marqués * sont obligatoires.', 'error'); return; }
+
   var payload = {
     id:          _msiCurrent ? _msiCurrent.id : '',
-    no_contrat:  el('msi-no-contrat').value.trim(),
-    type:        el('msi-type').value,
-    assure:      el('msi-assure').value.trim(),
-    montant:     Number(el('msi-montant').value) || 0,
+    no_sinistre: noSin,
+    no_contrat:  noCon,
+    gestionnaire: el('msi-gestionnaire').value.trim(),
+    completude:  el('msi-completude') ? el('msi-completude').value : '',
     commentaire: el('msi-commentaire').value.trim()
   };
-  if (!payload.no_contrat) { toast('Le N° de contrat est obligatoire.', 'error'); return; }
 
   setBtnLoading(btn, true);
   google.script.run
@@ -156,28 +152,22 @@ function saveSinistreModal() {
       toast('Sinistre enregistré.', 'success');
       renderSinistres();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveSinistre(S.token, payload);
 }
 
-/* ── Traiter sinistre ────────────────────────────────────── */
+/* ── Traiter ──────────────────────────────────────────────── */
 function doTraiterSinistre(sinId) {
   var btn = el('btn-msi-traiter');
   setBtnLoading(btn, true);
   google.script.run
-    .withSuccessHandler(function(updated) {
+    .withSuccessHandler(function() {
       setBtnLoading(btn, false);
       closeModal('modal-sinistre');
       toast('Sinistre marqué comme Traité.', 'success');
       renderSinistres();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .traiterSinistre(S.token, sinId);
 }
 </script>

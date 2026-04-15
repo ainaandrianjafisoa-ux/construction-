@@ -8,10 +8,10 @@ var _mreCurrent   = null;
 
 /* ── List ─────────────────────────────────────────────────── */
 function renderResiliations() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(5);
   google.script.run
     .withSuccessHandler(paintResiliations)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listResiliations(S.token, {});
 }
 
@@ -22,8 +22,8 @@ function paintResiliations(rows) {
   html += '<div class="card-head">';
   html += '<span class="fw8">Résiliations</span>';
   html += '<div style="display:flex;gap:8px;align-items:center;">';
-  html += '<input type="text" id="re-search" placeholder="Recherche…" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 12px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" oninput="filterResiliations()">';
-  html += '<select id="re-filter-statut" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 10px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" onchange="filterResiliations()"><option value="">Tous statuts</option>';
+  html += '<input type="text" id="re-search" placeholder="Recherche…" class="filter-input" oninput="filterResiliations()">';
+  html += '<select id="re-filter-statut" class="filter-select" onchange="filterResiliations()"><option value="">Tous statuts</option>';
   ['En cours', 'Relance', 'Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
   html += '</select>';
   html += '<button class="b1" onclick="openResiliationModal(null)">+ Nouvelle</button>';
@@ -135,10 +135,7 @@ function saveResiliationModal() {
       toast('Résiliation enregistrée.', 'success');
       renderResiliations();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveResiliation(S.token, payload);
 }
 
@@ -160,10 +157,7 @@ function doSoumettreResiliation(resId) {
       toast('Résiliation soumise.', 'success');
       renderResiliations();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .soumettreResiliation(S.token, resId, payload);
 }
 </script>

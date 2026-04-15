@@ -15,13 +15,13 @@ var PARAM_DEFS = [
 
 /* ── View entry ───────────────────────────────────────────── */
 function renderParametres() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(5);
   google.script.run
     .withSuccessHandler(function(data) {
       _paramData = data || {};
       paintParametresInline();
     })
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getParametres(S.token);
 }
 
@@ -165,10 +165,7 @@ function saveParametresInline() {
         S.lookups.priorities         = payload.PRIORITIES;
       }
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveParametres(S.token, payload);
 }
 </script>

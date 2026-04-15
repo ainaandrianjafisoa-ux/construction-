@@ -722,8 +722,70 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
   </style>
   <style>
 /* ═══════════════════════════════════════════════════════════════
-   PART C — Modules spécifiques, animations, responsive
+   PART C — Modules spécifiques + UI/UX améliorations
 ═══════════════════════════════════════════════════════════════ */
+
+/* ── Champ requis ────────────────────────────────────────────── */
+.req { color: var(--danger); font-size: .8em; }
+.field input.invalid,
+.field select.invalid,
+.field textarea.invalid {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px var(--danger-bg) !important;
+}
+
+/* ── Focus ring accessible ───────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: var(--radius-xs);
+}
+button:focus-visible { outline-offset: 2px; }
+
+/* ── Ripple ──────────────────────────────────────────────────── */
+button { overflow: hidden; }
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,.22);
+  transform: scale(0);
+  animation: rippleAnim .55s ease-out forwards;
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="dark"] .ripple { background: rgba(255,255,255,.12); }
+
+/* ── Filter inputs (barre de recherche) ──────────────────────── */
+.filter-input, .filter-select {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: .86rem;
+  background: var(--glass);
+  color: var(--text);
+  outline: none;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.filter-input:focus, .filter-select:focus {
+  border-color: rgba(201,168,76,.55);
+  box-shadow: 0 0 0 3px var(--gold-subtle);
+}
+
+/* ── Skeleton loader ─────────────────────────────────────────── */
+.skeleton {
+  border-radius: var(--radius-xs);
+  background: linear-gradient(90deg,
+    rgba(128,140,160,.08) 25%,
+    rgba(128,140,160,.16) 50%,
+    rgba(128,140,160,.08) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+.skeleton-table { display: grid; gap: 10px; padding: 16px; }
+.skeleton-row   { height: 42px; border-radius: var(--radius-xs); }
 
 /* ── Modal ───────────────────────────────────────────────────── */
 .overlay {
@@ -739,6 +801,8 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
   overflow-y: auto;
   animation: fadeOverlay .2s var(--ease);
 }
+.overlay.closing { animation: fadeOverlayOut .2s var(--ease) forwards; }
+
 .modal {
   width: min(100%, 680px);
   background: var(--panel);
@@ -750,8 +814,9 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
   animation: modalIn .28s var(--ease);
   position: relative;
 }
-.modal.modal-wide   { width: min(100%, 880px); }
-.modal.modal-narrow { width: min(100%, 520px); }
+.modal.closing        { animation: modalOut .22s var(--ease) forwards; }
+.modal.modal-wide     { width: min(100%, 880px); }
+.modal.modal-narrow   { width: min(100%, 520px); }
 
 .modal-head {
   padding: 22px 24px 18px;
@@ -761,18 +826,9 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
   align-items: flex-start;
   gap: 12px;
 }
-.modal-head h2 {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--text);
-  margin: 0;
-  line-height: 1.25;
-}
-.modal-head .sub {
-  font-size: .82rem;
-  color: var(--muted);
-  margin-top: 4px;
-}
+.modal-head h2    { font-size: 1.1rem; font-weight: 800; color: var(--text); margin: 0; line-height: 1.25; }
+.modal-head .sub  { font-size: .82rem; color: var(--muted); margin-top: 4px; }
+
 .modal-close {
   width: 34px; height: 34px;
   border-radius: var(--radius-xs);
@@ -794,26 +850,97 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
   transform: rotate(90deg);
 }
 
-.modal-body { padding: 22px 24px; }
+.modal-body   { padding: 22px 24px; }
+.modal-foot   { padding: 16px 24px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.modal-scroll { max-height: calc(100vh - 200px); overflow-y: auto; padding: 22px 24px; overscroll-behavior: contain; }
 
-.modal-foot {
-  padding: 16px 24px;
-  border-top: 1px solid var(--line);
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
+/* ── Nav actif : accent barre gauche ─────────────────────────── */
+.nav button.active {
+  background: linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 100%);
+  color: var(--gold);
+  border-color: rgba(201,168,76,.3);
+  box-shadow: var(--shadow-xs), var(--glow-gold);
+  font-weight: 700;
+  padding-left: 10px;
+  border-left: 3px solid var(--gold) !important;
+}
+[data-theme="dark"] .nav button.active {
+  background: linear-gradient(135deg, rgba(201,168,76,.18) 0%, rgba(201,168,76,.08) 100%);
+  color: var(--gold-light);
+  border-color: rgba(201,168,76,.25);
+  border-left-color: var(--gold-light) !important;
 }
 
-/* Scroll interne pour grand modal */
-.modal-scroll {
-  max-height: calc(100vh - 200px);
-  overflow-y: auto;
-  padding: 22px 24px;
-  overscroll-behavior: contain;
-}
+/* ── Transition de vue directionnelle ────────────────────────── */
+.content.animate      { animation: tabIn    .24s var(--ease); }
+.content.animate-back { animation: tabInBack .24s var(--ease); }
 
-/* ── Solvabilité / Résultat calc ─────────────────────────────── */
+/* ── Toast amélioré ──────────────────────────────────────────── */
+.toasts {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 8px;
+  z-index: 200;
+  min-width: 280px;
+}
+.toast {
+  max-width: 400px;
+  padding: 12px 14px 8px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  font-size: .88rem;
+  animation: slideInRight .22s var(--ease);
+  color: var(--text);
+  position: relative;
+  overflow: hidden;
+}
+.toast.success { border-left: 4px solid var(--success); }
+.toast.error   { border-left: 4px solid var(--danger);  }
+.toast.info    { border-left: 4px solid var(--gold);    }
+
+.toast-msg   { display: block; padding-right: 22px; line-height: 1.4; }
+.toast-close {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 20px; height: 20px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(128,140,160,.15);
+  color: var(--muted);
+  font-size: .72rem;
+  min-height: unset;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.toast-close:hover { background: var(--danger-bg); color: var(--danger); }
+
+/* Barre de progression toast */
+.toast-bar {
+  height: 3px;
+  background: rgba(128,140,160,.15);
+  border-radius: 999px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.toast-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gold);
+  width: 100%;
+}
+.toast.success .toast-bar-fill { background: var(--success); }
+.toast.error   .toast-bar-fill { background: var(--danger);  }
+
+/* ── Solvabilité calc ────────────────────────────────────────── */
 .calc-result {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -824,521 +951,127 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
   margin-top: 16px;
 }
 .calc-result .cr-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--line);
-  font-size: .88rem;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--line); font-size: .88rem;
 }
 .calc-result .cr-row:last-child { border-bottom: 0; }
 .calc-result .cr-row .label { color: var(--muted); }
 .calc-result .cr-row .val   { font-weight: 700; color: var(--text); }
-.calc-result .cr-row .val.ok   { color: var(--success); }
-.calc-result .cr-row .val.nok  { color: var(--danger);  }
-.calc-result .cr-row .val.warn { color: var(--warning); }
+.calc-result .cr-row .val.ok  { color: var(--success); }
+.calc-result .cr-row .val.nok { color: var(--danger);  }
 
 .calc-total {
-  margin-top: 12px;
-  padding: 12px 16px;
-  border-radius: var(--radius-sm);
-  background: rgba(201,168,76,.08);
-  border: 1px solid rgba(201,168,76,.25);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: .95rem;
-  font-weight: 700;
-  color: var(--text);
+  margin-top: 12px; padding: 12px 16px; border-radius: var(--radius-sm);
+  background: rgba(201,168,76,.08); border: 1px solid rgba(201,168,76,.25);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: .95rem; font-weight: 700; color: var(--text);
 }
-.calc-total .val {
-  font-size: 1.2rem;
-  color: var(--gold);
-}
+.calc-total .val { font-size: 1.2rem; color: var(--gold); }
 
-/* Bande solvabilité OK / KO */
 .solv-band {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: .9rem;
-  margin-top: 14px;
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  border-radius: var(--radius-sm); font-weight: 700; font-size: .9rem; margin-top: 14px;
 }
 .solv-band.ok  { background: var(--success-bg); color: var(--success); border: 1px solid rgba(26,138,90,.2);  }
 .solv-band.nok { background: var(--danger-bg);  color: var(--danger);  border: 1px solid rgba(196,61,61,.2);  }
 
-/* Override solvabilité */
-.override-zone {
-  border: 1px solid rgba(201,168,76,.25);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  background: rgba(201,168,76,.04);
-  margin-top: 14px;
-}
-.override-zone .override-title {
-  font-size: .82rem;
-  font-weight: 700;
-  color: var(--gold);
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  margin-bottom: 10px;
-}
+.override-zone { border: 1px solid rgba(201,168,76,.25); border-radius: var(--radius-sm); padding: 14px; background: rgba(201,168,76,.04); margin-top: 14px; }
+.override-zone .override-title { font-size: .82rem; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
 
-/* ── Profils summary strip ───────────────────────────────────── */
-.profils-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
-  margin-top: 14px;
-}
-.profil-sum-cell {
-  padding: 10px 13px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  background: var(--glass);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
-  text-align: center;
-}
+/* ── Profils summary ─────────────────────────────────────────── */
+.profils-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 14px; }
+.profil-sum-cell { padding: 10px 13px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--glass); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); text-align: center; }
 .profil-sum-cell .psn { font-size: .75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .profil-sum-cell .psv { font-size: 1.05rem; font-weight: 800; color: var(--text); margin-top: 4px; }
 .profil-sum-cell.gold { border-color: rgba(201,168,76,.35); background: rgba(201,168,76,.06); }
 .profil-sum-cell.gold .psv { color: var(--gold); }
 
-/* ── Traiter-zone (sinistre, facture) ────────────────────────── */
-.traiter-zone {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  padding: 16px 18px;
-  background: var(--glass);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
-  margin-top: 18px;
-}
-.traiter-zone .tz-title {
-  font-size: .8rem;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.traiter-zone .tz-title::before {
-  content: '';
-  display: block;
-  width: 3px;
-  height: 14px;
-  border-radius: 2px;
-  background: var(--gold);
-  flex-shrink: 0;
-}
+/* ── Traiter-zone ────────────────────────────────────────────── */
+.traiter-zone { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px 18px; background: var(--glass); backdrop-filter: var(--blur-sm); -webkit-backdrop-filter: var(--blur-sm); margin-top: 18px; }
+.traiter-zone .tz-title { font-size: .8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; display: flex; align-items: center; gap: 7px; }
+.traiter-zone .tz-title::before { content: ''; display: block; width: 3px; height: 14px; border-radius: 2px; background: var(--gold); flex-shrink: 0; }
 
-/* Facture — étapes checklist */
+/* Étapes facture */
 .steps { display: grid; gap: 10px; margin-bottom: 14px; }
-.step-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  background: rgba(255,255,255,.03);
-  font-size: .88rem;
-  transition: border-color var(--t-fast), background var(--t-fast);
-}
-.step-row.done     { border-color: rgba(26,138,90,.25); background: var(--success-bg); }
-.step-row.done .step-label   { color: var(--success);  text-decoration: line-through; opacity: .75; }
-.step-row.done .step-icon    { color: var(--success); }
-.step-row input[type="checkbox"] {
-  width: 18px; height: 18px;
-  accent-color: var(--gold);
-  flex-shrink: 0;
-  cursor: pointer;
-}
+.step-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: rgba(255,255,255,.03); font-size: .88rem; transition: border-color var(--t-fast), background var(--t-fast); }
+.step-row.done { border-color: rgba(26,138,90,.25); background: var(--success-bg); }
+.step-row.done .step-label { color: var(--success); text-decoration: line-through; opacity: .75; }
+.step-row.done .step-icon  { color: var(--success); }
+.step-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--gold); flex-shrink: 0; cursor: pointer; }
 .step-label { flex: 1; color: var(--text-soft); font-weight: 500; }
 
-/* Badge Vérifié TL */
-.badge-verified {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: .74rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, rgba(201,168,76,.18), rgba(201,168,76,.06));
-  color: var(--gold);
-  border: 1px solid rgba(201,168,76,.35);
-  box-shadow: 0 0 10px rgba(201,168,76,.15);
-  white-space: nowrap;
-}
+.badge-verified { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: .74rem; font-weight: 700; background: linear-gradient(135deg,rgba(201,168,76,.18),rgba(201,168,76,.06)); color: var(--gold); border: 1px solid rgba(201,168,76,.35); box-shadow: 0 0 10px rgba(201,168,76,.15); white-space: nowrap; }
 
-/* ── Timeline (historique sinistre) ──────────────────────────── */
+/* ── Timeline ────────────────────────────────────────────────── */
 .timeline { padding: 4px 0; }
-.timeline-item {
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 0 12px;
-  padding-bottom: 20px;
-  position: relative;
-}
+.timeline-item { display: grid; grid-template-columns: 28px 1fr; gap: 0 12px; padding-bottom: 20px; position: relative; }
 .timeline-item:last-child { padding-bottom: 0; }
-
-/* Ligne verticale */
-.timeline-item::before {
-  content: '';
-  position: absolute;
-  left: 13px;
-  top: 28px;
-  width: 2px;
-  bottom: 0;
-  background: var(--line);
-  border-radius: 1px;
-}
+.timeline-item::before { content: ''; position: absolute; left: 13px; top: 28px; width: 2px; bottom: 0; background: var(--line); border-radius: 1px; }
 .timeline-item:last-child::before { display: none; }
-
-.tl-dot {
-  width: 28px; height: 28px;
-  border-radius: 999px;
-  background: var(--glass);
-  border: 2px solid var(--line);
-  display: grid;
-  place-items: center;
-  font-size: .75rem;
-  color: var(--muted);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
+.tl-dot { width: 28px; height: 28px; border-radius: 999px; background: var(--glass); border: 2px solid var(--line); display: grid; place-items: center; font-size: .75rem; color: var(--muted); position: relative; z-index: 1; flex-shrink: 0; }
 .tl-dot.create { background: var(--success-bg); border-color: rgba(26,138,90,.3); color: var(--success); }
 .tl-dot.update { background: var(--warning-bg); border-color: rgba(201,128,0,.3); color: var(--warning); }
 .tl-dot.traite { background: rgba(30,94,255,.1); border-color: rgba(30,94,255,.25); color: var(--primary); }
-
 .tl-content { min-width: 0; padding-top: 4px; }
 .tl-content .tl-action { font-size: .87rem; font-weight: 700; color: var(--text); }
 .tl-content .tl-meta   { font-size: .78rem; color: var(--muted); margin-top: 2px; }
-.tl-content .tl-note   {
-  margin-top: 7px;
-  padding: 8px 11px;
-  border-radius: var(--radius-xs);
-  background: rgba(128,140,160,.06);
-  border: 1px solid var(--line);
-  font-size: .83rem;
-  color: var(--text-soft);
-  word-break: break-word;
-}
+.tl-content .tl-note   { margin-top: 7px; padding: 8px 11px; border-radius: var(--radius-xs); background: rgba(128,140,160,.06); border: 1px solid var(--line); font-size: .83rem; color: var(--text-soft); word-break: break-word; }
 
-/* ── Présence & bar chart simple ─────────────────────────────── */
-.presence-table .status-dot {
-  width: 9px; height: 9px;
-  border-radius: 999px;
-  display: inline-block;
-  background: var(--muted);
-  margin-right: 6px;
-  vertical-align: middle;
-}
-.presence-table .status-dot.online  { background: var(--success); box-shadow: 0 0 6px rgba(26,138,90,.5); }
-.presence-table .status-dot.offline { background: var(--muted); }
+/* ── Présence ────────────────────────────────────────────────── */
+.online-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 700; }
+.online-badge.on  { background: var(--success-bg); color: var(--success); border: 1px solid rgba(26,138,90,.2); }
+.online-badge.off { background: rgba(128,140,160,.08); color: var(--muted); border: 1px solid var(--line); }
+.online-badge.on::before { content: ''; width: 6px; height: 6px; border-radius: 999px; background: var(--success); animation: pulse 1.5s ease-in-out infinite; }
 
-/* ── Paramètres view ─────────────────────────────────────────── */
-.param-list {
-  display: grid;
-  gap: 10px;
-}
-.param-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  background: var(--glass);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
-  font-size: .88rem;
-  transition: border-color var(--t-fast);
-}
-.param-row:hover { border-color: rgba(201,168,76,.25); }
-.param-row .pv { flex: 1; color: var(--text); font-weight: 600; }
-.param-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: .76rem;
-  font-weight: 600;
-  background: var(--gold-subtle);
-  color: var(--gold);
-  border: 1px solid rgba(201,168,76,.3);
-}
-.param-tag .remove-tag {
-  width: 15px; height: 15px;
-  border-radius: 999px;
-  background: rgba(201,168,76,.25);
-  color: var(--gold);
-  font-size: .68rem;
-  font-weight: 900;
-  border: 0;
-  min-height: unset;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: background var(--t-fast);
-}
+/* ── Paramètres ──────────────────────────────────────────────── */
+.param-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: .76rem; font-weight: 600; background: var(--gold-subtle); color: var(--gold); border: 1px solid rgba(201,168,76,.3); }
+.param-tag .remove-tag { width: 15px; height: 15px; border-radius: 999px; background: rgba(201,168,76,.25); color: var(--gold); font-size: .68rem; font-weight: 900; border: 0; min-height: unset; padding: 0; display: grid; place-items: center; cursor: pointer; transition: background var(--t-fast); }
 .param-tag .remove-tag:hover { background: rgba(196,61,61,.3); color: var(--danger); }
-
 .param-tags-wrap { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .param-add-input { display: flex; gap: 8px; margin-top: 10px; }
-.param-add-input input {
-  flex: 1;
-  min-height: 38px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  padding: 7px 12px;
-  font: inherit;
-  font-size: .86rem;
-  background: var(--glass);
-  color: var(--text);
-  outline: none;
-  transition: border-color var(--t-fast);
-}
+.param-add-input input { flex: 1; min-height: 38px; border: 1px solid var(--line); border-radius: var(--radius-xs); padding: 7px 12px; font: inherit; font-size: .86rem; background: var(--glass); color: var(--text); outline: none; transition: border-color var(--t-fast); }
 .param-add-input input:focus { border-color: rgba(201,168,76,.5); box-shadow: 0 0 0 2px var(--gold-subtle); }
 
-/* ── Stat bar (dashboard performance table) ──────────────────── */
-.stat-bar-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.stat-bar {
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(128,140,160,.12);
-  flex: 1;
-  overflow: hidden;
-}
-.stat-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--navy), var(--gold));
-  transition: width .5s var(--ease);
-}
-
-/* ── Connexions chart (mini bar) ─────────────────────────────── */
-.mini-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 48px;
-}
-.mini-bar {
-  flex: 1;
-  border-radius: 3px 3px 0 0;
-  background: linear-gradient(0deg, var(--navy), var(--gold));
-  opacity: .75;
-  min-height: 4px;
-  transition: height .4s var(--ease), opacity var(--t-fast);
-}
-.mini-bar:hover { opacity: 1; }
-
 /* ── Info box ────────────────────────────────────────────────── */
-.info-box {
-  padding: 12px 15px;
-  border-radius: var(--radius-sm);
-  font-size: .85rem;
-  border: 1px solid transparent;
-  display: flex;
-  gap: 9px;
-  align-items: flex-start;
-}
-.info-box.info    { background: rgba(30,94,255,.07);  border-color: rgba(30,94,255,.18); color: var(--primary); }
-.info-box.warning { background: var(--warning-bg);    border-color: rgba(201,128,0,.2);  color: var(--warning); }
-.info-box.danger  { background: var(--danger-bg);     border-color: rgba(196,61,61,.2);  color: var(--danger);  }
-.info-box.success { background: var(--success-bg);    border-color: rgba(26,138,90,.2);  color: var(--success); }
-.info-box.gold    { background: rgba(201,168,76,.07); border-color: rgba(201,168,76,.25); color: var(--gold);   }
+.info-box { padding: 12px 15px; border-radius: var(--radius-sm); font-size: .85rem; border: 1px solid transparent; display: flex; gap: 9px; align-items: flex-start; }
+.info-box.info    { background: rgba(30,94,255,.07);  border-color: rgba(30,94,255,.18);  color: var(--primary); }
+.info-box.warning { background: var(--warning-bg);    border-color: rgba(201,128,0,.2);   color: var(--warning); }
+.info-box.danger  { background: var(--danger-bg);     border-color: rgba(196,61,61,.2);   color: var(--danger);  }
+.info-box.success { background: var(--success-bg);    border-color: rgba(26,138,90,.2);   color: var(--success); }
+.info-box.gold    { background: rgba(201,168,76,.07); border-color: rgba(201,168,76,.25); color: var(--gold);    }
 
-/* ── Section title ───────────────────────────────────────────── */
-.sec-title {
-  font-size: .78rem;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .07em;
-  margin-bottom: 10px;
-  padding-left: 2px;
-}
-
-/* ── Status label (inline) ───────────────────────────────────── */
-.status-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: .82rem;
-  font-weight: 700;
-}
-.status-label::before {
-  content: '';
-  width: 7px; height: 7px;
-  border-radius: 999px;
-  background: currentColor;
-  flex-shrink: 0;
-}
-
-/* ── Divider ─────────────────────────────────────────────────── */
-.divider {
-  height: 1px;
-  background: var(--line);
-  margin: 18px 0;
-  border-radius: 999px;
-}
-
-/* ── User avatar chip ────────────────────────────────────────── */
-.avatar {
-  width: 32px; height: 32px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--navy-deep), var(--navy));
-  color: var(--gold);
-  font-size: .78rem;
-  font-weight: 800;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  letter-spacing: .02em;
-  border: 1px solid rgba(201,168,76,.2);
-}
-[data-theme="dark"] .avatar {
-  background: rgba(201,168,76,.15);
-  color: var(--gold-light);
-}
-
-/* ── Sidebar footer (user info) ──────────────────────────────── */
-.sidebar-footer {
-  margin-top: auto;
-  padding: 12px 10px 6px;
-  border-top: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-.sidebar-footer .user-info { min-width: 0; flex: 1; }
-.sidebar-footer .user-name { font-size: .86rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sidebar-footer .user-role { font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ── Sidebar version chip ────────────────────────────────────── */
-.ver-chip {
-  font-size: .68rem;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--gold-subtle);
-  color: var(--gold);
-  font-weight: 700;
-  border: 1px solid rgba(201,168,76,.2);
-  flex-shrink: 0;
-}
-
-/* ── Input counter (chars left) ──────────────────────────────── */
-.char-count {
-  font-size: .74rem;
-  color: var(--muted);
-  text-align: right;
-  margin-top: 3px;
-}
-.char-count.near-limit { color: var(--warning); }
-.char-count.at-limit   { color: var(--danger);  }
-
-/* ── Grid helpers ────────────────────────────────────────────── */
+/* ── Utilitaires ─────────────────────────────────────────────── */
+.sec-title  { font-size: .78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px; padding-left: 2px; }
+.divider    { height: 1px; background: var(--line); margin: 18px 0; border-radius: 999px; }
+.avatar     { width: 32px; height: 32px; border-radius: 999px; background: linear-gradient(135deg, var(--navy-deep), var(--navy)); color: var(--gold); font-size: .78rem; font-weight: 800; display: grid; place-items: center; flex-shrink: 0; letter-spacing: .02em; border: 1px solid rgba(201,168,76,.2); }
+[data-theme="dark"] .avatar { background: rgba(201,168,76,.15); color: var(--gold-light); }
+.stat-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.stat-bar  { height: 6px; border-radius: 999px; background: rgba(128,140,160,.12); flex: 1; overflow: hidden; }
+.stat-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--navy), var(--gold)); transition: width .5s var(--ease); }
 .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
 .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-
-/* ── Text utilities ──────────────────────────────────────────── */
 .t-muted   { color: var(--muted); }
 .t-success { color: var(--success); }
 .t-warning { color: var(--warning); }
-.t-danger  { color: var(--danger);  }
-.t-gold    { color: var(--gold);    }
-.t-right   { text-align: right; }
-.fw7       { font-weight: 700; }
-.fw8       { font-weight: 800; }
-.fs-sm     { font-size: .82rem; }
-.fs-xs     { font-size: .76rem; }
-
-/* ── Résiliation specifics ───────────────────────────────────── */
-.res-origin-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: .76rem;
-  font-weight: 700;
-}
-.res-origin-badge.email { background: rgba(30,94,255,.1); color: var(--primary); border: 1px solid rgba(30,94,255,.2); }
-.res-origin-badge.courrier { background: var(--gold-subtle); color: var(--gold); border: 1px solid rgba(201,168,76,.3); }
-.res-origin-badge.autre { background: rgba(128,140,160,.1); color: var(--text-soft); border: 1px solid var(--line); }
-
-/* ── Facture remontée specifics ──────────────────────────────── */
-.remonte-strip {
-  background: rgba(201,128,0,.06);
-  border: 1px solid rgba(201,128,0,.22);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  font-size: .84rem;
-  color: var(--warning);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.verifier-btn {
-  background: linear-gradient(135deg, rgba(201,168,76,.22), rgba(201,168,76,.1));
-  color: var(--gold);
-  border: 1px solid rgba(201,168,76,.35);
-  font-weight: 700;
-  box-shadow: 0 4px 12px rgba(201,168,76,.12);
-  transition: all var(--t-fast);
-}
-.verifier-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(201,168,76,.35), rgba(201,168,76,.18));
-  box-shadow: 0 6px 18px rgba(201,168,76,.22);
-}
-
-/* ── Audit trail mini-table ──────────────────────────────────── */
-.audit-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
-.audit-table th, .audit-table td { padding: 8px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-.audit-table th { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
-.audit-table tr:last-child td { border-bottom: 0; }
-.audit-table .old-val { color: var(--danger);  text-decoration: line-through; }
-.audit-table .new-val { color: var(--success); }
-
-/* ── Online badge (présence) ─────────────────────────────────── */
-.online-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: .74rem;
-  font-weight: 700;
-}
-.online-badge.on  { background: var(--success-bg); color: var(--success); border: 1px solid rgba(26,138,90,.2); }
-.online-badge.off { background: rgba(128,140,160,.08); color: var(--muted); border: 1px solid var(--line); }
-.online-badge.on::before {
-  content: '';
-  width: 6px; height: 6px;
-  border-radius: 999px;
-  background: var(--success);
-  animation: pulse 1.5s ease-in-out infinite;
-}
+.t-danger  { color: var(--danger); }
+.t-gold    { color: var(--gold); }
+.fw7 { font-weight: 700; }
+.fw8 { font-weight: 800; }
+.fs-sm { font-size: .82rem; }
+.fs-xs { font-size: .76rem; }
+.remonte-strip { background: rgba(201,128,0,.06); border: 1px solid rgba(201,128,0,.22); border-radius: var(--radius-sm); padding: 10px 14px; font-size: .84rem; color: var(--warning); display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.verifier-btn { background: linear-gradient(135deg,rgba(201,168,76,.22),rgba(201,168,76,.1)); color: var(--gold); border: 1px solid rgba(201,168,76,.35); font-weight: 700; box-shadow: 0 4px 12px rgba(201,168,76,.12); }
+.verifier-btn:hover:not(:disabled) { background: linear-gradient(135deg,rgba(201,168,76,.35),rgba(201,168,76,.18)); box-shadow: 0 6px 18px rgba(201,168,76,.22); }
+.sidebar-footer { margin-top: auto; padding: 12px 10px 6px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 9px; }
+.sidebar-footer .user-name { font-size: .86rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-footer .user-role { font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ver-chip { font-size: .68rem; padding: 2px 7px; border-radius: 999px; background: var(--gold-subtle); color: var(--gold); font-weight: 700; border: 1px solid rgba(201,168,76,.2); flex-shrink: 0; }
+.res-origin-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: .76rem; font-weight: 700; }
+.res-origin-badge.email    { background: rgba(30,94,255,.1);  color: var(--primary); border: 1px solid rgba(30,94,255,.2); }
+.res-origin-badge.courrier { background: var(--gold-subtle);  color: var(--gold);    border: 1px solid rgba(201,168,76,.3); }
+.res-origin-badge.autre    { background: rgba(128,140,160,.1); color: var(--text-soft); border: 1px solid var(--line); }
+.chip-verified { background: linear-gradient(135deg,rgba(201,168,76,.18),rgba(201,168,76,.08)); color: var(--gold); border-color: rgba(201,168,76,.35); box-shadow: 0 0 10px rgba(201,168,76,.15); }
 
 /* ── Responsive ──────────────────────────────────────────────── */
 @media (max-width: 1100px) {
@@ -1346,106 +1079,45 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
   .split-3 { grid-template-columns: 1fr 1fr; }
   .g4      { grid-template-columns: 1fr 1fr; }
 }
-
 @media (max-width: 900px) {
-  .shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
-  .sidebar {
-    position: relative;
-    height: auto;
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: visible;
-    padding: 10px 12px;
-    gap: 6px;
-  }
+  .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .sidebar { position: relative; height: auto; flex-direction: row; overflow-x: auto; overflow-y: visible; padding: 10px 12px; gap: 6px; }
   .nav { grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; }
-  .nav-sep  { display: none; }
+  .nav-sep { display: none; }
   .sidebar-footer { display: none; }
-  .brand small { display: none; }
 }
-
 @media (max-width: 720px) {
-  .split-3  { grid-template-columns: 1fr; }
-  .g2, .g3  { grid-template-columns: 1fr; }
+  .split-3 { grid-template-columns: 1fr; }
+  .g2, .g3 { grid-template-columns: 1fr; }
   .modal.modal-wide { width: 100%; border-radius: 20px; }
-  .modal-body,
-  .modal-scroll { padding: 16px; }
-  .modal-head { padding: 16px; }
-  .modal-foot { padding: 12px 16px; }
-  .main       { padding: 12px; }
-  .top        { padding: 10px 14px; }
-  .top h1     { font-size: 1.15rem; }
-  table       { min-width: 600px; }
-  .kpis       { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  .modal-body, .modal-scroll { padding: 16px; }
+  .modal-head, .modal-foot   { padding: 14px 16px; }
+  .main  { padding: 12px; }
+  .top   { padding: 10px 14px; }
+  table  { min-width: 600px; }
+  .kpis  { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
 }
-
 @media (max-width: 480px) {
-  .card-boot, .card-login { padding: 22px 18px; border-radius: 20px; }
   .kpis { grid-template-columns: 1fr 1fr; }
   .profils-summary { grid-template-columns: 1fr 1fr; }
-  .module-cards { grid-template-columns: 1fr 1fr; }
+  .module-cards    { grid-template-columns: 1fr 1fr; }
 }
 
 /* ── Keyframes ───────────────────────────────────────────────── */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(18px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeOverlay {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes modalIn {
-  from { opacity: 0; transform: translateY(-22px) scale(.97); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);   }
-}
-
-@keyframes tabIn {
-  from { opacity: 0; transform: translateX(10px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(28px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes slide {
-  0%   { margin-left: -50%; width: 50%; }
-  50%  { margin-left: 25%;  width: 50%; }
-  100% { margin-left: 110%; width: 50%; }
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1);    }
-  50%       { opacity: .6; transform: scale(1.35); }
-}
-
-@keyframes shimmer {
-  from { background-position: -200% 0; }
-  to   { background-position:  200% 0; }
-}
-
-/* Skeleton loader */
-.skeleton {
-  border-radius: var(--radius-xs);
-  background: linear-gradient(90deg,
-    rgba(128,140,160,.08) 25%,
-    rgba(128,140,160,.16) 50%,
-    rgba(128,140,160,.08) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.6s infinite linear;
-}
+@keyframes fadeInUp      { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeOverlay   { from { opacity:0; } to { opacity:1; } }
+@keyframes fadeOverlayOut{ from { opacity:1; } to { opacity:0; } }
+@keyframes modalIn       { from { opacity:0; transform:translateY(-20px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes modalOut      { from { opacity:1; transform:translateY(0) scale(1);   } to { opacity:0; transform:translateY(12px) scale(.97); } }
+@keyframes tabIn         { from { opacity:0; transform:translateX(14px);  } to { opacity:1; transform:translateX(0); } }
+@keyframes tabInBack     { from { opacity:0; transform:translateX(-14px); } to { opacity:1; transform:translateX(0); } }
+@keyframes slideInRight  { from { opacity:0; transform:translateX(28px); } to { opacity:1; transform:translateX(0); } }
+@keyframes slideOutRight { from { opacity:1; transform:translateX(0);    } to { opacity:0; transform:translateX(28px); } }
+@keyframes spin          { to   { transform:rotate(360deg); } }
+@keyframes slide         { 0%{margin-left:-50%;width:50%} 50%{margin-left:25%;width:50%} 100%{margin-left:110%;width:50%} }
+@keyframes pulse         { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.35)} }
+@keyframes shimmer       { from{background-position:-200% 0} to{background-position:200% 0} }
+@keyframes rippleAnim    { to { transform:scale(1); opacity:0; } }
   </style>
 </head>
 <body>
@@ -1722,24 +1394,26 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
     <div class="modal-body">
       <div class="g2">
         <div class="field">
-          <label>N° contrat</label>
-          <input type="text" id="msi-no-contrat" placeholder="N° contrat">
+          <label>N° sinistre <span class="req">*</span></label>
+          <input type="text" id="msi-no-sinistre" placeholder="N° sinistre">
         </div>
         <div class="field">
-          <label>Type</label>
-          <select id="msi-type">
-            <option value="">— Type —</option>
-          </select>
+          <label>N° contrat <span class="req">*</span></label>
+          <input type="text" id="msi-no-contrat" placeholder="N° contrat">
         </div>
       </div>
       <div class="g2" style="margin-top:12px;">
         <div class="field">
-          <label>Assuré</label>
-          <input type="text" id="msi-assure" placeholder="Nom de l'assuré">
+          <label>Gestionnaire</label>
+          <input type="text" id="msi-gestionnaire" placeholder="Nom du gestionnaire">
         </div>
         <div class="field">
-          <label>Montant (€)</label>
-          <input type="number" id="msi-montant" placeholder="0.00" min="0" step="0.01">
+          <label>Complétude</label>
+          <select id="msi-completude">
+            <option value="">— Sélectionner —</option>
+            <option value="OK">OK</option>
+            <option value="KO">KO (Relance)</option>
+          </select>
         </div>
       </div>
       <div class="field" style="margin-top:12px;">
@@ -1797,25 +1471,9 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
       <button class="modal-close" onclick="closeModal('modal-facture')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="g2">
-        <div class="field">
-          <label>N° contrat</label>
-          <input type="text" id="mfa-no-contrat" placeholder="N° contrat">
-        </div>
-        <div class="field">
-          <label>Montant (€)</label>
-          <input type="number" id="mfa-montant" placeholder="0.00" min="0" step="0.01">
-        </div>
-      </div>
-      <div class="g2" style="margin-top:12px;">
-        <div class="field">
-          <label>Émetteur</label>
-          <input type="text" id="mfa-emetteur" placeholder="Nom émetteur">
-        </div>
-        <div class="field">
-          <label>Date facture</label>
-          <input type="date" id="mfa-date">
-        </div>
+      <div class="field">
+        <label>N° sinistre <span class="req">*</span></label>
+        <input type="text" id="mfa-no-sinistre" placeholder="N° sinistre associé">
       </div>
       <div class="field" style="margin-top:12px;">
         <label>Commentaire traitement</label>
@@ -1989,7 +1647,7 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
 /* ── State global ────────────────────────────────────────────── */
 const S = {
   token:       null,
-  session:     null,   // { user, role, team_id }
+  session:     null,
   permissions: null,
   lookups:     null,
   dashboard:   null,
@@ -1998,29 +1656,80 @@ const S = {
   darkMode:    localStorage.getItem('theme') === 'dark'
 };
 
-/* ── Helpers ─────────────────────────────────────────────────── */
-function show(id)  { document.getElementById(id).classList.remove('hidden'); }
-function hide(id)  { document.getElementById(id).classList.add('hidden'); }
+/* ── Helpers DOM ─────────────────────────────────────────────── */
+function show(id)  { const e = document.getElementById(id); if (e) e.classList.remove('hidden'); }
+function hide(id)  { const e = document.getElementById(id); if (e) e.classList.add('hidden'); }
 function el(id)    { return document.getElementById(id); }
 
-function toast(msg, type) {
-  type = type || 'info';
+/* ── Toast (avec barre de progression + bouton ✕) ───────────── */
+var _toastLimit = 4;
+function toast(msg, type, durationMs) {
+  type       = type       || 'info';
+  durationMs = durationMs || 4500;
+
+  const wrap = el('toasts');
+  if (!wrap) return;
+
+  // Limiter le nombre de toasts visibles
+  const existing = wrap.querySelectorAll('.toast');
+  if (existing.length >= _toastLimit) existing[0].remove();
+
   const box = document.createElement('div');
   box.className = 'toast ' + type;
-  box.textContent = msg;
-  el('toasts').appendChild(box);
-  setTimeout(function() { box.remove(); }, 4200);
+
+  const msgEl = document.createElement('span');
+  msgEl.className   = 'toast-msg';
+  msgEl.textContent = msg;
+
+  const closeEl = document.createElement('button');
+  closeEl.className   = 'toast-close';
+  closeEl.textContent = '✕';
+  closeEl.onclick     = function() { _removeToast(box); };
+
+  const barEl = document.createElement('div');
+  barEl.className = 'toast-bar';
+  const fillEl = document.createElement('div');
+  fillEl.className = 'toast-bar-fill';
+  barEl.appendChild(fillEl);
+
+  box.appendChild(msgEl);
+  box.appendChild(closeEl);
+  box.appendChild(barEl);
+  wrap.appendChild(box);
+
+  // Animer la barre
+  requestAnimationFrame(function() {
+    fillEl.style.transition = 'width ' + durationMs + 'ms linear';
+    fillEl.style.width = '0%';
+  });
+
+  const tid = setTimeout(function() { _removeToast(box); }, durationMs);
+  box._tid = tid;
 }
 
-function setBtnLoading(btn, on) {
-  if (!btn) return;
-  const sp = btn.querySelector('.spinner');
-  const lb = btn.querySelector('.label');
-  btn.disabled = on;
-  if (sp) sp.classList.toggle('hidden', !on);
-  if (lb) lb.style.opacity = on ? '0' : '';
+function _removeToast(box) {
+  if (!box.parentNode) return;
+  clearTimeout(box._tid);
+  box.style.animation = 'slideOutRight .2s var(--ease) forwards';
+  setTimeout(function() { if (box.parentNode) box.remove(); }, 210);
 }
 
+/* ── Ripple sur bouton ───────────────────────────────────────── */
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('button:not(:disabled)');
+  if (!btn || btn.classList.contains('toast-close') || btn.classList.contains('remove-tag')) return;
+  const rect   = btn.getBoundingClientRect();
+  const size   = Math.max(rect.width, rect.height) * 1.8;
+  const x      = e.clientX - rect.left - size / 2;
+  const y      = e.clientY - rect.top  - size / 2;
+  const ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  ripple.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + x + 'px;top:' + y + 'px;';
+  btn.appendChild(ripple);
+  setTimeout(function() { if (ripple.parentNode) ripple.remove(); }, 600);
+}, true);
+
+/* ── Helpers formatage ───────────────────────────────────────── */
 function fmtEuro(n) {
   return (Number(n) || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 }
@@ -2041,7 +1750,6 @@ function fmtDuration(s) {
   const m = Math.floor((s % 3600) / 60);
   return h ? h + 'h ' + m + 'min' : m + 'min';
 }
-
 function initials(name) {
   if (!name) return '?';
   const parts = String(name).trim().split(/\s+/);
@@ -2049,23 +1757,31 @@ function initials(name) {
     ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
     : String(name).substring(0, 2).toUpperCase();
 }
-
 function escHtml(s) {
   return String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
 function parseHistorique(row) {
-  try { return JSON.parse(row.historique_json || '[]'); }
-  catch(e) { return []; }
+  try { return JSON.parse(row.historique_json || '[]'); } catch(e) { return []; }
+}
+function parseProfils(row) {
+  try { return JSON.parse(row.profils_json || '[]'); } catch(e) { return []; }
 }
 
-function parseProfils(row) {
-  try { return JSON.parse(row.profils_json || '[]'); }
-  catch(e) { return []; }
+/* ── KPI count-up ────────────────────────────────────────────── */
+function animateCountUp(el, target, duration) {
+  if (!el) return;
+  duration = duration || 700;
+  const start = performance.now();
+  const from  = 0;
+  function step(now) {
+    const p = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    el.textContent = Math.round(from + (target - from) * ease);
+    if (p < 1) requestAnimationFrame(step);
+    else el.textContent = target;
+  }
+  requestAnimationFrame(step);
 }
 
 /* ── Theme ───────────────────────────────────────────────────── */
@@ -2074,11 +1790,42 @@ function applyTheme() {
   const btn = el('btn-theme');
   if (btn) btn.textContent = S.darkMode ? '☾' : '☀';
 }
-
 function toggleTheme() {
   S.darkMode = !S.darkMode;
   localStorage.setItem('theme', S.darkMode ? 'dark' : 'light');
   applyTheme();
+}
+
+/* ── Gestion session expirée ─────────────────────────────────── */
+function handleSessionExpired() {
+  if (S.heartbeat) clearInterval(S.heartbeat);
+  S.token = null;
+  sessionStorage.removeItem('token');
+  // Fermer toute modale ouverte
+  document.querySelectorAll('.overlay:not(.hidden)').forEach(function(o) {
+    o.classList.add('hidden');
+  });
+  document.body.style.overflow = '';
+  hide('app');
+  show('login');
+  el('login-user').value = '';
+  el('login-pass').value = '';
+  // Afficher message
+  const errMsg = el('login-err-msg');
+  const errBox = el('login-err');
+  if (errMsg) errMsg.textContent = 'Votre session a expiré. Veuillez vous reconnecter.';
+  if (errBox) errBox.classList.remove('hidden');
+}
+
+/* Intercepteur global des erreurs GAS "session expirée" */
+function gasFailureHandler(e, btn) {
+  if (btn) setBtnLoading(btn, false);
+  const msg = (e && e.message) ? e.message : String(e);
+  if (msg.toLowerCase().indexOf('expir') > -1 || msg.toLowerCase().indexOf('session') > -1) {
+    handleSessionExpired();
+  } else {
+    toast(msg, 'error');
+  }
 }
 
 /* ── Boot ────────────────────────────────────────────────────── */
@@ -2108,13 +1855,14 @@ function showLogin() {
   if (inp) setTimeout(function() { inp.focus(); }, 80);
 }
 
+/* Bootstrap : session reprise (F5). Dashboard chargé en async. */
 function onBootstrapData(data) {
   hide('boot');
   if (!data || data.error) { showLogin(); return; }
   S.session     = data.session;
   S.permissions = data.session && data.session.permissions ? data.session.permissions : {};
   S.lookups     = data.lookups;
-  S.dashboard   = data.dashboard;
+  S.dashboard   = null; // sera chargé en async par renderDashboard
   startApp();
 }
 
@@ -2145,12 +1893,12 @@ function doLogin() {
     .withSuccessHandler(function(data) {
       setBtnLoading(btn, false);
       if (data && data.token) {
-        S.token = data.token;
+        S.token       = data.token;
         sessionStorage.setItem('token', data.token);
         S.session     = data.session;
         S.permissions = data.session && data.session.permissions ? data.session.permissions : {};
         S.lookups     = data.lookups;
-        S.dashboard   = data.dashboard;
+        S.dashboard   = null; // chargé en async dans renderDashboard
         startApp();
       } else {
         errMsg.textContent = (data && data.error) ? data.error : 'Identifiants incorrects.';
@@ -2159,7 +1907,7 @@ function doLogin() {
     })
     .withFailureHandler(function(e) {
       setBtnLoading(btn, false);
-      errMsg.textContent = e.message || 'Erreur de connexion.';
+      errMsg.textContent = (e && e.message) ? e.message : 'Erreur de connexion.';
       errBox.classList.remove('hidden');
     })
     .loginUser(login, password);
@@ -2179,26 +1927,43 @@ function startApp() {
 
 /* ── Hydrate shell ───────────────────────────────────────────── */
 function hydrateShell() {
-  const u = S.session && S.session.user ? S.session.user : {};
+  const u    = S.session && S.session.user ? S.session.user : {};
   const name = u.full_name || '—';
-  const role = u.role || '—';
-
-  el('sb-name').textContent  = name;
-  el('sb-role').textContent  = role;
-  el('sb-scope').textContent = S.dashboard ? S.dashboard.scopeLabel : '';
+  el('sb-name').textContent   = name;
+  el('sb-role').textContent   = u.role || '—';
+  el('sb-scope').textContent  = '';
   el('sb-avatar').textContent = initials(name);
-  el('sb-ver').textContent   = 'v2.0';
+  el('sb-ver').textContent    = 'v2.0';
 }
 
-/* ── Heartbeat ───────────────────────────────────────────────── */
+/* ── Helpers ─────────────────────────────────────────────────── */
+function setBtnLoading(btn, on) {
+  if (!btn) return;
+  const sp = btn.querySelector('.spinner');
+  const lb = btn.querySelector('.label');
+  btn.disabled = on;
+  if (sp) sp.classList.toggle('hidden', !on);
+  if (lb) lb.style.opacity = on ? '0' : '';
+}
+
+/* ── Heartbeat — intervalle basé sur la config serveur ──────── */
 function startHeartbeat() {
   if (S.heartbeat) clearInterval(S.heartbeat);
+  // heartbeatSeconds retourné par le backend (défaut 90s), x1000 → ms
+  const intervalMs = ((S.session && S.session.heartbeatSeconds) || 90) * 1000;
   S.heartbeat = setInterval(function() {
+    if (!S.token) return;
     google.script.run
       .withSuccessHandler(function() {})
-      .withFailureHandler(function() {})
+      .withFailureHandler(function(e) {
+        // Si la session a expiré pendant un heartbeat → reconnecter
+        const msg = (e && e.message) ? e.message.toLowerCase() : '';
+        if (msg.indexOf('expir') > -1 || msg.indexOf('session') > -1) {
+          handleSessionExpired();
+        }
+      })
       .heartbeat(S.token);
-  }, 270000); // 4.5 min
+  }, intervalMs);
 }
 
 /* ── Logout ──────────────────────────────────────────────────── */
@@ -2211,15 +1976,9 @@ function doLogout() {
   S.token = null;
   sessionStorage.removeItem('token');
   hide('app');
-  hide('login');
-  show('boot');
-  el('boot-msg').textContent = 'Déconnexion…';
-  setTimeout(function() {
-    hide('boot');
-    show('login');
-    el('login-user').value = '';
-    el('login-pass').value = '';
-  }, 600);
+  show('login');
+  el('login-user').value = '';
+  el('login-pass').value = '';
 }
 
 /* ── DOMContentLoaded ────────────────────────────────────────── */
@@ -2230,7 +1989,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   PART F — Navigation, routing, top bar
+   PART F — Navigation, routing, top bar, shared helpers
 ═══════════════════════════════════════════════════════════════ */
 
 /* ── Menu definitions ────────────────────────────────────────── */
@@ -2308,6 +2067,10 @@ var VIEWS = {
   }
 };
 
+/* Order array for directional transitions */
+var _navViewKeys  = Object.keys(VIEWS);
+var _navPrevIndex = -1;
+
 /* ── Build nav ───────────────────────────────────────────────── */
 function buildNav() {
   const role  = S.session && S.session.user ? S.session.user.role : '';
@@ -2336,8 +2099,12 @@ function buildNav() {
   });
 }
 
-/* ── Navigate ────────────────────────────────────────────────── */
+/* ── Navigate (with directional transitions) ─────────────────── */
 function navigate(view) {
+  var newIdx  = _navViewKeys.indexOf(view);
+  var isBack  = _navPrevIndex > -1 && newIdx > -1 && newIdx < _navPrevIndex;
+  if (newIdx > -1) _navPrevIndex = newIdx;
+
   S.activeView = view;
 
   // Highlight active button
@@ -2348,64 +2115,100 @@ function navigate(view) {
 
   // Update top bar
   var vDef = VIEWS[view] || {};
-  el('top-title').textContent  = vDef.label || view;
-  el('top-sub').textContent    = S.dashboard ? S.dashboard.scopeLabel : '';
+  el('top-title').textContent = vDef.label || view;
+  el('top-sub').textContent   = S.dashboard ? S.dashboard.scopeLabel : '';
 
-  // Render view
+  // Directional animation
   var content = el('content');
   content.innerHTML = '';
-  content.className = 'content animate';
-
-  // Reset animation
-  void content.offsetWidth; // reflow trick
+  content.className = 'content ' + (isBack ? 'animate-back' : 'animate');
+  void content.offsetWidth; // reflow — force animation restart
 
   switch (view) {
-    case 'dashboard':          renderDashboard();      break;
-    case 'agrements':          renderAgrements();      break;
-    case 'sinistres':          renderSinistres();      break;
-    case 'factures':           renderFactures();       break;
-    case 'resiliations':       renderResiliations();   break;
+    case 'dashboard':          renderDashboard();         break;
+    case 'agrements':          renderAgrements();         break;
+    case 'sinistres':          renderSinistres();         break;
+    case 'factures':           renderFactures();          break;
+    case 'resiliations':       renderResiliations();      break;
     case 'factures-remontees': renderFacturesRemontees(); break;
-    case 'presence':           renderPresence();       break;
-    case 'historique':         renderHistorique();     break;
-    case 'connexions':         renderConnexions();     break;
-    case 'users':              renderUsers();          break;
-    case 'teams':              renderTeams();          break;
-    case 'parametres':         renderParametres();     break;
+    case 'presence':           renderPresence();          break;
+    case 'historique':         renderHistorique();        break;
+    case 'connexions':         renderConnexions();        break;
+    case 'users':              renderUsers();             break;
+    case 'teams':              renderTeams();             break;
+    case 'parametres':         renderParametres();        break;
     default:
       content.innerHTML = '<div class="empty">Vue inconnue : ' + escHtml(view) + '</div>';
   }
 }
 
-/* ── Open / close modal ──────────────────────────────────────── */
+/* ── Modal helpers ───────────────────────────────────────────── */
+function _animatedCloseOverlay(overlay) {
+  if (!overlay || overlay.classList.contains('closing')) return;
+  var modal = overlay.querySelector('.modal');
+  overlay.classList.add('closing');
+  if (modal) modal.classList.add('closing');
+  setTimeout(function() {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('closing');
+    if (modal) modal.classList.remove('closing');
+    document.body.style.overflow = '';
+  }, 220);
+}
+
 function openModal(id) {
-  el(id).classList.remove('hidden');
+  var overlay = el(id);
+  if (!overlay) return;
+  overlay.classList.remove('hidden', 'closing');
+  var modal = overlay.querySelector('.modal');
+  if (modal) modal.classList.remove('closing');
   document.body.style.overflow = 'hidden';
 }
 
 function closeModal(id) {
-  el(id).classList.add('hidden');
-  document.body.style.overflow = '';
+  var overlay = el(id);
+  if (!overlay) return;
+  _animatedCloseOverlay(overlay);
 }
 
 /* Close overlay on backdrop click */
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('overlay')) {
-    e.target.classList.add('hidden');
-    document.body.style.overflow = '';
+    _animatedCloseOverlay(e.target);
   }
 });
 
 /* Close on Escape */
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    var open = document.querySelector('.overlay:not(.hidden)');
-    if (open) {
-      open.classList.add('hidden');
-      document.body.style.overflow = '';
-    }
+    var open = document.querySelector('.overlay:not(.hidden):not(.closing)');
+    if (open) _animatedCloseOverlay(open);
   }
 });
+
+/* ── Field validation helper ─────────────────────────────────── */
+function markRequired(fieldId, isInvalid) {
+  var inp = el(fieldId);
+  if (!inp) return;
+  inp.classList.toggle('invalid', !!isInvalid);
+}
+
+/* ── Skeleton loading table ──────────────────────────────────── */
+function buildSkeletonTable(rowCount) {
+  var html = '<div class="card">';
+  html += '<div class="card-head"><div class="skeleton" style="width:140px;height:18px;border-radius:4px;"></div></div>';
+  html += '<div class="skeleton-table">';
+  for (var i = 0; i < (rowCount || 5); i++) {
+    html += '<div class="skeleton-row">';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:0 0 70px;max-width:70px;"></div>';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:2;"></div>';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:1;"></div>';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:0 0 50px;max-width:50px;"></div>';
+    html += '</div>';
+  }
+  html += '</div></div>';
+  return html;
+}
 
 /* ── Generic table builder ───────────────────────────────────── */
 function buildTable(headers, rows, rowFn) {
@@ -2514,24 +2317,27 @@ function loadDashboard() {
       S.dashboard = data;
       if (S.activeView === 'dashboard') paintDashboard(data);
     })
-    .withFailureHandler(function(e) {
-      toast('Erreur dashboard : ' + (e.message || e), 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getDashboardData(S.token);
 }
 
 function paintDashboard(data) {
   var html = '';
+  var kpiAnimTargets = [];
 
   /* ── KPIs ── */
   html += '<div class="kpis">';
-  (data.kpis || []).forEach(function(k) {
-    var toneClass = {
-      primary: 'cp', success: 'cs', warning: 'cw', danger: 'cd', neutral: ''
-    }[k.tone] || '';
+  (data.kpis || []).forEach(function(k, idx) {
+    var numVal = Number(k.value);
+    var isInt  = !isNaN(numVal) && String(k.value).match(/^\d+$/);
     html += '<div class="kpi">';
     html += '<div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">' + escHtml(k.label) + '</div>';
-    html += '<div class="v">' + escHtml(String(k.value)) + '</div>';
+    if (isInt) {
+      html += '<div class="v" id="kpi-v-' + idx + '">0</div>';
+      kpiAnimTargets.push({ id: 'kpi-v-' + idx, val: numVal });
+    } else {
+      html += '<div class="v">' + escHtml(String(k.value)) + '</div>';
+    }
     html += '</div>';
   });
   html += '</div>';
@@ -2647,6 +2453,11 @@ function paintDashboard(data) {
   }
 
   el('content').innerHTML = html;
+
+  /* Trigger count-up after DOM is ready */
+  kpiAnimTargets.forEach(function(t) {
+    animateCountUp(el(t.id), t.val, 800);
+  });
 }
 </script>
 <script>
@@ -2658,10 +2469,10 @@ function paintDashboard(data) {
 var _users = [];
 
 function renderUsers() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(5);
   google.script.run
     .withSuccessHandler(paintUsers)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listUsers(S.token, {});
 }
 
@@ -2766,10 +2577,7 @@ function saveUser(userId) {
       toast('Utilisateur enregistré.', 'success');
       renderUsers();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveUser(S.token, payload);
 }
 
@@ -2777,7 +2585,7 @@ function toggleUserStatus(userId, currentStatus) {
   var newStatus = currentStatus === 'Actif' ? 'Inactif' : 'Actif';
   google.script.run
     .withSuccessHandler(function() { toast('Statut mis à jour.', 'success'); renderUsers(); })
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .saveUser(S.token, { id: userId, status: newStatus });
 }
 
@@ -2785,10 +2593,10 @@ function toggleUserStatus(userId, currentStatus) {
 var _teams = [];
 
 function renderTeams() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(5);
   google.script.run
     .withSuccessHandler(paintTeams)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listTeams(S.token);
 }
 
@@ -2862,10 +2670,7 @@ function saveTeam(teamId) {
       toast('Équipe enregistrée.', 'success');
       renderTeams();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveTeam(S.token, payload);
 }
 </script>
@@ -2882,10 +2687,10 @@ var _magReassignId = null;
 
 /* ── List ─────────────────────────────────────────────────── */
 function renderAgrements() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintAgrements)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listAgrements(S.token, {});
 }
 
@@ -2897,8 +2702,8 @@ function paintAgrements(rows) {
   html += '<div class="card-head">';
   html += '<span class="fw8">Agréments</span>';
   html += '<div style="display:flex;gap:8px;align-items:center;">';
-  html += '<input type="text" id="ag-search" placeholder="Recherche…" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 12px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;transition:border-color var(--t-fast);" oninput="filterAgrements()">';
-  html += '<select id="ag-filter-statut" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 10px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" onchange="filterAgrements()"><option value="">Tous statuts</option>';
+  html += '<input type="text" id="ag-search" placeholder="Recherche…" class="filter-input" oninput="filterAgrements()">';
+  html += '<select id="ag-filter-statut" class="filter-select" onchange="filterAgrements()"><option value="">Tous statuts</option>';
   var statuts = ['En attente de traitement', 'En cours de traitement', 'Validé', 'Clos'];
   statuts.forEach(function(s){ html += '<option>' + s + '</option>'; });
   html += '</select>';
@@ -3300,10 +3105,7 @@ function saveMagAgrement() {
       toast('Agrément enregistré.', 'success');
       renderAgrements();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveAgrement(S.token, payload);
 }
 
@@ -3323,10 +3125,7 @@ function doOverrideSolvabilite() {
       closeModal('modal-agrement');
       renderAgrements();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .overrideSolvabilite(S.token, _magCurrent.id, resultat, comment);
 }
 
@@ -3355,16 +3154,13 @@ function doReassign() {
       toast('Dossier réassigné.', 'success');
       renderAgrements();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .reassignerAgrement(S.token, _magReassignId, newAmbId);
 }
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   PART J — Module Sinistre (commentaire, historique, re-traitement)
+   PART J — Module Sinistre
 ═══════════════════════════════════════════════════════════════ */
 
 var _sinistres  = [];
@@ -3372,10 +3168,10 @@ var _msiCurrent = null;
 
 /* ── List ─────────────────────────────────────────────────── */
 function renderSinistres() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintSinistres)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listSinistres(S.token, {});
 }
 
@@ -3386,9 +3182,9 @@ function paintSinistres(rows) {
   html += '<div class="card-head">';
   html += '<span class="fw8">Sinistres</span>';
   html += '<div style="display:flex;gap:8px;align-items:center;">';
-  html += '<input type="text" id="si-search" placeholder="Recherche…" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 12px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" oninput="filterSinistres()">';
-  html += '<select id="si-filter-statut" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 10px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" onchange="filterSinistres()"><option value="">Tous statuts</option>';
-  ['Complet', 'Relance', 'Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
+  html += '<input type="text" id="si-search" placeholder="Recherche…" class="filter-input" oninput="filterSinistres()">';
+  html += '<select id="si-filter-statut" class="filter-select" onchange="filterSinistres()"><option value="">Tous statuts</option>';
+  ['Complet','Relance','Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
   html += '</select>';
   html += '<button class="b1" onclick="openSinistreModal(null)">+ Nouveau</button>';
   html += '</div></div>';
@@ -3401,11 +3197,10 @@ function paintSinistres(rows) {
 function filterSinistres() {
   var search = el('si-search') ? el('si-search').value.toLowerCase() : '';
   var statut = el('si-filter-statut') ? el('si-filter-statut').value : '';
-  var filtered = _sinistres.filter(function(r) {
+  paintSinistresTable(_sinistres.filter(function(r) {
     return (!statut || r.statut === statut) &&
            (!search || JSON.stringify(r).toLowerCase().indexOf(search) > -1);
-  });
-  paintSinistresTable(filtered);
+  }));
 }
 
 function paintSinistresTable(rows) {
@@ -3414,15 +3209,15 @@ function paintSinistresTable(rows) {
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucun sinistre.</div>'; return; }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° contrat', 'Type', 'Assuré', 'Montant', 'Statut', 'Délai', 'Modifié', 'Actions'],
+    ['Référence', 'N° sinistre', 'N° contrat', 'Gestionnaire', 'Complétude', 'Statut', 'Délai', 'Modifié', 'Actions'],
     rows,
     function(r) {
       return '<tr>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
+        '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
         '<td class="fs-sm">' + escHtml(r.no_contrat || '—') + '</td>' +
-        '<td class="fs-sm">' + escHtml(r.type || '—') + '</td>' +
-        '<td>' + escHtml(r.assure || '—') + '</td>' +
-        '<td class="fw7">' + (r.montant ? fmtEuro(r.montant) : '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.gestionnaire || '—') + '</td>' +
+        '<td>' + (r.completude ? statusChip(r.completude) : '—') + '</td>' +
         '<td>' + statusChip(r.statut) + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.delai_formate || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + fmtDate(r.updated_at) + '</td>' +
@@ -3435,38 +3230,28 @@ function paintSinistresTable(rows) {
 /* ── Open modal ──────────────────────────────────────────── */
 function openSinistreModal(sinId) {
   _msiCurrent = sinId ? (_sinistres.find(function(x){ return x.id === sinId; }) || null) : null;
-  var r   = _msiCurrent || {};
-  var lk  = S.lookups || {};
+  var r = _msiCurrent || {};
 
-  el('msi-title').textContent = sinId ? 'Modifier sinistre' : 'Nouveau sinistre';
-  el('msi-ref').textContent   = r.reference || '';
-  el('msi-no-contrat').value  = r.no_contrat || '';
-  el('msi-assure').value      = r.assure || '';
-  el('msi-montant').value     = r.montant || '';
-  el('msi-commentaire').value = r.commentaire || '';
+  el('msi-title').textContent     = sinId ? 'Modifier sinistre' : 'Nouveau sinistre';
+  el('msi-ref').textContent       = r.reference || '';
+  el('msi-no-sinistre').value     = r.no_sinistre  || '';
+  el('msi-no-contrat').value      = r.no_contrat   || '';
+  el('msi-gestionnaire').value    = r.gestionnaire  || '';
+  el('msi-commentaire').value     = r.commentaire   || '';
 
-  /* Type select */
-  populateSelect(el('msi-type'), lk.sinistresTypes || ['Dégâts des eaux', 'Incendie', 'Vol', 'Autre'], r.type, '— Type —');
+  var completudeEl = el('msi-completude');
+  if (completudeEl) completudeEl.value = r.completude || '';
 
   /* Zone traitement */
-  var traiterZone = el('msi-traiter-zone');
+  var traiterZone  = el('msi-traiter-zone');
   var timelineZone = el('msi-timeline-zone');
 
   if (sinId) {
     traiterZone.classList.remove('hidden');
-    el('msi-statut').value = r.statut || 'Complet';
-
-    /* Re-traitement warning */
     var rwEl = el('msi-retreatment-warning');
-    if (r.statut === 'Traité') {
-      rwEl.classList.remove('hidden');
-    } else {
-      rwEl.classList.add('hidden');
-    }
-
+    if (rwEl) rwEl.classList.toggle('hidden', r.statut !== 'Traité');
     el('btn-msi-traiter').onclick = function() { doTraiterSinistre(sinId); };
 
-    /* Timeline */
     var hist = parseHistorique(r);
     if (hist.length) {
       timelineZone.classList.remove('hidden');
@@ -3485,32 +3270,39 @@ function openSinistreModal(sinId) {
 
 function paintSinistreTimeline(hist) {
   var tl = el('msi-timeline');
+  if (!tl) return;
   tl.innerHTML = hist.map(function(h) {
-    var dotType = h.action === 'CREATE' ? 'create' : (h.action === 'TRAITE' ? 'traite' : 'update');
-    var icon = { CREATE: '+', UPDATE: '✎', TRAITE: '✔' }[h.action] || '•';
+    var dotType = { CREATE:'create', TRAITE:'traite' }[h.action] || 'update';
+    var icon    = { CREATE:'+', TRAITE:'✔', MISE_A_JOUR:'✎', MISE_A_JOUR_APRES_TRAITEMENT:'⚑' }[h.action] || '•';
     return '<div class="timeline-item">' +
       '<div class="tl-dot ' + dotType + '">' + icon + '</div>' +
       '<div class="tl-content">' +
-      '<div class="tl-action">' + escHtml(h.label || h.action) + '</div>' +
-      '<div class="tl-meta">' + escHtml(h.by_name || h.by || '') + ' — ' + fmtDateTime(h.at) + '</div>' +
-      (h.commentaire ? '<div class="tl-note">' + escHtml(h.commentaire) + '</div>' : '') +
-      '</div>' +
-      '</div>';
+        '<div class="tl-action">' + escHtml(h.action || h.label || '') + '</div>' +
+        '<div class="tl-meta">' + escHtml(h.user_name || h.by || '') + ' — ' + fmtDateTime(h.timestamp || h.at) + '</div>' +
+        (h.commentaire ? '<div class="tl-note">' + escHtml(h.commentaire) + '</div>' : '') +
+      '</div></div>';
   }).join('');
 }
 
-/* ── Save sinistre (create/update) ───────────────────────── */
+/* ── Save ─────────────────────────────────────────────────── */
 function saveSinistreModal() {
   var btn = el('btn-msi-save');
+  var noSin = el('msi-no-sinistre').value.trim();
+  var noCon = el('msi-no-contrat').value.trim();
+
+  // Validation visuelle
+  markRequired('msi-no-sinistre', !noSin);
+  markRequired('msi-no-contrat',  !noCon);
+  if (!noSin || !noCon) { toast('Les champs marqués * sont obligatoires.', 'error'); return; }
+
   var payload = {
     id:          _msiCurrent ? _msiCurrent.id : '',
-    no_contrat:  el('msi-no-contrat').value.trim(),
-    type:        el('msi-type').value,
-    assure:      el('msi-assure').value.trim(),
-    montant:     Number(el('msi-montant').value) || 0,
+    no_sinistre: noSin,
+    no_contrat:  noCon,
+    gestionnaire: el('msi-gestionnaire').value.trim(),
+    completude:  el('msi-completude') ? el('msi-completude').value : '',
     commentaire: el('msi-commentaire').value.trim()
   };
-  if (!payload.no_contrat) { toast('Le N° de contrat est obligatoire.', 'error'); return; }
 
   setBtnLoading(btn, true);
   google.script.run
@@ -3520,53 +3312,46 @@ function saveSinistreModal() {
       toast('Sinistre enregistré.', 'success');
       renderSinistres();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveSinistre(S.token, payload);
 }
 
-/* ── Traiter sinistre ────────────────────────────────────── */
+/* ── Traiter ──────────────────────────────────────────────── */
 function doTraiterSinistre(sinId) {
   var btn = el('btn-msi-traiter');
   setBtnLoading(btn, true);
   google.script.run
-    .withSuccessHandler(function(updated) {
+    .withSuccessHandler(function() {
       setBtnLoading(btn, false);
       closeModal('modal-sinistre');
       toast('Sinistre marqué comme Traité.', 'success');
       renderSinistres();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .traiterSinistre(S.token, sinId);
 }
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   PART K — Module Facture (Remonté / Vérifié / Traité workflow)
+   PART K — Module Facture (Vérification / Calcul / Règlement)
 ═══════════════════════════════════════════════════════════════ */
 
-var _factures  = [];
+var _factures   = [];
 var _mfaCurrent = null;
 
-/* Étapes standard facture (labels) */
+/* Étapes — alignées sur le schéma backend */
 var FACTURE_STEPS = [
-  { key: 'step_quittance',   label: 'Quittance téléchargée' },
-  { key: 'step_avis_echo',   label: 'Avis d\'écho vérifié'  },
-  { key: 'step_bon_remise',  label: 'Bon de remise signé'   },
-  { key: 'step_envoi_comp',  label: 'Envoi compagnie'       }
+  { key: 'etape_verification', label: 'Vérification' },
+  { key: 'etape_calcul',       label: 'Calcul'       },
+  { key: 'etape_reglement',    label: 'Règlement'    }
 ];
 
 /* ── List ─────────────────────────────────────────────────── */
 function renderFactures() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(5);
   google.script.run
     .withSuccessHandler(paintFactures)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listFactures(S.token, {});
 }
 
@@ -3575,17 +3360,15 @@ function paintFactures(rows) {
   var perms = S.permissions || {};
 
   var html = '<div class="card">';
-  html += '<div class="card-head">';
-  html += '<span class="fw8">Factures</span>';
+  html += '<div class="card-head"><span class="fw8">Factures</span>';
   html += '<div style="display:flex;gap:8px;align-items:center;">';
-  html += '<input type="text" id="fa-search" placeholder="Recherche…" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 12px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" oninput="filterFactures()">';
-  html += '<select id="fa-filter-statut" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 10px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" onchange="filterFactures()"><option value="">Tous statuts</option>';
-  ['En cours', 'Remonté', 'Vérifié', 'Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
+  html += '<input type="text" id="fa-search" placeholder="Recherche…" class="filter-input" oninput="filterFactures()">';
+  html += '<select id="fa-filter-statut" class="filter-select" onchange="filterFactures()"><option value="">Tous statuts</option>';
+  ['En cours','Remonté','Vérifié','Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
   html += '</select>';
   html += '<button class="b1" onclick="openFactureModal(null)">+ Nouvelle</button>';
   html += '</div></div>';
-  html += '<div id="fa-table-wrap"></div>';
-  html += '</div>';
+  html += '<div id="fa-table-wrap"></div></div>';
   el('content').innerHTML = html;
   paintFacturesTable(_factures);
 }
@@ -3593,11 +3376,10 @@ function paintFactures(rows) {
 function filterFactures() {
   var search = el('fa-search') ? el('fa-search').value.toLowerCase() : '';
   var statut = el('fa-filter-statut') ? el('fa-filter-statut').value : '';
-  var filtered = _factures.filter(function(r) {
+  paintFacturesTable(_factures.filter(function(r) {
     return (!statut || r.statut === statut) &&
            (!search || JSON.stringify(r).toLowerCase().indexOf(search) > -1);
-  });
-  paintFacturesTable(filtered);
+  }));
 }
 
 function paintFacturesTable(rows) {
@@ -3606,20 +3388,28 @@ function paintFacturesTable(rows) {
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucune facture.</div>'; return; }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° contrat', 'Émetteur', 'Montant', 'Date', 'Statut', 'Modifié', 'Actions'],
+    ['Référence', 'N° sinistre', 'Étapes', 'Statut', 'Vérifié TL', 'Modifié', 'Actions'],
     rows,
     function(r) {
+      var done  = FACTURE_STEPS.filter(function(s){ return String(r[s.key]) === 'TRUE'; }).length;
+      var total = FACTURE_STEPS.length;
+      var progressHtml =
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+          '<div class="stat-bar" style="width:70px;"><div class="stat-bar-fill" style="width:' + Math.round(done/total*100) + '%"></div></div>' +
+          '<span class="fs-xs t-muted">' + done + '/' + total + '</span>' +
+        '</div>';
+
       var statutCell = statusChip(r.statut);
-      if (r.verifie_badge) {
-        statutCell += ' <span class="badge-verified" title="Vérifié TL">✔</span>';
-      }
+      var verifCell  = r.verifie_badge === 'TRUE' || r.verifie_badge === true
+        ? '<span class="badge-verified">✔ TL</span>'
+        : '<span class="t-muted fs-xs">—</span>';
+
       return '<tr' + (r.statut === 'Vérifié' ? ' style="background:rgba(201,168,76,.04);"' : '') + '>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
-        '<td class="fs-sm">' + escHtml(r.no_contrat || '—') + '</td>' +
-        '<td>' + escHtml(r.emetteur || '—') + '</td>' +
-        '<td class="fw7">' + (r.montant ? fmtEuro(r.montant) : '—') + '</td>' +
-        '<td class="fs-sm t-muted">' + fmtDate(r.date_facture) + '</td>' +
+        '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
+        '<td>' + progressHtml + '</td>' +
         '<td>' + statutCell + '</td>' +
+        '<td>' + verifCell + '</td>' +
         '<td class="fs-sm t-muted">' + fmtDate(r.updated_at) + '</td>' +
         '<td><button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openFactureModal(\'' + r.id + '\')">✎</button></td>' +
         '</tr>';
@@ -3630,16 +3420,13 @@ function paintFacturesTable(rows) {
 /* ── Open modal ──────────────────────────────────────────── */
 function openFactureModal(facId) {
   _mfaCurrent = facId ? (_factures.find(function(x){ return x.id === facId; }) || null) : null;
-  var r   = _mfaCurrent || {};
+  var r     = _mfaCurrent || {};
   var perms = S.permissions || {};
 
-  el('mfa-title').textContent = facId ? 'Modifier facture' : 'Nouvelle facture';
-  el('mfa-ref').textContent   = r.reference || '';
-  el('mfa-no-contrat').value  = r.no_contrat || '';
-  el('mfa-montant').value     = r.montant || '';
-  el('mfa-emetteur').value    = r.emetteur || '';
-  el('mfa-date').value        = r.date_facture ? r.date_facture.substring(0, 10) : '';
-  el('mfa-commentaire').value = r.commentaire_traitement || '';
+  el('mfa-title').textContent    = facId ? 'Modifier facture' : 'Nouvelle facture';
+  el('mfa-ref').textContent      = r.reference || '';
+  el('mfa-no-sinistre').value    = r.no_sinistre || '';
+  el('mfa-commentaire').value    = r.commentaire_traitement || '';
 
   var traiterZone = el('mfa-traiter-zone');
 
@@ -3648,31 +3435,29 @@ function openFactureModal(facId) {
 
     /* Badge vérifié */
     var vStrip = el('mfa-verified-strip');
-    if (r.verifie_badge) {
-      vStrip.classList.remove('hidden');
-      el('mfa-verifie-par').textContent = r.verifie_par ? ('par ' + r.verifie_par) : '';
-    } else {
-      vStrip.classList.add('hidden');
+    var isVerif = r.verifie_badge === 'TRUE' || r.verifie_badge === true;
+    if (vStrip) {
+      vStrip.classList.toggle('hidden', !isVerif);
+      var vPar = el('mfa-verifie-par');
+      if (vPar) vPar.textContent = r.verifie_par ? 'par ' + r.verifie_par : '';
     }
 
-    /* Remonte strip */
+    /* Remontée strip */
     var rStrip = el('mfa-remonte-strip');
-    if (r.statut === 'Remonté') {
-      rStrip.classList.remove('hidden');
-    } else {
-      rStrip.classList.add('hidden');
-    }
+    if (rStrip) rStrip.classList.toggle('hidden', r.statut !== 'Remonté');
 
     /* Steps */
     buildFactureSteps(r);
 
     /* Bouton Vérifier TL */
     var btnVer = el('btn-mfa-verifier');
-    if (perms.canVerifierFactures && r.statut === 'Remonté') {
-      btnVer.style.display = '';
-      btnVer.onclick = function() { doVerifierFacture(facId); };
-    } else {
-      btnVer.style.display = 'none';
+    if (btnVer) {
+      if (perms.canVerifierFactures && r.statut === 'Remonté') {
+        btnVer.style.display = '';
+        btnVer.onclick = function() { doVerifierFacture(facId); };
+      } else {
+        btnVer.style.display = 'none';
+      }
     }
 
     el('btn-mfa-traiter').onclick = function() { doTraiterFacture(facId); };
@@ -3686,9 +3471,10 @@ function openFactureModal(facId) {
 
 function buildFactureSteps(r) {
   var stepsEl = el('mfa-steps');
+  if (!stepsEl) return;
   stepsEl.innerHTML = '';
   FACTURE_STEPS.forEach(function(step) {
-    var done = !!(r[step.key]);
+    var done = String(r[step.key]) === 'TRUE';
     var row  = document.createElement('div');
     row.className = 'step-row' + (done ? ' done' : '');
 
@@ -3698,6 +3484,8 @@ function buildFactureSteps(r) {
     cb.id      = 'fa-step-' + step.key;
     cb.addEventListener('change', function() {
       row.classList.toggle('done', cb.checked);
+      var icon = row.querySelector('.step-icon');
+      if (icon) icon.textContent = cb.checked ? '✔' : '○';
     });
 
     var lbl = document.createElement('span');
@@ -3724,18 +3512,18 @@ function getStepsPayload() {
   return steps;
 }
 
-/* ── Save (create / update) ──────────────────────────────── */
+/* ── Save ─────────────────────────────────────────────────── */
 function saveFactureModal() {
   var btn = el('btn-mfa-save');
+  var noSin = el('mfa-no-sinistre').value.trim();
+  markRequired('mfa-no-sinistre', !noSin);
+  if (!noSin) { toast('Le N° de sinistre est obligatoire.', 'error'); return; }
+
   var payload = {
-    id:                    _mfaCurrent ? _mfaCurrent.id : '',
-    no_contrat:            el('mfa-no-contrat').value.trim(),
-    montant:               Number(el('mfa-montant').value) || 0,
-    emetteur:              el('mfa-emetteur').value.trim(),
-    date_facture:          el('mfa-date').value,
+    id:                     _mfaCurrent ? _mfaCurrent.id : '',
+    no_sinistre:            noSin,
     commentaire_traitement: el('mfa-commentaire').value.trim()
   };
-  if (!payload.no_contrat) { toast('Le N° de contrat est obligatoire.', 'error'); return; }
 
   setBtnLoading(btn, true);
   google.script.run
@@ -3745,35 +3533,30 @@ function saveFactureModal() {
       toast('Facture enregistrée.', 'success');
       renderFactures();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveFacture(S.token, payload);
 }
 
-/* ── Traiter (3-path) ────────────────────────────────────── */
+/* ── Traiter (3 chemins) ─────────────────────────────────── */
 function doTraiterFacture(facId) {
-  var btn = el('btn-mfa-traiter');
-  var steps    = getStepsPayload();
-  var comment  = el('mfa-commentaire').value.trim();
-  var options  = Object.assign({ commentaire: comment }, steps);
+  var btn     = el('btn-mfa-traiter');
+  var steps   = getStepsPayload();
+  var comment = el('mfa-commentaire').value.trim();
+  var options = Object.assign({ commentaire: comment }, steps);
 
   setBtnLoading(btn, true);
   google.script.run
     .withSuccessHandler(function(result) {
       setBtnLoading(btn, false);
       closeModal('modal-facture');
-      var msg = result && result.statut === 'Remonté'
-        ? 'Facture remontée pour vérification TL.'
-        : (result && result.statut === 'Traité' ? 'Facture traitée.' : 'Enregistré.');
-      toast(msg, result && result.statut === 'Traité' ? 'success' : 'info');
+      var st  = result && result.statut;
+      var msg = st === 'Remonté' ? 'Dossier remonté — en attente de vérification TL.'
+              : st === 'Traité'  ? 'Facture traitée avec succès.'
+              : 'Enregistré.';
+      toast(msg, st === 'Traité' ? 'success' : 'info');
       renderFactures();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .traiterFacture(S.token, facId, options);
 }
 
@@ -3785,32 +3568,27 @@ function doVerifierFacture(facId) {
     .withSuccessHandler(function() {
       setBtnLoading(btn, false);
       closeModal('modal-facture');
-      toast('Facture vérifiée et retournée en liste prioritaire.', 'success');
+      toast('Facture vérifiée — retournée en liste prioritaire.', 'success');
       renderFactures();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .verifierFacture(S.token, facId);
 }
 
 /* ═══ FACTURES REMONTÉES (vue TL) ════════════════════════════ */
 function renderFacturesRemontees() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(4);
   google.script.run
     .withSuccessHandler(paintFacturesRemontees)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listFacturesRemontees(S.token);
 }
 
 function paintFacturesRemontees(rows) {
   rows = rows || [];
   var html = '<div class="card">';
-  html += '<div class="card-head">';
-  html += '<span class="fw8">Factures remontées — En attente de vérification</span>';
-  html += '<span class="chip cw">' + rows.length + ' en attente</span>';
-  html += '</div>';
+  html += '<div class="card-head"><span class="fw8">Factures remontées — En attente de vérification</span>';
+  html += '<span class="chip cw">' + rows.length + ' en attente</span></div>';
 
   if (!rows.length) {
     html += '<div class="empty">Aucune facture remontée.</div></div>';
@@ -3819,19 +3597,15 @@ function paintFacturesRemontees(rows) {
   }
 
   html += buildTable(
-    ['Référence', 'N° contrat', 'Émetteur', 'Montant', 'Remonté par', 'Date remontée', 'Actions'],
+    ['Référence', 'N° sinistre', 'Créé par', 'Date remontée', 'Actions'],
     rows,
     function(r) {
       return '<tr>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
-        '<td class="fs-sm">' + escHtml(r.no_contrat || '—') + '</td>' +
-        '<td>' + escHtml(r.emetteur || '—') + '</td>' +
-        '<td class="fw7">' + (r.montant ? fmtEuro(r.montant) : '—') + '</td>' +
+        '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.created_by_name || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + fmtDateTime(r.remonte_at || r.updated_at) + '</td>' +
-        '<td>' +
-          '<button class="verifier-btn fs-xs" style="min-height:32px;padding:0 12px;" onclick="quickVerifierFacture(\'' + r.id + '\')">✦ Vérifier</button>' +
-        '</td>' +
+        '<td><button class="verifier-btn fs-xs" style="min-height:32px;padding:0 12px;" onclick="quickVerifierFacture(\'' + r.id + '\')">✦ Vérifier</button></td>' +
         '</tr>';
     }
   );
@@ -3846,7 +3620,7 @@ function quickVerifierFacture(facId) {
       toast('Facture vérifiée.', 'success');
       renderFacturesRemontees();
     })
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .verifierFacture(S.token, facId);
 }
 </script>
@@ -3860,10 +3634,10 @@ var _mreCurrent   = null;
 
 /* ── List ─────────────────────────────────────────────────── */
 function renderResiliations() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(5);
   google.script.run
     .withSuccessHandler(paintResiliations)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listResiliations(S.token, {});
 }
 
@@ -3874,8 +3648,8 @@ function paintResiliations(rows) {
   html += '<div class="card-head">';
   html += '<span class="fw8">Résiliations</span>';
   html += '<div style="display:flex;gap:8px;align-items:center;">';
-  html += '<input type="text" id="re-search" placeholder="Recherche…" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 12px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" oninput="filterResiliations()">';
-  html += '<select id="re-filter-statut" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 10px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" onchange="filterResiliations()"><option value="">Tous statuts</option>';
+  html += '<input type="text" id="re-search" placeholder="Recherche…" class="filter-input" oninput="filterResiliations()">';
+  html += '<select id="re-filter-statut" class="filter-select" onchange="filterResiliations()"><option value="">Tous statuts</option>';
   ['En cours', 'Relance', 'Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
   html += '</select>';
   html += '<button class="b1" onclick="openResiliationModal(null)">+ Nouvelle</button>';
@@ -3987,10 +3761,7 @@ function saveResiliationModal() {
       toast('Résiliation enregistrée.', 'success');
       renderResiliations();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveResiliation(S.token, payload);
 }
 
@@ -4012,10 +3783,7 @@ function doSoumettreResiliation(resId) {
       toast('Résiliation soumise.', 'success');
       renderResiliations();
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .soumettreResiliation(S.token, resId, payload);
 }
 </script>
@@ -4025,11 +3793,11 @@ function doSoumettreResiliation(resId) {
 ═══════════════════════════════════════════════════════════════ */
 
 function renderPresence() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(5);
   var today = todayKey();
   google.script.run
     .withSuccessHandler(function(data) { paintPresence(data, today); })
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getPresenceSummary(S.token, today);
 }
 
@@ -4088,10 +3856,10 @@ function paintPresence(data, dateKey) {
 }
 
 function loadPresenceDate(dateKey) {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:80px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(4);
   google.script.run
     .withSuccessHandler(function(data) { paintPresence(data, dateKey); })
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getPresenceSummary(S.token, dateKey);
 }
 
@@ -4115,7 +3883,7 @@ function exportPresence() {
       });
       downloadCsv('presence_' + dateKey + '.csv', csv);
     })
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getPresenceSummary(S.token, dateKey);
 }
 
@@ -4136,10 +3904,10 @@ function downloadCsv(filename, content) {
 
 /* ═══ HISTORIQUE (audit log) ═══════════════════════════════ */
 function renderHistorique() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintHistorique)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listAuditLogs(S.token, { limit: 200 });
 }
 
@@ -4186,10 +3954,10 @@ function paintHistorique(rows) {
 
 /* ═══ CONNEXIONS ════════════════════════════════════════════ */
 function renderConnexions() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintConnexions)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listSessions(S.token, { limit: 150 });
 }
 
@@ -4248,13 +4016,13 @@ var PARAM_DEFS = [
 
 /* ── View entry ───────────────────────────────────────────── */
 function renderParametres() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(5);
   google.script.run
     .withSuccessHandler(function(data) {
       _paramData = data || {};
       paintParametresInline();
     })
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getParametres(S.token);
 }
 
@@ -4398,10 +4166,7 @@ function saveParametresInline() {
         S.lookups.priorities         = payload.PRIORITIES;
       }
     })
-    .withFailureHandler(function(e) {
-      setBtnLoading(btn, false);
-      toast(e.message || e, 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveParametres(S.token, payload);
 }
 </script>

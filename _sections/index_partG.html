@@ -19,24 +19,27 @@ function loadDashboard() {
       S.dashboard = data;
       if (S.activeView === 'dashboard') paintDashboard(data);
     })
-    .withFailureHandler(function(e) {
-      toast('Erreur dashboard : ' + (e.message || e), 'error');
-    })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getDashboardData(S.token);
 }
 
 function paintDashboard(data) {
   var html = '';
+  var kpiAnimTargets = [];
 
   /* ── KPIs ── */
   html += '<div class="kpis">';
-  (data.kpis || []).forEach(function(k) {
-    var toneClass = {
-      primary: 'cp', success: 'cs', warning: 'cw', danger: 'cd', neutral: ''
-    }[k.tone] || '';
+  (data.kpis || []).forEach(function(k, idx) {
+    var numVal = Number(k.value);
+    var isInt  = !isNaN(numVal) && String(k.value).match(/^\d+$/);
     html += '<div class="kpi">';
     html += '<div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">' + escHtml(k.label) + '</div>';
-    html += '<div class="v">' + escHtml(String(k.value)) + '</div>';
+    if (isInt) {
+      html += '<div class="v" id="kpi-v-' + idx + '">0</div>';
+      kpiAnimTargets.push({ id: 'kpi-v-' + idx, val: numVal });
+    } else {
+      html += '<div class="v">' + escHtml(String(k.value)) + '</div>';
+    }
     html += '</div>';
   });
   html += '</div>';
@@ -152,5 +155,10 @@ function paintDashboard(data) {
   }
 
   el('content').innerHTML = html;
+
+  /* Trigger count-up after DOM is ready */
+  kpiAnimTargets.forEach(function(t) {
+    animateCountUp(el(t.id), t.val, 800);
+  });
 }
 </script>

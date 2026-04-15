@@ -273,24 +273,26 @@
     <div class="modal-body">
       <div class="g2">
         <div class="field">
-          <label>N° contrat</label>
-          <input type="text" id="msi-no-contrat" placeholder="N° contrat">
+          <label>N° sinistre <span class="req">*</span></label>
+          <input type="text" id="msi-no-sinistre" placeholder="N° sinistre">
         </div>
         <div class="field">
-          <label>Type</label>
-          <select id="msi-type">
-            <option value="">— Type —</option>
-          </select>
+          <label>N° contrat <span class="req">*</span></label>
+          <input type="text" id="msi-no-contrat" placeholder="N° contrat">
         </div>
       </div>
       <div class="g2" style="margin-top:12px;">
         <div class="field">
-          <label>Assuré</label>
-          <input type="text" id="msi-assure" placeholder="Nom de l'assuré">
+          <label>Gestionnaire</label>
+          <input type="text" id="msi-gestionnaire" placeholder="Nom du gestionnaire">
         </div>
         <div class="field">
-          <label>Montant (€)</label>
-          <input type="number" id="msi-montant" placeholder="0.00" min="0" step="0.01">
+          <label>Complétude</label>
+          <select id="msi-completude">
+            <option value="">— Sélectionner —</option>
+            <option value="OK">OK</option>
+            <option value="KO">KO (Relance)</option>
+          </select>
         </div>
       </div>
       <div class="field" style="margin-top:12px;">
@@ -348,25 +350,9 @@
       <button class="modal-close" onclick="closeModal('modal-facture')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="g2">
-        <div class="field">
-          <label>N° contrat</label>
-          <input type="text" id="mfa-no-contrat" placeholder="N° contrat">
-        </div>
-        <div class="field">
-          <label>Montant (€)</label>
-          <input type="number" id="mfa-montant" placeholder="0.00" min="0" step="0.01">
-        </div>
-      </div>
-      <div class="g2" style="margin-top:12px;">
-        <div class="field">
-          <label>Émetteur</label>
-          <input type="text" id="mfa-emetteur" placeholder="Nom émetteur">
-        </div>
-        <div class="field">
-          <label>Date facture</label>
-          <input type="date" id="mfa-date">
-        </div>
+      <div class="field">
+        <label>N° sinistre <span class="req">*</span></label>
+        <input type="text" id="mfa-no-sinistre" placeholder="N° sinistre associé">
       </div>
       <div class="field" style="margin-top:12px;">
         <label>Commentaire traitement</label>

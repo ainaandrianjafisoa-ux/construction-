@@ -5,10 +5,10 @@
 
 /* ═══ HISTORIQUE (audit log) ═══════════════════════════════ */
 function renderHistorique() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintHistorique)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listAuditLogs(S.token, { limit: 200 });
 }
 
@@ -55,10 +55,10 @@ function paintHistorique(rows) {
 
 /* ═══ CONNEXIONS ════════════════════════════════════════════ */
 function renderConnexions() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintConnexions)
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listSessions(S.token, { limit: 150 });
 }
 

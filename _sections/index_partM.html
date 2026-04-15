@@ -4,11 +4,11 @@
 ═══════════════════════════════════════════════════════════════ */
 
 function renderPresence() {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:120px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(5);
   var today = todayKey();
   google.script.run
     .withSuccessHandler(function(data) { paintPresence(data, today); })
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getPresenceSummary(S.token, today);
 }
 
@@ -67,10 +67,10 @@ function paintPresence(data, dateKey) {
 }
 
 function loadPresenceDate(dateKey) {
-  el('content').innerHTML = '<div class="empty skeleton" style="height:80px;"></div>';
+  el('content').innerHTML = buildSkeletonTable(4);
   google.script.run
     .withSuccessHandler(function(data) { paintPresence(data, dateKey); })
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getPresenceSummary(S.token, dateKey);
 }
 
@@ -94,7 +94,7 @@ function exportPresence() {
       });
       downloadCsv('presence_' + dateKey + '.csv', csv);
     })
-    .withFailureHandler(function(e) { toast(e.message || e, 'error'); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getPresenceSummary(S.token, dateKey);
 }
 
