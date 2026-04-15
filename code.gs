@@ -1046,8 +1046,8 @@ function getLookups(token) {
     // Communs
     userStatuses:           ENUMS.USER_STATUS,
     // Agrément
-    agrementStatuses:       getParametrableList_('AGREMENT_STATUS',        ENUMS.AGREMENT_STATUS),
-    agrementTypes:          ENUMS.AGREMENT_TYPES,
+    agrementStatuts:        getParametrableList_('AGREMENT_STATUS',        ENUMS.AGREMENT_STATUS),
+    typesDossier:           getParametrableList_('AGREMENT_TYPES',         ENUMS.AGREMENT_TYPES),
     typeClientOptions:      ENUMS.TYPE_CLIENT,
     priorities:             getParametrableList_('PRIORITIES',              ENUMS.PRIORITIES),
     motifValidationOptions: ENUMS.MOTIF_VALIDATION,
@@ -1081,6 +1081,7 @@ function getParametres(token) {
   const session = requireSession_(token);
   if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
   return {
+    AGREMENT_TYPES:         getParametrableList_('AGREMENT_TYPES',         ENUMS.AGREMENT_TYPES),
     STATUTS_PRO:            getParametrableList_('STATUTS_PRO',            ENUMS.STATUTS_PRO),
     COMPAGNIES:             getParametrableList_('COMPAGNIES',             ENUMS.COMPAGNIES),
     STATUTS_FIN_TRAITEMENT: getParametrableList_('STATUTS_FIN_TRAITEMENT', ENUMS.STATUTS_FIN_TRAITEMENT),
@@ -1098,7 +1099,7 @@ function saveParametres(token, payload) {
   if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
 
   const data    = payload || {};
-  const allowed = ['STATUTS_PRO', 'COMPAGNIES', 'STATUTS_FIN_TRAITEMENT', 'AGREMENT_STATUS', 'PRIORITIES'];
+  const allowed = ['AGREMENT_TYPES', 'STATUTS_PRO', 'COMPAGNIES', 'STATUTS_FIN_TRAITEMENT', 'AGREMENT_STATUS', 'PRIORITIES'];
 
   allowed.forEach(function(key) {
     if (data[key] && Array.isArray(data[key]) && data[key].length > 0) {
@@ -1351,10 +1352,17 @@ function calculateProfilePlafond_(profile) {
   const typeClient = String(profile.type_client || 'Locataire').trim();
   const compagnie  = String(profile.compagnie   || '').trim();
 
+  // Accept both legacy field names (net_imposable_1/2/3) and frontend field names (salaires[])
   const ni = [
-    Number(profile.net_imposable_1 !== undefined ? profile.net_imposable_1 : (profile.net_imposable && profile.net_imposable[0] || 0)),
-    Number(profile.net_imposable_2 !== undefined ? profile.net_imposable_2 : (profile.net_imposable && profile.net_imposable[1] || 0)),
-    Number(profile.net_imposable_3 !== undefined ? profile.net_imposable_3 : (profile.net_imposable && profile.net_imposable[2] || 0))
+    Number(profile.net_imposable_1 !== undefined ? profile.net_imposable_1
+         : (profile.salaires && profile.salaires[0] !== undefined ? profile.salaires[0]
+         : (profile.net_imposable && profile.net_imposable[0] || 0))),
+    Number(profile.net_imposable_2 !== undefined ? profile.net_imposable_2
+         : (profile.salaires && profile.salaires[1] !== undefined ? profile.salaires[1]
+         : (profile.net_imposable && profile.net_imposable[1] || 0))),
+    Number(profile.net_imposable_3 !== undefined ? profile.net_imposable_3
+         : (profile.salaires && profile.salaires[2] !== undefined ? profile.salaires[2]
+         : (profile.net_imposable && profile.net_imposable[2] || 0)))
   ];
 
   const avgNI = average_(ni);
@@ -1377,7 +1385,10 @@ function calculateProfilePlafond_(profile) {
         plafond   = avgNI * 0.25;
         details   = 'CDD AXA · 25% de ' + avgNI.toFixed(2);
       } else if (compagnie === 'ALLIANZ') {
-        if (profile.cdd_moins_12_mois === true || String(profile.cdd_moins_12_mois) === 'true') {
+        // Accept boolean cdd_moins_12_mois OR derive from numeric duree_cdd_mois (frontend field)
+        const cddMoins12 = profile.cdd_moins_12_mois === true || String(profile.cdd_moins_12_mois) === 'true'
+          || (profile.cdd_moins_12_mois === undefined && Number(profile.duree_cdd_mois) > 0 && Number(profile.duree_cdd_mois) < 12);
+        if (cddMoins12) {
           ratioUsed = 0.37;
           plafond   = (avgNI / 2) * 0.37;
           details   = 'CDD ALLIANZ <12 mois · 37% de (net imposable/2) = ' + (avgNI / 2).toFixed(2);
@@ -1421,11 +1432,16 @@ function calculateProfilePlafond_(profile) {
       details = 'Statut pro inconnu : ' + statutPro;
   }
 
-  // Revenu complémentaire par profil (case à cocher)
+  // Revenu complémentaire par profil — accept both field name variants
+  const revCompMontant = Number(
+    profile.revenu_complementaire_montant !== undefined
+      ? profile.revenu_complementaire_montant
+      : (profile.montant_complementaire || 0)
+  );
   const revComp = (
     profile.revenu_complementaire === true ||
     String(profile.revenu_complementaire) === 'true'
-  ) ? Number(profile.revenu_complementaire_montant || 0) : 0;
+  ) ? revCompMontant : 0;
 
   return {
     plafond:                 plafond,
@@ -1471,6 +1487,7 @@ function calculateMultiProfileSolvabiliteServer(payload) {
   }, 0);
 
   return {
+    profils:              profileResults,   // alias used by frontend
     profils_calculs:      profileResults,
     plafond_total:        plafondTotal,
     loyer:                loyer,
@@ -1570,9 +1587,6 @@ function listAgrements(token, filters) {
 
 function validateAgrementPayload_(row) {
   if (!row.type_dossier)        throw new Error('Le type de dossier est obligatoire.');
-  if (!row.priorite)            throw new Error('La priorité est obligatoire.');
-  if (!row.client)              throw new Error('Le client est obligatoire.');
-  if (!row.adresse)             throw new Error('L\'adresse est obligatoire.');
   if (!row.type_client)         throw new Error('Le type de client est obligatoire.');
   if (!row.ambassadeur_assigne) throw new Error('L\'ambassadeur assigné est obligatoire.');
   if (!row.statut)              throw new Error('Le statut est obligatoire.');
@@ -1647,13 +1661,35 @@ function saveAgrement(token, payload) {
   const solv    = data.solvabilite || null;
   const now     = nowIso_();
 
+  // ── Loyer : accept data.loyer (new multi-profil payload) or legacy solv.loyer ──
+  const loyerVal = data.loyer !== undefined
+    ? Number(data.loyer)
+    : (solv ? Number(solv.loyer || 0) : Number((existing && existing.loyer) || 0));
+
+  // ── Auto-compute plafond_final + résultat from multi-profils on every save ──
+  let plafondFinal        = Number(data.plafond_final || (existing && existing.plafond_final) || 0);
+  let resultatSolvabilite = solv
+    ? String(solv.resultat || '')
+    : String((existing && existing.resultat_solvabilite) || '');
+
+  if (profils.length > 0) {
+    const calcResult = calculateMultiProfileSolvabiliteServer({
+      profils:     profils,
+      compagnie:   String(data.compagnie || (existing && existing.compagnie) || ''),
+      type_client: typeClient,
+      loyer:       loyerVal
+    });
+    plafondFinal = calcResult.plafond_total;
+    if (loyerVal > 0) resultatSolvabilite = calcResult.resultat;
+  }
+
   const row = Object.assign({}, existing || {}, {
     id:          existing ? existing.id        : nextId_('AGR'),
     reference:   existing ? existing.reference : nextReference_('AGR'),
     // Infos dossier
     type_dossier:        normalizeDossierType_(data.type_dossier || (existing && existing.type_dossier) || ''),
     no_dossier:          String(data.no_dossier || (existing && existing.no_dossier) || '').trim(),
-    priorite:            String(data.priorite   || (existing && existing.priorite)   || 'Normale').trim(),
+    priorite:            String(data.priorite || data.priority || (existing && existing.priorite) || 'Normale').trim(),
     client:              String(data.client     || (existing && existing.client)     || '').trim(),
     adresse:             String(data.adresse    || (existing && existing.adresse)    || '').trim(),
     type_client:         typeClient,
@@ -1666,10 +1702,10 @@ function saveAgrement(token, payload) {
     statut:                   statut,
     motif_validation:         motifValidation,
     statut_fin_traitement:    String(data.statut_fin_traitement || (existing && existing.statut_fin_traitement) || '').trim(),
-    // Multi-profils
-    nombre_profils:   Number(data.nombre_profils || (existing && existing.nombre_profils) || 1),
-    profils_json:     profils.length ? JSON.stringify(profils) : (existing ? (existing.profils_json || '') : ''),
-    plafond_final:    Number(data.plafond_final  || (existing && existing.plafond_final)  || 0),
+    // Multi-profils + solvabilité auto-calculée
+    nombre_profils:       Number(data.nombre_profils || (existing && existing.nombre_profils) || 1),
+    profils_json:         profils.length ? JSON.stringify(profils) : (existing ? (existing.profils_json || '') : ''),
+    plafond_final:        plafondFinal,
     // Solvabilité legacy (mono-profil rétro-compat)
     net_a_payer_1:    solv ? Number(solv.net_a_payer && solv.net_a_payer[0] || 0)     : Number((existing && existing.net_a_payer_1)    || 0),
     net_a_payer_2:    solv ? Number(solv.net_a_payer && solv.net_a_payer[1] || 0)     : Number((existing && existing.net_a_payer_2)    || 0),
@@ -1680,13 +1716,13 @@ function saveAgrement(token, payload) {
     brut_1: solv ? Number(solv.brut && solv.brut[0] || 0) : Number((existing && existing.brut_1) || 0),
     brut_2: solv ? Number(solv.brut && solv.brut[1] || 0) : Number((existing && existing.brut_2) || 0),
     brut_3: solv ? Number(solv.brut && solv.brut[2] || 0) : Number((existing && existing.brut_3) || 0),
-    loyer:                   solv ? Number(solv.loyer || 0) : Number((existing && existing.loyer) || 0),
+    loyer:                   loyerVal,
     moyenne_net_a_payer:     solv ? Number(solv.moyenne_net_a_payer || 0)     : Number((existing && existing.moyenne_net_a_payer)     || 0),
     moyenne_net_avant_impot: solv ? Number(solv.moyenne_net_avant_impot || 0) : Number((existing && existing.moyenne_net_avant_impot) || 0),
     moyenne_brut:            solv ? Number(solv.moyenne_brut || 0)            : Number((existing && existing.moyenne_brut)            || 0),
     ratio_max:               solv ? Number(solv.ratio_max || 0)               : Number((existing && existing.ratio_max)               || 0),
     plafond_loyer:           solv ? Number(solv.plafond_loyer || 0)           : Number((existing && existing.plafond_loyer)           || 0),
-    resultat_solvabilite:    solv ? String(solv.resultat || '')               : String((existing && existing.resultat_solvabilite)    || ''),
+    resultat_solvabilite:    resultatSolvabilite,
     // Override solvabilité (non réinitialisé lors d'un simple save)
     solvabilite_override:    String((existing && existing.solvabilite_override)    || 'FALSE'),
     solvabilite_commentaire: String((existing && existing.solvabilite_commentaire) || ''),

@@ -6,11 +6,12 @@
 var _paramData = {};
 
 var PARAM_DEFS = [
-  { key: 'STATUTS_PRO',           label: 'Statuts professionnels',          hint: 'Ex: CDI, CDD, Retraité…'         },
-  { key: 'COMPAGNIES',            label: 'Compagnies',                      hint: 'Ex: AXA, ALLIANZ…'               },
-  { key: 'STATUTS_FIN_TRAITEMENT',label: 'Statuts fin de traitement',       hint: 'Ex: Accepté, Refus, PS…'         },
-  { key: 'AGREMENT_STATUS',       label: 'Statuts agrément',                hint: 'Ex: En attente de traitement…'   },
-  { key: 'PRIORITIES',            label: 'Priorités',                       hint: 'Ex: Haute, Normale, Basse'       }
+  { key: 'AGREMENT_TYPES',         label: 'Types de dossier',                hint: 'Ex: GLI, IMMEUBLE…'              },
+  { key: 'STATUTS_PRO',            label: 'Statuts professionnels',          hint: 'Ex: CDI, CDD, Retraité…'         },
+  { key: 'COMPAGNIES',             label: 'Compagnies',                      hint: 'Ex: AXA, ALLIANZ…'               },
+  { key: 'STATUTS_FIN_TRAITEMENT', label: 'Statuts fin de traitement',       hint: 'Ex: Accepté, Refus, PS…'         },
+  { key: 'AGREMENT_STATUS',        label: 'Statuts agrément',                hint: 'Ex: En attente de traitement…'   },
+  { key: 'PRIORITIES',             label: 'Priorités',                       hint: 'Ex: Haute, Normale, Basse'       }
 ];
 
 /* ── View entry ───────────────────────────────────────────── */
@@ -158,11 +159,12 @@ function saveParametresInline() {
       toast('Paramètres enregistrés.', 'success');
       /* Update lookups cache */
       if (S.lookups) {
-        S.lookups.statutsPro         = payload.STATUTS_PRO;
-        S.lookups.compagnies         = payload.COMPAGNIES;
+        S.lookups.typesDossier         = payload.AGREMENT_TYPES;
+        S.lookups.statutsPro           = payload.STATUTS_PRO;
+        S.lookups.compagnies           = payload.COMPAGNIES;
         S.lookups.statutsFinTraitement = payload.STATUTS_FIN_TRAITEMENT;
-        S.lookups.agrementStatuts    = payload.AGREMENT_STATUS;
-        S.lookups.priorities         = payload.PRIORITIES;
+        S.lookups.agrementStatuts      = payload.AGREMENT_STATUS;
+        S.lookups.priorities           = payload.PRIORITIES;
       }
     })
     .withFailureHandler(function(e) { gasFailureHandler(e, btn); })

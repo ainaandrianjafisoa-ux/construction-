@@ -118,7 +118,7 @@ function openAgrementModal(agrId) {
   el('mag-type-client').value = r.type_client || 'Locataire';
 
   /* Priorité */
-  populateSelect(el('mag-priority'), lk.priorities || ['Normale', 'Haute', 'Basse'], r.priority, '— Priorité —');
+  populateSelect(el('mag-priority'), lk.priorities || ['Normale', 'Haute', 'Basse'], r.priorite, '— Priorité —');
 
   /* Ambassadeur */
   var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'ambassador'; });
@@ -360,11 +360,20 @@ function paintMagSolvSummary(result, loyer) {
     var resEl = el('mag-profil-result-' + i);
     if (!resEl) return;
     resEl.style.display = '';
+    var baseLabel = pr.revenu_complementaire > 0
+      ? fmtEuro(pr.plafond || 0) + ' + ' + fmtEuro(pr.revenu_complementaire) + ' comp.'
+      : fmtEuro(pr.plafond_avec_revenu || 0);
     resEl.innerHTML =
       '<div style="display:flex;justify-content:space-between;font-size:.83rem;">' +
       '<span class="t-muted">Plafond calculé</span>' +
       '<span class="fw7 t-gold">' + fmtEuro(pr.plafond_avec_revenu || pr.plafond || 0) + '</span>' +
-      '</div>';
+      '</div>' +
+      (pr.revenu_complementaire > 0
+        ? '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-top:3px;">' +
+          '<span class="t-muted">Dont base / rev. comp.</span>' +
+          '<span class="t-muted">' + baseLabel + '</span>' +
+          '</div>'
+        : '');
   });
 
   /* Summary strip */
