@@ -907,6 +907,84 @@ function registerOfflineSignal(token) {
   try { return logoutUser(token, 'client_offline'); }
   catch (e) { return { ok: false, message: e.message }; }
 }
+
+// ── Fonctions publiques manquantes (wrappers) ────────────────
+
+/**
+ * loginUser — appelé par le front lors de la connexion.
+ * Retourne { token, session, lookups, dashboard }.
+ */
+function loginUser(login, password) {
+  const sessionPayload = authenticateUser(login, password, '');
+  return {
+    token:     sessionPayload.token,
+    session:   sessionPayload,
+    lookups:   getLookups(sessionPayload.token),
+    dashboard: getDashboardData(sessionPayload.token)
+  };
+}
+
+/**
+ * heartbeat — alias léger appelé par le setInterval front.
+ */
+function heartbeat(token) {
+  return heartbeatSession(token, {});
+}
+
+/**
+ * listAuditLogs — historique des actions (Admin / TL).
+ */
+function listAuditLogs(token, filters) {
+  const session = requireSession_(token);
+  if (session.role === ROLES.AMBASSADOR) throw new Error('Accès refusé.');
+  const f     = filters || {};
+  const limit = f.limit || 200;
+  const usersById = indexBy_(readTable_('USERS'), 'id');
+
+  return readTable_('AUDIT_LOG')
+    .sort(sortDescBy_('timestamp'))
+    .slice(0, limit)
+    .map(function(r) {
+      const u = usersById[r.user_id];
+      return {
+        timestamp:   r.timestamp,
+        user_id:     r.user_id,
+        user_name:   u ? u.full_name : (r.login || r.user_id || '—'),
+        action:      r.action_type,
+        entity_type: r.entity_type,
+        entity_id:   r.entity_id,
+        description: r.summary || ''
+      };
+    });
+}
+
+/**
+ * listSessions — journaux de connexion (Admin / TL).
+ */
+function listSessions(token, filters) {
+  const session = requireSession_(token);
+  if (session.role === ROLES.AMBASSADOR) throw new Error('Accès refusé.');
+  const f     = filters || {};
+  const limit = f.limit || 150;
+  const usersById = indexBy_(readTable_('USERS'), 'id');
+
+  return readTable_('SESSIONS')
+    .sort(sortDescBy_('started_at'))
+    .slice(0, limit)
+    .map(function(s) {
+      const u = usersById[s.user_id];
+      return {
+        session_id:      s.session_id,
+        user_id:         s.user_id,
+        user_name:       u ? u.full_name : (s.login || s.user_id),
+        role:            s.role,
+        connected_at:    s.started_at,
+        disconnected_at: s.closed_at   || '',
+        status:          s.status,
+        user_agent:      s.user_agent  || ''
+      };
+    });
+}
 // ============================================================
 // SECTION 8 — MENU, PERMISSIONS, LOOKUPS, PARAMÈTRES
 // ============================================================
