@@ -370,18 +370,23 @@ function readTable_(name) {
 function upsertRow_(name, keyField, rowObj) {
   const ss      = getDatabase_();
   const sheet   = ss.getSheetByName(name);
-  const headers = SCHEMA[name];
-  const values  = sheet.getDataRange().getValues();
+  const allData = sheet.getDataRange().getValues();
+  if (!allData || allData.length === 0) throw new Error('Feuille vide ou introuvable : ' + name);
+
+  // IMPORTANT: Use actual sheet column headers (row 0), NOT the SCHEMA order.
+  // The sheet may have columns in a different order than the SCHEMA
+  // (e.g. when a column was added via ensureSheets_ after the sheet was created).
+  const headers  = allData[0].map(function(h) { return String(h || '').trim(); });
   const keyIndex = headers.indexOf(keyField);
-  if (keyIndex === -1) throw new Error('Clé primaire introuvable : ' + keyField);
+  if (keyIndex === -1) throw new Error('Clé primaire introuvable dans la feuille : ' + keyField + ' (table: ' + name + ')');
 
   const rowValues = headers.map(function(h) {
     return rowObj[h] !== undefined ? rowObj[h] : '';
   });
 
   let foundRow = -1;
-  for (let i = 1; i < values.length; i++) {
-    if (String(values[i][keyIndex] || '') === String(rowObj[keyField] || '')) {
+  for (let i = 1; i < allData.length; i++) {
+    if (String(allData[i][keyIndex] || '') === String(rowObj[keyField] || '')) {
       foundRow = i + 1;
       break;
     }
@@ -562,7 +567,10 @@ function scopeUsers_(session, users) {
 
 function scopeTeams_(session, teams) {
   if (session.role === ROLES.SUPER_ADMIN) return teams;
-  return teams.filter(function(t) { return t.id === session.user.team_id; });
+  // TL sees their team by team_id OR by being the primary TL (team_leader_id)
+  return teams.filter(function(t) {
+    return t.id === session.user.team_id || t.team_leader_id === session.user.id;
+  });
 }
 
 function visibleUserIds_(session) {
@@ -1239,14 +1247,33 @@ function listTeams(token) {
   const agrements = readTable_('AGREMENTS');
 
   return teams.map(function(team) {
+    // All TLs for this team: primary TL (team_leader_id on TEAMS) + any TL whose team_id = team.id
+    const teamLeaders = users.filter(function(u) {
+      return u.role === ROLES.TEAM_LEADER &&
+        (u.id === team.team_leader_id || u.team_id === team.id);
+    }).map(function(u) {
+      return { id: u.id, full_name: u.full_name };
+    });
+    // Deduplicate by id
+    const tlSeen = {};
+    const teamLeadersUniq = teamLeaders.filter(function(tl) {
+      if (tlSeen[tl.id]) return false;
+      tlSeen[tl.id] = true;
+      return true;
+    });
+    const primaryTL = teamLeadersUniq[0] || {};
+    const secondaryTL = teamLeadersUniq[1] || {};
     return {
-      id:               team.id,
-      name:             team.name,
-      team_leader_id:   team.team_leader_id,
-      team_leader_name: (users.find(function(u) { return u.id === team.team_leader_id; }) || {}).full_name || '',
-      status:           team.status,
-      created_at:       team.created_at,
-      updated_at:       team.updated_at,
+      id:                team.id,
+      name:              team.name,
+      team_leader_id:    team.team_leader_id,
+      team_leader_name:  primaryTL.full_name || '',
+      team_leader_id_2:  secondaryTL.id      || '',
+      team_leader_name_2:secondaryTL.full_name || '',
+      team_leaders:      teamLeadersUniq,
+      status:            team.status,
+      created_at:        team.created_at,
+      updated_at:        team.updated_at,
       ambassadors_count: users.filter(function(u) {
         return u.team_id === team.id && u.role === ROLES.AMBASSADOR;
       }).length,
@@ -1258,16 +1285,20 @@ function listTeams(token) {
 }
 
 function saveTeam(token, payload) {
-  const session = requireSession_(token);
+  const session  = requireSession_(token);
   const data_pre = payload || {};
 
   if (session.role === ROLES.TEAM_LEADER) {
     // TL peut uniquement mettre à jour sa propre équipe (pas en créer une nouvelle)
     if (!data_pre.id) throw new Error('Vous ne pouvez pas créer une équipe.');
-    const myTeam = readTable_('TEAMS').find(function(t) { return t.id === data_pre.id; });
-    if (!myTeam || myTeam.team_leader_id !== session.user.id) {
-      throw new Error('Vous ne pouvez modifier que votre propre équipe.');
-    }
+    const allTeams = readTable_('TEAMS');
+    const myTeam   = allTeams.find(function(t) { return t.id === data_pre.id; });
+    // Allow: primary TL (team_leader_id) or secondary TL (team_id of user = team.id)
+    const isMemberTL = myTeam && (
+      myTeam.team_leader_id === session.user.id ||
+      session.user.team_id  === myTeam.id
+    );
+    if (!isMemberTL) throw new Error('Vous ne pouvez modifier que votre propre équipe.');
   } else if (session.role !== ROLES.SUPER_ADMIN) {
     throw new Error('Droits insuffisants pour gérer les équipes.');
   }
@@ -1278,9 +1309,10 @@ function saveTeam(token, payload) {
   const name     = String(data.name || (existing && existing.name) || '').trim();
   if (!name) throw new Error('Le nom de l\'équipe est obligatoire.');
 
-  const now = nowIso_();
-  const row = Object.assign({}, existing || {}, {
-    id:             existing ? existing.id : nextId_('TEAM'),
+  const now  = nowIso_();
+  const teamId = existing ? existing.id : nextId_('TEAM');
+  const row  = Object.assign({}, existing || {}, {
+    id:             teamId,
     name:           name,
     team_leader_id: String(data.team_leader_id || (existing && existing.team_leader_id) || '').trim(),
     status:         String(data.status || (existing && existing.status) || 'Actif').trim(),
@@ -1289,6 +1321,31 @@ function saveTeam(token, payload) {
   });
 
   upsertRow_('TEAMS', 'id', row);
+
+  // Handle 2nd TL assignment (admin only): update the selected user's team_id
+  if (session.role === ROLES.SUPER_ADMIN && data.team_leader_id_2 !== undefined) {
+    const tl2Id      = String(data.team_leader_id_2 || '').trim();
+    const allUsers   = readTable_('USERS');
+    const primaryTLId = row.team_leader_id;
+
+    // Clear team_id for any existing secondary TL of this team (not the primary)
+    allUsers.forEach(function(u) {
+      if (u.role === ROLES.TEAM_LEADER && u.team_id === teamId && u.id !== primaryTLId) {
+        const cleared = Object.assign({}, u, { team_id: '', updated_at: now });
+        upsertRow_('USERS', 'id', cleared);
+      }
+    });
+
+    // Assign the new 2nd TL
+    if (tl2Id && tl2Id !== primaryTLId) {
+      const tl2User = allUsers.find(function(u) { return u.id === tl2Id; });
+      if (tl2User && tl2User.role === ROLES.TEAM_LEADER) {
+        const updated = Object.assign({}, tl2User, { team_id: teamId, updated_at: now });
+        upsertRow_('USERS', 'id', updated);
+      }
+    }
+  }
+
   addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'TEAM', row.id,
     'Enregistrement équipe', existing, row);
   return publicTeam_(row);
@@ -1590,10 +1647,9 @@ function listAgrements(token, filters) {
 // ── Validation ────────────────────────────────────────────────
 
 function validateAgrementPayload_(row) {
-  if (!row.type_dossier)        throw new Error('Le type de dossier est obligatoire.');
-  if (!row.type_client)         throw new Error('Le type de client est obligatoire.');
-  if (!row.ambassadeur_assigne) throw new Error('L\'ambassadeur assigné est obligatoire.');
-  if (!row.statut)              throw new Error('Le statut est obligatoire.');
+  if (!row.type_dossier) throw new Error('Le type de dossier est obligatoire.');
+  if (!row.type_client)  throw new Error('Le type de client est obligatoire.');
+  if (!row.statut)       throw new Error('Le statut est obligatoire.');
   if (row.statut === 'Validé' && !row.motif_validation) {
     throw new Error('Le motif Solvable / Non solvable est obligatoire lorsque le statut est Validé.');
   }

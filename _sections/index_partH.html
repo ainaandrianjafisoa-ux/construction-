@@ -214,12 +214,15 @@ function paintTeams(rows) {
   if (isAdmin) {
     /* ── Vue admin : tableau de toutes les équipes ── */
     html += buildTable(
-      ['Nom', 'Team Leader', 'Ambassadeurs', 'Dossiers', 'Actions'],
+      ['Nom', 'Team Leaders', 'Ambassadeurs', 'Dossiers', 'Actions'],
       _teams,
       function(t) {
+        var tlNames = (t.team_leaders && t.team_leaders.length)
+          ? t.team_leaders.map(function(tl) { return escHtml(tl.full_name); }).join('<br>')
+          : '—';
         return '<tr>' +
           '<td class="fw7">' + escHtml(t.name) + '</td>' +
-          '<td class="fs-sm t-muted">' + escHtml(t.team_leader_name || '—') + '</td>' +
+          '<td class="fs-sm t-muted">' + tlNames + '</td>' +
           '<td>' + (t.ambassadors_count || 0) + '</td>' +
           '<td>' + (t.agrements_count   || 0) + '</td>' +
           '<td><button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openTeamModal(\'' + t.id + '\')">✎</button></td>' +
@@ -262,7 +265,8 @@ function paintTeams(rows) {
     // Ambassadeurs depuis lookups (scope déjà filtré par le backend)
     var ambassadors = (S.lookups && S.lookups.users)
       ? S.lookups.users.filter(function(u) {
-          return u.role === 'ambassador' && u.team_leader_id === myId;
+          return u.role === 'ambassador' &&
+            (u.team_leader_id === myId || (team && u.team_id === team.id));
         })
       : [];
 
@@ -323,16 +327,22 @@ function openTeamModal(teamId) {
     '<input type="text" id="t-name" value="' + escHtml(t.name || '') + '" placeholder="Ex: Équipe GLI"></div>';
 
   if (isAdmin) {
-    // Admin : assigner un Team Leader
-    html += '<div class="field"><label>Team Leader</label><select id="t-tl"><option value="">— Aucun —</option>';
+    // Admin : assigner TL principal
+    html += '<div class="field"><label>Team Leader principal</label><select id="t-tl"><option value="">— Aucun —</option>';
     teamLeaders.forEach(function(tl) {
       html += '<option value="' + tl.id + '"' + (t.team_leader_id === tl.id ? ' selected' : '') + '>' + escHtml(tl.full_name) + '</option>';
+    });
+    html += '</select></div>';
+    // 2nd TL
+    html += '<div class="field"><label>Team Leader secondaire <span class="t-muted fs-xs">(optionnel)</span></label><select id="t-tl2"><option value="">— Aucun —</option>';
+    teamLeaders.forEach(function(tl) {
+      html += '<option value="' + tl.id + '"' + (t.team_leader_id_2 === tl.id ? ' selected' : '') + '>' + escHtml(tl.full_name) + '</option>';
     });
     html += '</select></div>';
     // Statut
     html += '<div class="field"><label>Statut</label><select id="t-status">';
     ['Actif', 'Inactif'].forEach(function(s) {
-      html += '<option value="' + s + '"' + (( t.status || 'Actif') === s ? ' selected' : '') + '>' + s + '</option>';
+      html += '<option value="' + s + '"' + ((t.status || 'Actif') === s ? ' selected' : '') + '>' + s + '</option>';
     });
     html += '</select></div>';
   }
@@ -356,10 +366,11 @@ function saveTeam(teamId) {
   if (!name) { toast('Le nom est obligatoire.', 'error'); return; }
 
   var payload = {
-    id:             teamId || '',
-    name:           name,
-    team_leader_id: el('t-tl')     ? el('t-tl').value     : '',
-    status:         el('t-status') ? el('t-status').value  : 'Actif'
+    id:               teamId || '',
+    name:             name,
+    team_leader_id:   el('t-tl')    ? el('t-tl').value    : '',
+    team_leader_id_2: el('t-tl2')   ? el('t-tl2').value   : undefined,
+    status:           el('t-status') ? el('t-status').value : 'Actif'
   };
 
   setBtnLoading(btn, true);
