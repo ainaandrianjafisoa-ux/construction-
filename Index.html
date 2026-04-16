@@ -2753,12 +2753,15 @@ function paintTeams(rows) {
   if (isAdmin) {
     /* ── Vue admin : tableau de toutes les équipes ── */
     html += buildTable(
-      ['Nom', 'Team Leader', 'Ambassadeurs', 'Dossiers', 'Actions'],
+      ['Nom', 'Team Leaders', 'Ambassadeurs', 'Dossiers', 'Actions'],
       _teams,
       function(t) {
+        var tlNames = (t.team_leaders && t.team_leaders.length)
+          ? t.team_leaders.map(function(tl) { return escHtml(tl.full_name); }).join('<br>')
+          : '—';
         return '<tr>' +
           '<td class="fw7">' + escHtml(t.name) + '</td>' +
-          '<td class="fs-sm t-muted">' + escHtml(t.team_leader_name || '—') + '</td>' +
+          '<td class="fs-sm t-muted">' + tlNames + '</td>' +
           '<td>' + (t.ambassadors_count || 0) + '</td>' +
           '<td>' + (t.agrements_count   || 0) + '</td>' +
           '<td><button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openTeamModal(\'' + t.id + '\')">✎</button></td>' +
@@ -2801,7 +2804,8 @@ function paintTeams(rows) {
     // Ambassadeurs depuis lookups (scope déjà filtré par le backend)
     var ambassadors = (S.lookups && S.lookups.users)
       ? S.lookups.users.filter(function(u) {
-          return u.role === 'ambassador' && u.team_leader_id === myId;
+          return u.role === 'ambassador' &&
+            (u.team_leader_id === myId || (team && u.team_id === team.id));
         })
       : [];
 
@@ -2862,16 +2866,22 @@ function openTeamModal(teamId) {
     '<input type="text" id="t-name" value="' + escHtml(t.name || '') + '" placeholder="Ex: Équipe GLI"></div>';
 
   if (isAdmin) {
-    // Admin : assigner un Team Leader
-    html += '<div class="field"><label>Team Leader</label><select id="t-tl"><option value="">— Aucun —</option>';
+    // Admin : assigner TL principal
+    html += '<div class="field"><label>Team Leader principal</label><select id="t-tl"><option value="">— Aucun —</option>';
     teamLeaders.forEach(function(tl) {
       html += '<option value="' + tl.id + '"' + (t.team_leader_id === tl.id ? ' selected' : '') + '>' + escHtml(tl.full_name) + '</option>';
+    });
+    html += '</select></div>';
+    // 2nd TL
+    html += '<div class="field"><label>Team Leader secondaire <span class="t-muted fs-xs">(optionnel)</span></label><select id="t-tl2"><option value="">— Aucun —</option>';
+    teamLeaders.forEach(function(tl) {
+      html += '<option value="' + tl.id + '"' + (t.team_leader_id_2 === tl.id ? ' selected' : '') + '>' + escHtml(tl.full_name) + '</option>';
     });
     html += '</select></div>';
     // Statut
     html += '<div class="field"><label>Statut</label><select id="t-status">';
     ['Actif', 'Inactif'].forEach(function(s) {
-      html += '<option value="' + s + '"' + (( t.status || 'Actif') === s ? ' selected' : '') + '>' + s + '</option>';
+      html += '<option value="' + s + '"' + ((t.status || 'Actif') === s ? ' selected' : '') + '>' + s + '</option>';
     });
     html += '</select></div>';
   }
@@ -2895,10 +2905,11 @@ function saveTeam(teamId) {
   if (!name) { toast('Le nom est obligatoire.', 'error'); return; }
 
   var payload = {
-    id:             teamId || '',
-    name:           name,
-    team_leader_id: el('t-tl')     ? el('t-tl').value     : '',
-    status:         el('t-status') ? el('t-status').value  : 'Actif'
+    id:               teamId || '',
+    name:             name,
+    team_leader_id:   el('t-tl')    ? el('t-tl').value    : '',
+    team_leader_id_2: el('t-tl2')   ? el('t-tl2').value   : undefined,
+    status:           el('t-status') ? el('t-status').value : 'Actif'
   };
 
   setBtnLoading(btn, true);
@@ -2945,7 +2956,7 @@ function paintAgrements(rows) {
   html += '<div style="display:flex;gap:8px;align-items:center;">';
   html += '<input type="text" id="ag-search" placeholder="Recherche…" class="filter-input" oninput="filterAgrements()">';
   html += '<select id="ag-filter-statut" class="filter-select" onchange="filterAgrements()"><option value="">Tous statuts</option>';
-  var statuts = ['En attente de traitement', 'En cours de traitement', 'Validé', 'Clos'];
+  var statuts = ['Initié', 'En attente de traitement', 'En cours de traitement', 'Validé', 'Refusé', 'Clos'];
   statuts.forEach(function(s){ html += '<option>' + s + '</option>'; });
   html += '</select>';
   html += '<button class="b1" onclick="openAgrementModal(null)">+ Nouveau</button>';
@@ -3035,7 +3046,7 @@ function openAgrementModal(agrId) {
   el('mag-type-client').value = r.type_client || 'Locataire';
 
   /* Priorité */
-  populateSelect(el('mag-priority'), lk.priorities || ['Normale', 'Haute', 'Basse'], r.priority, '— Priorité —');
+  populateSelect(el('mag-priority'), lk.priorities || ['Normale', 'Haute', 'Basse'], r.priorite, '— Priorité —');
 
   /* Ambassadeur */
   var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'ambassador'; });
@@ -3270,26 +3281,36 @@ function paintMagSolvSummary(result, loyer) {
   if (!result) return;
   var zone = el('mag-solv-summary');
   if (zone) zone.classList.remove('hidden');
+  var profilsResult = result.profils_calculs || result.profils || [];
 
   /* Per-profil result in form */
-  (result.profils || []).forEach(function(pr, i) {
+  profilsResult.forEach(function(pr, i) {
     var resEl = el('mag-profil-result-' + i);
     if (!resEl) return;
     resEl.style.display = '';
+    var baseLabel = pr.revenu_complementaire > 0
+      ? fmtEuro(pr.plafond || 0) + ' + ' + fmtEuro(pr.revenu_complementaire) + ' comp.'
+      : fmtEuro(pr.plafond_avec_revenu || 0);
     resEl.innerHTML =
       '<div style="display:flex;justify-content:space-between;font-size:.83rem;">' +
       '<span class="t-muted">Plafond calculé</span>' +
-      '<span class="fw7 t-gold">' + fmtEuro(pr.plafond || 0) + '</span>' +
-      '</div>';
+      '<span class="fw7 t-gold">' + fmtEuro(pr.plafond_avec_revenu || pr.plafond || 0) + '</span>' +
+      '</div>' +
+      (pr.revenu_complementaire > 0
+        ? '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-top:3px;">' +
+          '<span class="t-muted">Dont base / rev. comp.</span>' +
+          '<span class="t-muted">' + baseLabel + '</span>' +
+          '</div>'
+        : '');
   });
 
   /* Summary strip */
   var strip = el('mag-profils-summary-strip');
   if (strip) {
-    strip.innerHTML = (result.profils || []).map(function(pr, i) {
+    strip.innerHTML = profilsResult.map(function(pr, i) {
       return '<div class="profil-sum-cell">' +
         '<div class="psn">Profil ' + (i + 1) + '</div>' +
-        '<div class="psv">' + fmtEuro(pr.plafond || 0) + '</div>' +
+        '<div class="psv">' + fmtEuro(pr.plafond_avec_revenu || pr.plafond || 0) + '</div>' +
         '</div>';
     }).join('') +
     '<div class="profil-sum-cell gold">' +
@@ -4284,11 +4305,12 @@ function paintConnexions(rows) {
 var _paramData = {};
 
 var PARAM_DEFS = [
-  { key: 'STATUTS_PRO',           label: 'Statuts professionnels',          hint: 'Ex: CDI, CDD, Retraité…'         },
-  { key: 'COMPAGNIES',            label: 'Compagnies',                      hint: 'Ex: AXA, ALLIANZ…'               },
-  { key: 'STATUTS_FIN_TRAITEMENT',label: 'Statuts fin de traitement',       hint: 'Ex: Accepté, Refus, PS…'         },
-  { key: 'AGREMENT_STATUS',       label: 'Statuts agrément',                hint: 'Ex: En attente de traitement…'   },
-  { key: 'PRIORITIES',            label: 'Priorités',                       hint: 'Ex: Haute, Normale, Basse'       }
+  { key: 'AGREMENT_TYPES',         label: 'Types de dossier',                hint: 'Ex: GLI, IMMEUBLE…'              },
+  { key: 'STATUTS_PRO',            label: 'Statuts professionnels',          hint: 'Ex: CDI, CDD, Retraité…'         },
+  { key: 'COMPAGNIES',             label: 'Compagnies',                      hint: 'Ex: AXA, ALLIANZ…'               },
+  { key: 'STATUTS_FIN_TRAITEMENT', label: 'Statuts fin de traitement',       hint: 'Ex: Accepté, Refus, PS…'         },
+  { key: 'AGREMENT_STATUS',        label: 'Statuts agrément',                hint: 'Ex: En attente de traitement…'   },
+  { key: 'PRIORITIES',             label: 'Priorités',                       hint: 'Ex: Haute, Normale, Basse'       }
 ];
 
 /* ── View entry ───────────────────────────────────────────── */
@@ -4436,11 +4458,12 @@ function saveParametresInline() {
       toast('Paramètres enregistrés.', 'success');
       /* Update lookups cache */
       if (S.lookups) {
-        S.lookups.statutsPro         = payload.STATUTS_PRO;
-        S.lookups.compagnies         = payload.COMPAGNIES;
+        S.lookups.typesDossier         = payload.AGREMENT_TYPES;
+        S.lookups.statutsPro           = payload.STATUTS_PRO;
+        S.lookups.compagnies           = payload.COMPAGNIES;
         S.lookups.statutsFinTraitement = payload.STATUTS_FIN_TRAITEMENT;
-        S.lookups.agrementStatuts    = payload.AGREMENT_STATUS;
-        S.lookups.priorities         = payload.PRIORITIES;
+        S.lookups.agrementStatuts      = payload.AGREMENT_STATUS;
+        S.lookups.priorities           = payload.PRIORITIES;
       }
     })
     .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
