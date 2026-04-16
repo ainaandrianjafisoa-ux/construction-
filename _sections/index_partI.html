@@ -28,7 +28,7 @@ function paintAgrements(rows) {
   html += '<div style="display:flex;gap:8px;align-items:center;">';
   html += '<input type="text" id="ag-search" placeholder="Recherche…" class="filter-input" oninput="filterAgrements()">';
   html += '<select id="ag-filter-statut" class="filter-select" onchange="filterAgrements()"><option value="">Tous statuts</option>';
-  var statuts = ['En attente de traitement', 'En cours de traitement', 'Validé', 'Clos'];
+  var statuts = ['Initié', 'En attente de traitement', 'En cours de traitement', 'Validé', 'Refusé', 'Clos'];
   statuts.forEach(function(s){ html += '<option>' + s + '</option>'; });
   html += '</select>';
   html += '<button class="b1" onclick="openAgrementModal(null)">+ Nouveau</button>';

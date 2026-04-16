@@ -573,7 +573,11 @@ function visibleUserIds_(session) {
 function scopeAgrements_(session, rows) {
   if (session.role === ROLES.SUPER_ADMIN) return rows;
   if (session.role === ROLES.TEAM_LEADER) {
-    return rows.filter(function(r) { return r.equipe_id === session.user.team_id; });
+    // Use visibleUserIds_ so ambassadors linked via team_leader_id are included
+    const ids = visibleUserIds_(session);
+    return rows.filter(function(r) {
+      return ids.indexOf(r.ambassadeur_assigne) > -1 || ids.indexOf(r.created_by) > -1;
+    });
   }
   return rows.filter(function(r) {
     return r.ambassadeur_assigne === session.user.id || r.created_by === session.user.id;
@@ -1620,7 +1624,7 @@ function saveAgrement(token, payload) {
     // TL : peut assigner à n'importe quel ambassadeur de son équipe
     if (ambassadeurAssigne) {
       const target = users.find(function(u) { return u.id === ambassadeurAssigne; });
-      if (!target || target.team_id !== session.user.team_id) {
+      if (!target || (target.team_id !== session.user.team_id && target.team_leader_id !== session.user.id)) {
         throw new Error('L\'ambassadeur sélectionné n\'appartient pas à votre équipe.');
       }
     }
@@ -1633,7 +1637,10 @@ function saveAgrement(token, payload) {
   let equipeId = existing ? (existing.equipe_id || '') : '';
   if (ambassadeurAssigne) {
     const amb = users.find(function(u) { return u.id === ambassadeurAssigne; });
-    if (amb && amb.team_id) equipeId = amb.team_id;
+    if (amb) {
+      // Ambassador with direct team_id → use it; otherwise fall back to TL's own team
+      equipeId = amb.team_id || (session.role === ROLES.TEAM_LEADER ? (session.user.team_id || equipeId) : equipeId);
+    }
   }
   // Fallback non bloquant : si toujours vide, essayer la règle AGREMENT_TYPE_TEAM_MAP
   if (!equipeId) {
@@ -1813,15 +1820,19 @@ function reassignerAgrement(token, agrementId, newAmbassadeurId) {
   const newAmb = users.find(function(u) { return u.id === newAmbassadeurId; });
   if (!newAmb || newAmb.role !== ROLES.AMBASSADOR)  throw new Error('Ambassadeur introuvable.');
 
-  if (session.role === ROLES.TEAM_LEADER && newAmb.team_id !== session.user.team_id) {
+  if (session.role === ROLES.TEAM_LEADER &&
+      newAmb.team_id !== session.user.team_id &&
+      newAmb.team_leader_id !== session.user.id) {
     throw new Error('L\'ambassadeur sélectionné n\'appartient pas à votre équipe.');
   }
 
   const oldAmb = existing.ambassadeur_assigne;
   const now    = nowIso_();
 
-  // Équipe mise à jour selon le nouvel ambassadeur
-  const newEquipeId = newAmb.team_id || existing.equipe_id;
+  // Équipe mise à jour selon le nouvel ambassadeur (fallback au TL si l'ambassadeur n'a pas de team_id)
+  const newEquipeId = newAmb.team_id
+    || (session.role === ROLES.TEAM_LEADER ? session.user.team_id : null)
+    || existing.equipe_id;
 
   const row = Object.assign({}, existing, {
     ambassadeur_assigne: newAmbassadeurId,
@@ -2103,14 +2114,15 @@ function saveFacture(token, payload) {
 /**
  * Traite ou remonte une facture.
  *
- * Logique :
- *  1. Toutes les étapes cochées → traitement direct (statut = Traité)
- *  2. Dossier Vérifié par TL → traitement autorisé même si étapes incomplètes
- *  3. Étapes incomplètes sans vérification → commentaire obligatoire → statut = Remonté
+ * Workflow :
+ *  → TL NON encore vérifié : TOUJOURS Remonté (pour validation TL)
+ *      • Commentaire obligatoire si étapes incomplètes
+ *      • Les étapes cochées en UI sont sauvegardées
+ *  → TL déjà vérifié ET toutes étapes faites : Traité (traitement final)
  *
  * @param {string}  token
  * @param {string}  id
- * @param {Object}  options         - { commentaire }
+ * @param {Object}  options  - { commentaire, etape_verification, etape_calcul, etape_reglement }
  */
 function traiterFacture(token, id, options) {
   const session  = requireSession_(token);
@@ -2122,61 +2134,78 @@ function traiterFacture(token, id, options) {
   if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
   if (existing.statut === 'Traité')                 throw new Error('Cette facture est déjà traitée.');
 
-  const veri      = String(existing.etape_verification) === 'TRUE';
-  const calc      = String(existing.etape_calcul)        === 'TRUE';
-  const regl      = String(existing.etape_reglement)     === 'TRUE';
-  const allDone   = veri && calc && regl;
-  const isVerifie = String(existing.verifie_badge)       === 'TRUE';
+  // Lire les étapes depuis le payload UI (priorité) puis depuis la DB
+  const veri = opts.etape_verification !== undefined
+    ? (opts.etape_verification === true || opts.etape_verification === 'true')
+    : String(existing.etape_verification) === 'TRUE';
+  const calc = opts.etape_calcul !== undefined
+    ? (opts.etape_calcul === true || opts.etape_calcul === 'true')
+    : String(existing.etape_calcul) === 'TRUE';
+  const regl = opts.etape_reglement !== undefined
+    ? (opts.etape_reglement === true || opts.etape_reglement === 'true')
+    : String(existing.etape_reglement) === 'TRUE';
+
+  const allDone     = veri && calc && regl;
+  const isVerifie   = String(existing.verifie_badge) === 'TRUE';
   const commentaire = String(opts.commentaire || '').trim();
 
-  // Cas 3 : étapes incomplètes, pas encore vérifiée → Remonté
-  if (!allDone && !isVerifie) {
-    if (!commentaire) {
-      throw new Error('Un commentaire est obligatoire pour justifier les étapes non complétées.');
-    }
-    const now_r = nowIso_();
-    const row_r = Object.assign({}, existing, {
-      commentaire_traitement: commentaire,
-      statut:     'Remonté',
-      remonte_at: now_r,
-      updated_at: now_r
+  // ── Traitement final : TL a déjà vérifié ET toutes les étapes sont faites ──
+  if (isVerifie && allDone) {
+    const now       = nowIso_();
+    const createdMs = parseDateMs_(existing.created_at);
+    const delai     = Math.max(0, Math.round((parseDateMs_(now) - createdMs) / 1000));
+
+    const row = Object.assign({}, existing, {
+      etape_verification:     toBool_(veri),
+      etape_calcul:           toBool_(calc),
+      etape_reglement:        toBool_(regl),
+      commentaire_traitement: commentaire || (existing.commentaire_traitement || ''),
+      statut:         'Traité',
+      traite_at:      now,
+      delai_secondes: delai,
+      updated_at:     now
     });
-    upsertRow_('FACTURES', 'id', row_r);
-    addAuditLog_(session, 'REMONTE', 'FACTURE', row_r.id,
-      'Facture remontée pour vérification TL. Commentaire : ' + commentaire, existing, row_r);
-    const uid_r = indexBy_(readTable_('USERS'), 'id');
-    row_r.created_by_name = uid_r[row_r.created_by] ? uid_r[row_r.created_by].full_name : '';
-    row_r.delai_formate   = formatDelai_(row_r.delai_secondes);
-    row_r.progression     = [row_r.etape_verification, row_r.etape_calcul, row_r.etape_reglement]
-      .filter(function(v) { return String(v) === 'TRUE'; }).length;
-    return Object.assign(row_r, { is_remonte: true });
+
+    upsertRow_('FACTURES', 'id', row);
+    addAuditLog_(session, 'TRAITE', 'FACTURE', row.id,
+      'Facture traitée (après vérification TL)', existing, row);
+
+    const usersById = indexBy_(readTable_('USERS'), 'id');
+    row.created_by_name  = usersById[row.created_by]  ? usersById[row.created_by].full_name  : '';
+    row.verifie_par_name = usersById[row.verifie_par] ? usersById[row.verifie_par].full_name : '';
+    row.delai_formate    = formatDelai_(row.delai_secondes);
+    row.progression      = 3;
+    return row;
   }
 
-  // Cas 1 & 2 : traitement final
-  const now       = nowIso_();
-  const createdMs = parseDateMs_(existing.created_at);
-  const nowMs     = parseDateMs_(now);
-  const delai     = Math.max(0, Math.round((nowMs - createdMs) / 1000));
+  // ── Remonter au TL pour validation ──
+  // Commentaire obligatoire si les étapes ne sont pas toutes faites
+  if (!allDone && !commentaire) {
+    throw new Error('Un commentaire est obligatoire pour justifier les étapes non complétées.');
+  }
 
-  const row = Object.assign({}, existing, {
+  const now_r = nowIso_();
+  const row_r = Object.assign({}, existing, {
+    etape_verification:     toBool_(veri),
+    etape_calcul:           toBool_(calc),
+    etape_reglement:        toBool_(regl),
     commentaire_traitement: commentaire || (existing.commentaire_traitement || ''),
-    statut:         'Traité',
-    traite_at:      now,
-    delai_secondes: delai,
-    updated_at:     now
+    statut:     'Remonté',
+    remonte_at: now_r,
+    updated_at: now_r
   });
 
-  upsertRow_('FACTURES', 'id', row);
-  addAuditLog_(session, 'TRAITE', 'FACTURE', row.id,
-    isVerifie ? 'Facture traitée (après vérification TL)' : 'Facture traitée',
-    existing, row);
+  upsertRow_('FACTURES', 'id', row_r);
+  addAuditLog_(session, 'REMONTE', 'FACTURE', row_r.id,
+    'Facture remontée pour vérification TL' + (commentaire ? '. Commentaire : ' + commentaire : ''),
+    existing, row_r);
 
-  const usersById = indexBy_(readTable_('USERS'), 'id');
-  row.created_by_name  = usersById[row.created_by]  ? usersById[row.created_by].full_name  : '';
-  row.verifie_par_name = usersById[row.verifie_par] ? usersById[row.verifie_par].full_name : '';
-  row.delai_formate    = formatDelai_(row.delai_secondes);
-  row.progression      = 3;
-  return row;
+  const uid_r = indexBy_(readTable_('USERS'), 'id');
+  row_r.created_by_name = uid_r[row_r.created_by] ? uid_r[row_r.created_by].full_name : '';
+  row_r.delai_formate   = formatDelai_(row_r.delai_secondes);
+  row_r.progression     = [row_r.etape_verification, row_r.etape_calcul, row_r.etape_reglement]
+    .filter(function(v) { return String(v) === 'TRUE'; }).length;
+  return Object.assign(row_r, { is_remonte: true });
 }
 
 /**
