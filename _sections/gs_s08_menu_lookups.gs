@@ -40,6 +40,8 @@ function buildPermissions_(role) {
     canManageSettings:    role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
     canVerifierFactures:  role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
     canReassigner:        role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
+    canValidateAgrement:  role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
+    canOverrideSolvabilite: role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
     canCreateAgrement:    true,
     canCreateSinistre:    true,
     canCreateFacture:     true,
@@ -56,26 +58,30 @@ function getLookups(token) {
     // Communs
     userStatuses:           ENUMS.USER_STATUS,
     // Agrément
+    agrementStatuts:        getParametrableList_('AGREMENT_STATUS',        ENUMS.AGREMENT_STATUS),
+    // alias rétrocompat
     agrementStatuses:       getParametrableList_('AGREMENT_STATUS',        ENUMS.AGREMENT_STATUS),
-    agrementTypes:          ENUMS.AGREMENT_TYPES,
-    typeClientOptions:      ENUMS.TYPE_CLIENT,
-    priorities:             getParametrableList_('PRIORITIES',              ENUMS.PRIORITIES),
-    motifValidationOptions: ENUMS.MOTIF_VALIDATION,
+    typesDossier:           getParametrableList_('AGREMENT_TYPES',         ENUMS.AGREMENT_TYPES),
+    // alias rétrocompat
+    agrementTypes:          getParametrableList_('AGREMENT_TYPES',         ENUMS.AGREMENT_TYPES),
+    typeClientOptions:      getParametrableList_('TYPE_CLIENT',            ENUMS.TYPE_CLIENT),
+    priorities:             getParametrableList_('PRIORITIES',             ENUMS.PRIORITIES),
+    motifValidationOptions: getParametrableList_('MOTIF_VALIDATION',       ENUMS.MOTIF_VALIDATION),
     // Agrément v4
     statutsPro:             getParametrableList_('STATUTS_PRO',            ENUMS.STATUTS_PRO),
     compagnies:             getParametrableList_('COMPAGNIES',             ENUMS.COMPAGNIES),
     statutsFinTraitement:   getParametrableList_('STATUTS_FIN_TRAITEMENT', ENUMS.STATUTS_FIN_TRAITEMENT),
     // Sinistre
-    sinistreSituations:     ENUMS.SINISTRE_SITUATIONS,
-    sinistreStatuts:        ENUMS.SINISTRE_STATUTS,
-    sinistreCompletude:     ENUMS.SINISTRE_COMPLETUDE,
+    sinistreSituations:     getParametrableList_('SINISTRE_SITUATIONS',    ENUMS.SINISTRE_SITUATIONS),
+    sinistreStatuts:        getParametrableList_('SINISTRE_STATUTS',       ENUMS.SINISTRE_STATUTS),
+    sinistreCompletude:     getParametrableList_('SINISTRE_COMPLETUDE',    ENUMS.SINISTRE_COMPLETUDE),
     // Facture
-    factureStatuts:         ENUMS.FACTURE_STATUTS,
+    factureStatuts:         getParametrableList_('FACTURE_STATUTS',        ENUMS.FACTURE_STATUTS),
     // Résiliation
-    resiliationOrigines:    ENUMS.RESILIATION_ORIGINES,
-    resiliationCompletude:  ENUMS.RESILIATION_COMPLETUDE,
-    resiliationResil:       ENUMS.RESILIATION_RESIL,
-    resiliationStatuts:     ENUMS.RESILIATION_STATUTS,
+    resiliationOrigines:    getParametrableList_('RESILIATION_ORIGINES',   ENUMS.RESILIATION_ORIGINES),
+    resiliationCompletude:  getParametrableList_('RESILIATION_COMPLETUDE', ENUMS.RESILIATION_COMPLETUDE),
+    resiliationResil:       getParametrableList_('RESILIATION_RESIL',      ENUMS.RESILIATION_RESIL),
+    resiliationStatuts:     getParametrableList_('RESILIATION_STATUTS',    ENUMS.RESILIATION_STATUTS),
     // Entités
     teams:       teams.map(publicTeam_),
     users:       users.map(publicUser_),

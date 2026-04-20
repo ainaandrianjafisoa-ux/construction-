@@ -95,26 +95,36 @@ const SCHEMA = {
     'id', 'reference', 'no_sinistre', 'no_contrat', 'date_reception',
     'gestionnaire', 'commentaire', 'completude', 'situation', 'statut',
     'historique_json',
-    'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes'
+    'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes',
+    'delai_traitement_start'
   ],
 
   // Module Facture v4 — workflow Remonté / Vérifié
   FACTURES: [
     'id', 'reference', 'no_sinistre',
     'etape_verification', 'etape_calcul', 'etape_reglement',
-    'commentaire_traitement',
+    'commentaire_traitement', 'commentaire_verification',
     'statut',
     'verifie_badge', 'verifie_at', 'verifie_par',
     'remonte_at',
-    'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes'
+    'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes',
+    'delai_traitement_start'
   ],
 
-  // Module Résiliation (inchangé)
+  // Module Résiliation
   RESILIATIONS: [
     'id', 'reference', 'origine', 'mail', 'no_contrat',
     'completude', 'resil', 'commentaire', 'statut',
     'created_by', 'created_at', 'updated_at',
-    'soumis_at', 'delai_ouverture_soumission_secondes'
+    'soumis_at', 'delai_ouverture_soumission_secondes',
+    'delai_traitement_start'
+  ],
+
+  // Versions d'entités (historique immuable)
+  ENTITY_VERSIONS: [
+    'id', 'entity_type', 'entity_id', 'version_num',
+    'snapshot_json', 'commentaire', 'action_type',
+    'user_id', 'user_name', 'created_at'
   ],
 
   SESSIONS: [
