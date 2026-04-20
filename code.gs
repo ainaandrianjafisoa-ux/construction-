@@ -6,8 +6,8 @@ const APP_CONFIG = {
   APP_NAME: 'Syndic Ledger High-End',
   VERSION: '4.0.0',
   TIMEZONE: Session.getScriptTimeZone() || 'Indian/Antananarivo',
-  HEARTBEAT_SECONDS: 90,
-  SESSION_STALE_MINUTES: 20,
+  HEARTBEAT_SECONDS: 45,
+  SESSION_STALE_MINUTES: 2,
   SESSION_CACHE_TTL: 21600,
   DEFAULT_ADMIN_LOGIN: 'superadmin',
   DEFAULT_ADMIN_PASSWORD: 'ChangeMe123!'
@@ -95,7 +95,8 @@ const SCHEMA = {
     'id', 'reference', 'no_sinistre', 'no_contrat', 'date_reception',
     'gestionnaire', 'commentaire', 'completude', 'situation', 'statut',
     'historique_json',
-    'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes'
+    'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes',
+    'delai_traitement_start'
   ],
 
   // Module Facture v4 — workflow Remonté / Vérifié
@@ -106,15 +107,24 @@ const SCHEMA = {
     'statut',
     'verifie_badge', 'verifie_at', 'verifie_par',
     'remonte_at',
-    'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes'
+    'created_by', 'created_at', 'updated_at', 'traite_at', 'delai_secondes',
+    'delai_traitement_start'
   ],
 
-  // Module Résiliation (inchangé)
+  // Module Résiliation
   RESILIATIONS: [
     'id', 'reference', 'origine', 'mail', 'no_contrat',
     'completude', 'resil', 'commentaire', 'statut',
     'created_by', 'created_at', 'updated_at',
-    'soumis_at', 'delai_ouverture_soumission_secondes'
+    'soumis_at', 'delai_ouverture_soumission_secondes',
+    'delai_traitement_start'
+  ],
+
+  // Versions d'entités (historique immuable)
+  ENTITY_VERSIONS: [
+    'id', 'entity_type', 'entity_id', 'version_num',
+    'snapshot_json', 'commentaire', 'action_type',
+    'user_id', 'user_name', 'created_at'
   ],
 
   SESSIONS: [
@@ -370,23 +380,18 @@ function readTable_(name) {
 function upsertRow_(name, keyField, rowObj) {
   const ss      = getDatabase_();
   const sheet   = ss.getSheetByName(name);
-  const allData = sheet.getDataRange().getValues();
-  if (!allData || allData.length === 0) throw new Error('Feuille vide ou introuvable : ' + name);
-
-  // IMPORTANT: Use actual sheet column headers (row 0), NOT the SCHEMA order.
-  // The sheet may have columns in a different order than the SCHEMA
-  // (e.g. when a column was added via ensureSheets_ after the sheet was created).
-  const headers  = allData[0].map(function(h) { return String(h || '').trim(); });
+  const headers = SCHEMA[name];
+  const values  = sheet.getDataRange().getValues();
   const keyIndex = headers.indexOf(keyField);
-  if (keyIndex === -1) throw new Error('Clé primaire introuvable dans la feuille : ' + keyField + ' (table: ' + name + ')');
+  if (keyIndex === -1) throw new Error('Clé primaire introuvable : ' + keyField);
 
   const rowValues = headers.map(function(h) {
     return rowObj[h] !== undefined ? rowObj[h] : '';
   });
 
   let foundRow = -1;
-  for (let i = 1; i < allData.length; i++) {
-    if (String(allData[i][keyIndex] || '') === String(rowObj[keyField] || '')) {
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][keyIndex] || '') === String(rowObj[keyField] || '')) {
       foundRow = i + 1;
       break;
     }
@@ -491,11 +496,25 @@ function seedBaseData_() {
   setSettingIfEmpty_('APP_VERSION', APP_CONFIG.VERSION);
 
   // Seed paramètres par défaut si absents
-  setSettingIfEmpty_('PARAM_STATUTS_PRO', JSON.stringify(ENUMS.STATUTS_PRO));
-  setSettingIfEmpty_('PARAM_COMPAGNIES', JSON.stringify(ENUMS.COMPAGNIES));
+  setSettingIfEmpty_('PARAM_STATUTS_PRO',            JSON.stringify(ENUMS.STATUTS_PRO));
+  setSettingIfEmpty_('PARAM_COMPAGNIES',             JSON.stringify(ENUMS.COMPAGNIES));
   setSettingIfEmpty_('PARAM_STATUTS_FIN_TRAITEMENT', JSON.stringify(ENUMS.STATUTS_FIN_TRAITEMENT));
-  setSettingIfEmpty_('PARAM_AGREMENT_STATUS', JSON.stringify(ENUMS.AGREMENT_STATUS));
-  setSettingIfEmpty_('PARAM_PRIORITIES', JSON.stringify(ENUMS.PRIORITIES));
+  setSettingIfEmpty_('PARAM_AGREMENT_STATUS',        JSON.stringify(ENUMS.AGREMENT_STATUS));
+  setSettingIfEmpty_('PARAM_PRIORITIES',             JSON.stringify(ENUMS.PRIORITIES));
+  setSettingIfEmpty_('PARAM_AGREMENT_TYPES',         JSON.stringify(ENUMS.AGREMENT_TYPES));
+  setSettingIfEmpty_('PARAM_TYPE_CLIENT',            JSON.stringify(ENUMS.TYPE_CLIENT));
+  setSettingIfEmpty_('PARAM_MOTIF_VALIDATION',       JSON.stringify(ENUMS.MOTIF_VALIDATION));
+  // Module Sinistre
+  setSettingIfEmpty_('PARAM_SINISTRE_SITUATIONS',    JSON.stringify(ENUMS.SINISTRE_SITUATIONS));
+  setSettingIfEmpty_('PARAM_SINISTRE_STATUTS',       JSON.stringify(ENUMS.SINISTRE_STATUTS));
+  setSettingIfEmpty_('PARAM_SINISTRE_COMPLETUDE',    JSON.stringify(ENUMS.SINISTRE_COMPLETUDE));
+  // Module Facture
+  setSettingIfEmpty_('PARAM_FACTURE_STATUTS',        JSON.stringify(ENUMS.FACTURE_STATUTS));
+  // Module Résiliation
+  setSettingIfEmpty_('PARAM_RESILIATION_ORIGINES',   JSON.stringify(ENUMS.RESILIATION_ORIGINES));
+  setSettingIfEmpty_('PARAM_RESILIATION_COMPLETUDE', JSON.stringify(ENUMS.RESILIATION_COMPLETUDE));
+  setSettingIfEmpty_('PARAM_RESILIATION_RESIL',      JSON.stringify(ENUMS.RESILIATION_RESIL));
+  setSettingIfEmpty_('PARAM_RESILIATION_STATUTS',    JSON.stringify(ENUMS.RESILIATION_STATUTS));
 }
 
 // ── Audit log ────────────────────────────────────────────────
@@ -557,9 +576,7 @@ function scopeUsers_(session, users) {
   if (session.role === ROLES.SUPER_ADMIN) return users;
   if (session.role === ROLES.TEAM_LEADER) {
     return users.filter(function(u) {
-      return u.team_id        === session.user.team_id
-          || u.team_leader_id === session.user.id
-          || u.id             === session.user.id;
+      return u.team_id === session.user.team_id || u.id === session.user.id;
     });
   }
   return users.filter(function(u) { return u.id === session.user.id; });
@@ -567,10 +584,7 @@ function scopeUsers_(session, users) {
 
 function scopeTeams_(session, teams) {
   if (session.role === ROLES.SUPER_ADMIN) return teams;
-  // TL sees their team by team_id OR by being the primary TL (team_leader_id)
-  return teams.filter(function(t) {
-    return t.id === session.user.team_id || t.team_leader_id === session.user.id;
-  });
+  return teams.filter(function(t) { return t.id === session.user.team_id; });
 }
 
 function visibleUserIds_(session) {
@@ -581,11 +595,7 @@ function visibleUserIds_(session) {
 function scopeAgrements_(session, rows) {
   if (session.role === ROLES.SUPER_ADMIN) return rows;
   if (session.role === ROLES.TEAM_LEADER) {
-    // Use visibleUserIds_ so ambassadors linked via team_leader_id are included
-    const ids = visibleUserIds_(session);
-    return rows.filter(function(r) {
-      return ids.indexOf(r.ambassadeur_assigne) > -1 || ids.indexOf(r.created_by) > -1;
-    });
+    return rows.filter(function(r) { return r.equipe_id === session.user.team_id; });
   }
   return rows.filter(function(r) {
     return r.ambassadeur_assigne === session.user.id || r.created_by === session.user.id;
@@ -921,85 +931,6 @@ function registerOfflineSignal(token) {
   try { return logoutUser(token, 'client_offline'); }
   catch (e) { return { ok: false, message: e.message }; }
 }
-
-// ── Fonctions publiques manquantes (wrappers) ────────────────
-
-/**
- * loginUser — appelé par le front lors de la connexion.
- * Retourne { token, session, lookups, dashboard }.
- */
-function loginUser(login, password) {
-  const sessionPayload = authenticateUser(login, password, '');
-  // Ne pas charger getDashboardData ici : trop de lectures Sheets en série.
-  // Le front appellera getBootstrapData() en async juste après l'affichage.
-  return {
-    token:   sessionPayload.token,
-    session: sessionPayload,
-    lookups: getLookups(sessionPayload.token)
-  };
-}
-
-/**
- * heartbeat — alias léger appelé par le setInterval front.
- */
-function heartbeat(token) {
-  return heartbeatSession(token, {});
-}
-
-/**
- * listAuditLogs — historique des actions (Admin / TL).
- */
-function listAuditLogs(token, filters) {
-  const session = requireSession_(token);
-  if (session.role === ROLES.AMBASSADOR) throw new Error('Accès refusé.');
-  const f     = filters || {};
-  const limit = f.limit || 200;
-  const usersById = indexBy_(readTable_('USERS'), 'id');
-
-  return readTable_('AUDIT_LOG')
-    .sort(sortDescBy_('timestamp'))
-    .slice(0, limit)
-    .map(function(r) {
-      const u = usersById[r.user_id];
-      return {
-        timestamp:   r.timestamp,
-        user_id:     r.user_id,
-        user_name:   u ? u.full_name : (r.login || r.user_id || '—'),
-        action:      r.action_type,
-        entity_type: r.entity_type,
-        entity_id:   r.entity_id,
-        description: r.summary || ''
-      };
-    });
-}
-
-/**
- * listSessions — journaux de connexion (Admin / TL).
- */
-function listSessions(token, filters) {
-  const session = requireSession_(token);
-  if (session.role === ROLES.AMBASSADOR) throw new Error('Accès refusé.');
-  const f     = filters || {};
-  const limit = f.limit || 150;
-  const usersById = indexBy_(readTable_('USERS'), 'id');
-
-  return readTable_('SESSIONS')
-    .sort(sortDescBy_('started_at'))
-    .slice(0, limit)
-    .map(function(s) {
-      const u = usersById[s.user_id];
-      return {
-        session_id:      s.session_id,
-        user_id:         s.user_id,
-        user_name:       u ? u.full_name : (s.login || s.user_id),
-        role:            s.role,
-        connected_at:    s.started_at,
-        disconnected_at: s.closed_at   || '',
-        status:          s.status,
-        user_agent:      s.user_agent  || ''
-      };
-    });
-}
 // ============================================================
 // SECTION 8 — MENU, PERMISSIONS, LOOKUPS, PARAMÈTRES
 // ============================================================
@@ -1042,6 +973,8 @@ function buildPermissions_(role) {
     canManageSettings:    role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
     canVerifierFactures:  role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
     canReassigner:        role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
+    canValidateAgrement:  role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
+    canOverrideSolvabilite: role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
     canCreateAgrement:    true,
     canCreateSinistre:    true,
     canCreateFacture:     true,
@@ -1059,25 +992,29 @@ function getLookups(token) {
     userStatuses:           ENUMS.USER_STATUS,
     // Agrément
     agrementStatuts:        getParametrableList_('AGREMENT_STATUS',        ENUMS.AGREMENT_STATUS),
+    // alias rétrocompat
+    agrementStatuses:       getParametrableList_('AGREMENT_STATUS',        ENUMS.AGREMENT_STATUS),
     typesDossier:           getParametrableList_('AGREMENT_TYPES',         ENUMS.AGREMENT_TYPES),
-    typeClientOptions:      ENUMS.TYPE_CLIENT,
-    priorities:             getParametrableList_('PRIORITIES',              ENUMS.PRIORITIES),
-    motifValidationOptions: ENUMS.MOTIF_VALIDATION,
+    // alias rétrocompat
+    agrementTypes:          getParametrableList_('AGREMENT_TYPES',         ENUMS.AGREMENT_TYPES),
+    typeClientOptions:      getParametrableList_('TYPE_CLIENT',            ENUMS.TYPE_CLIENT),
+    priorities:             getParametrableList_('PRIORITIES',             ENUMS.PRIORITIES),
+    motifValidationOptions: getParametrableList_('MOTIF_VALIDATION',       ENUMS.MOTIF_VALIDATION),
     // Agrément v4
     statutsPro:             getParametrableList_('STATUTS_PRO',            ENUMS.STATUTS_PRO),
     compagnies:             getParametrableList_('COMPAGNIES',             ENUMS.COMPAGNIES),
     statutsFinTraitement:   getParametrableList_('STATUTS_FIN_TRAITEMENT', ENUMS.STATUTS_FIN_TRAITEMENT),
     // Sinistre
-    sinistreSituations:     ENUMS.SINISTRE_SITUATIONS,
-    sinistreStatuts:        ENUMS.SINISTRE_STATUTS,
-    sinistreCompletude:     ENUMS.SINISTRE_COMPLETUDE,
+    sinistreSituations:     getParametrableList_('SINISTRE_SITUATIONS',    ENUMS.SINISTRE_SITUATIONS),
+    sinistreStatuts:        getParametrableList_('SINISTRE_STATUTS',       ENUMS.SINISTRE_STATUTS),
+    sinistreCompletude:     getParametrableList_('SINISTRE_COMPLETUDE',    ENUMS.SINISTRE_COMPLETUDE),
     // Facture
-    factureStatuts:         ENUMS.FACTURE_STATUTS,
+    factureStatuts:         getParametrableList_('FACTURE_STATUTS',        ENUMS.FACTURE_STATUTS),
     // Résiliation
-    resiliationOrigines:    ENUMS.RESILIATION_ORIGINES,
-    resiliationCompletude:  ENUMS.RESILIATION_COMPLETUDE,
-    resiliationResil:       ENUMS.RESILIATION_RESIL,
-    resiliationStatuts:     ENUMS.RESILIATION_STATUTS,
+    resiliationOrigines:    getParametrableList_('RESILIATION_ORIGINES',   ENUMS.RESILIATION_ORIGINES),
+    resiliationCompletude:  getParametrableList_('RESILIATION_COMPLETUDE', ENUMS.RESILIATION_COMPLETUDE),
+    resiliationResil:       getParametrableList_('RESILIATION_RESIL',      ENUMS.RESILIATION_RESIL),
+    resiliationStatuts:     getParametrableList_('RESILIATION_STATUTS',    ENUMS.RESILIATION_STATUTS),
     // Entités
     teams:       teams.map(publicTeam_),
     users:       users.map(publicUser_),
@@ -1093,12 +1030,26 @@ function getParametres(token) {
   const session = requireSession_(token);
   if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
   return {
+    // Agrément
     AGREMENT_TYPES:         getParametrableList_('AGREMENT_TYPES',         ENUMS.AGREMENT_TYPES),
+    TYPE_CLIENT:            getParametrableList_('TYPE_CLIENT',            ENUMS.TYPE_CLIENT),
     STATUTS_PRO:            getParametrableList_('STATUTS_PRO',            ENUMS.STATUTS_PRO),
     COMPAGNIES:             getParametrableList_('COMPAGNIES',             ENUMS.COMPAGNIES),
     STATUTS_FIN_TRAITEMENT: getParametrableList_('STATUTS_FIN_TRAITEMENT', ENUMS.STATUTS_FIN_TRAITEMENT),
     AGREMENT_STATUS:        getParametrableList_('AGREMENT_STATUS',        ENUMS.AGREMENT_STATUS),
-    PRIORITIES:             getParametrableList_('PRIORITIES',             ENUMS.PRIORITIES)
+    PRIORITIES:             getParametrableList_('PRIORITIES',             ENUMS.PRIORITIES),
+    MOTIF_VALIDATION:       getParametrableList_('MOTIF_VALIDATION',       ENUMS.MOTIF_VALIDATION),
+    // Sinistre
+    SINISTRE_SITUATIONS:    getParametrableList_('SINISTRE_SITUATIONS',    ENUMS.SINISTRE_SITUATIONS),
+    SINISTRE_STATUTS:       getParametrableList_('SINISTRE_STATUTS',       ENUMS.SINISTRE_STATUTS),
+    SINISTRE_COMPLETUDE:    getParametrableList_('SINISTRE_COMPLETUDE',    ENUMS.SINISTRE_COMPLETUDE),
+    // Facture
+    FACTURE_STATUTS:        getParametrableList_('FACTURE_STATUTS',        ENUMS.FACTURE_STATUTS),
+    // Résiliation
+    RESILIATION_ORIGINES:   getParametrableList_('RESILIATION_ORIGINES',   ENUMS.RESILIATION_ORIGINES),
+    RESILIATION_COMPLETUDE: getParametrableList_('RESILIATION_COMPLETUDE', ENUMS.RESILIATION_COMPLETUDE),
+    RESILIATION_RESIL:      getParametrableList_('RESILIATION_RESIL',      ENUMS.RESILIATION_RESIL),
+    RESILIATION_STATUTS:    getParametrableList_('RESILIATION_STATUTS',    ENUMS.RESILIATION_STATUTS)
   };
 }
 
@@ -1111,7 +1062,13 @@ function saveParametres(token, payload) {
   if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
 
   const data    = payload || {};
-  const allowed = ['AGREMENT_TYPES', 'STATUTS_PRO', 'COMPAGNIES', 'STATUTS_FIN_TRAITEMENT', 'AGREMENT_STATUS', 'PRIORITIES'];
+  const allowed = [
+    'AGREMENT_TYPES', 'TYPE_CLIENT', 'STATUTS_PRO', 'COMPAGNIES',
+    'STATUTS_FIN_TRAITEMENT', 'AGREMENT_STATUS', 'PRIORITIES', 'MOTIF_VALIDATION',
+    'SINISTRE_SITUATIONS', 'SINISTRE_STATUTS', 'SINISTRE_COMPLETUDE',
+    'FACTURE_STATUTS',
+    'RESILIATION_ORIGINES', 'RESILIATION_COMPLETUDE', 'RESILIATION_RESIL', 'RESILIATION_STATUTS'
+  ];
 
   allowed.forEach(function(key) {
     if (data[key] && Array.isArray(data[key]) && data[key].length > 0) {
@@ -1209,36 +1166,6 @@ function saveUser(token, payload) {
   return publicUser_(row);
 }
 
-// ── Changement de mot de passe (self-service) ─────────────────
-function changePassword(token, payload) {
-  const session = requireSession_(token);
-  const data    = payload || {};
-  const current = String(data.current_password || '').trim();
-  const newPwd  = String(data.new_password     || '').trim();
-
-  if (!current)          throw new Error('Le mot de passe actuel est requis.');
-  if (!newPwd)           throw new Error('Le nouveau mot de passe est requis.');
-  if (newPwd.length < 6) throw new Error('Le mot de passe doit contenir au moins 6 caractères.');
-  if (current === newPwd) throw new Error('Le nouveau mot de passe doit être différent de l\'actuel.');
-
-  const users = readTable_('USERS');
-  const user  = users.find(function(u) { return u.id === session.user.id; });
-  if (!user) throw new Error('Utilisateur introuvable.');
-
-  if (hashPassword_(current) !== user.password_hash) {
-    throw new Error('Mot de passe actuel incorrect.');
-  }
-
-  const row = Object.assign({}, user, {
-    password_hash: hashPassword_(newPwd),
-    updated_at:    nowIso_()
-  });
-  upsertRow_('USERS', 'id', row);
-  addAuditLog_(session, 'CHANGE_PASSWORD', 'USER', session.user.id,
-    'Changement de mot de passe par ' + session.user.full_name, null, null);
-  return { ok: true };
-}
-
 // ── Équipes ───────────────────────────────────────────────────
 function listTeams(token) {
   const session   = requireSession_(token);
@@ -1247,33 +1174,14 @@ function listTeams(token) {
   const agrements = readTable_('AGREMENTS');
 
   return teams.map(function(team) {
-    // All TLs for this team: primary TL (team_leader_id on TEAMS) + any TL whose team_id = team.id
-    const teamLeaders = users.filter(function(u) {
-      return u.role === ROLES.TEAM_LEADER &&
-        (u.id === team.team_leader_id || u.team_id === team.id);
-    }).map(function(u) {
-      return { id: u.id, full_name: u.full_name };
-    });
-    // Deduplicate by id
-    const tlSeen = {};
-    const teamLeadersUniq = teamLeaders.filter(function(tl) {
-      if (tlSeen[tl.id]) return false;
-      tlSeen[tl.id] = true;
-      return true;
-    });
-    const primaryTL = teamLeadersUniq[0] || {};
-    const secondaryTL = teamLeadersUniq[1] || {};
     return {
-      id:                team.id,
-      name:              team.name,
-      team_leader_id:    team.team_leader_id,
-      team_leader_name:  primaryTL.full_name || '',
-      team_leader_id_2:  secondaryTL.id      || '',
-      team_leader_name_2:secondaryTL.full_name || '',
-      team_leaders:      teamLeadersUniq,
-      status:            team.status,
-      created_at:        team.created_at,
-      updated_at:        team.updated_at,
+      id:               team.id,
+      name:             team.name,
+      team_leader_id:   team.team_leader_id,
+      team_leader_name: (users.find(function(u) { return u.id === team.team_leader_id; }) || {}).full_name || '',
+      status:           team.status,
+      created_at:       team.created_at,
+      updated_at:       team.updated_at,
       ambassadors_count: users.filter(function(u) {
         return u.team_id === team.id && u.role === ROLES.AMBASSADOR;
       }).length,
@@ -1285,23 +1193,8 @@ function listTeams(token) {
 }
 
 function saveTeam(token, payload) {
-  const session  = requireSession_(token);
-  const data_pre = payload || {};
-
-  if (session.role === ROLES.TEAM_LEADER) {
-    // TL peut uniquement mettre à jour sa propre équipe (pas en créer une nouvelle)
-    if (!data_pre.id) throw new Error('Vous ne pouvez pas créer une équipe.');
-    const allTeams = readTable_('TEAMS');
-    const myTeam   = allTeams.find(function(t) { return t.id === data_pre.id; });
-    // Allow: primary TL (team_leader_id) or secondary TL (team_id of user = team.id)
-    const isMemberTL = myTeam && (
-      myTeam.team_leader_id === session.user.id ||
-      session.user.team_id  === myTeam.id
-    );
-    if (!isMemberTL) throw new Error('Vous ne pouvez modifier que votre propre équipe.');
-  } else if (session.role !== ROLES.SUPER_ADMIN) {
-    throw new Error('Droits insuffisants pour gérer les équipes.');
-  }
+  const session = requireSession_(token);
+  if (session.role !== ROLES.SUPER_ADMIN) throw new Error('Seul le Super Admin peut gérer les équipes.');
 
   const data     = payload || {};
   const teams    = readTable_('TEAMS');
@@ -1309,10 +1202,9 @@ function saveTeam(token, payload) {
   const name     = String(data.name || (existing && existing.name) || '').trim();
   if (!name) throw new Error('Le nom de l\'équipe est obligatoire.');
 
-  const now  = nowIso_();
-  const teamId = existing ? existing.id : nextId_('TEAM');
-  const row  = Object.assign({}, existing || {}, {
-    id:             teamId,
+  const now = nowIso_();
+  const row = Object.assign({}, existing || {}, {
+    id:             existing ? existing.id : nextId_('TEAM'),
     name:           name,
     team_leader_id: String(data.team_leader_id || (existing && existing.team_leader_id) || '').trim(),
     status:         String(data.status || (existing && existing.status) || 'Actif').trim(),
@@ -1321,31 +1213,6 @@ function saveTeam(token, payload) {
   });
 
   upsertRow_('TEAMS', 'id', row);
-
-  // Handle 2nd TL assignment (admin only): update the selected user's team_id
-  if (session.role === ROLES.SUPER_ADMIN && data.team_leader_id_2 !== undefined) {
-    const tl2Id      = String(data.team_leader_id_2 || '').trim();
-    const allUsers   = readTable_('USERS');
-    const primaryTLId = row.team_leader_id;
-
-    // Clear team_id for any existing secondary TL of this team (not the primary)
-    allUsers.forEach(function(u) {
-      if (u.role === ROLES.TEAM_LEADER && u.team_id === teamId && u.id !== primaryTLId) {
-        const cleared = Object.assign({}, u, { team_id: '', updated_at: now });
-        upsertRow_('USERS', 'id', cleared);
-      }
-    });
-
-    // Assign the new 2nd TL
-    if (tl2Id && tl2Id !== primaryTLId) {
-      const tl2User = allUsers.find(function(u) { return u.id === tl2Id; });
-      if (tl2User && tl2User.role === ROLES.TEAM_LEADER) {
-        const updated = Object.assign({}, tl2User, { team_id: teamId, updated_at: now });
-        upsertRow_('USERS', 'id', updated);
-      }
-    }
-  }
-
   addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'TEAM', row.id,
     'Enregistrement équipe', existing, row);
   return publicTeam_(row);
@@ -1396,36 +1263,25 @@ function assignTeamByTypeDossierOptional_(typeDossier) {
 // ── Calculs solvabilité ───────────────────────────────────────
 
 /**
- * Calcule le plafond de loyer pour UN SEUL profil.
- *
- * Hypothèses documentées :
- *  - Retraité : règle métier à définir. Structure prête → plafond = 0 par défaut.
- *               Pour brancher : remplacer le case 'Retraité' ci-dessous.
- *  - TNS      : idem.
- *  - CDD ALLIANZ ≥12 mois : 37 % de la moyenne net imposable (règle standard).
- *               Si la règle officielle diffère, modifier le else du case 'CDD'/ALLIANZ.
+ * Calcule le plafond de loyer pour UN SEUL profil — VERSION LEGACY (switch/case).
+ * Conservée pour la rétro-compatibilité des profils sans taux_plafond.
  *
  * @param {Object} profile
  * @returns {{ plafond, revenu_complementaire, plafond_avec_revenu, avg_net_imposable, ratio_used, details }}
  */
-function calculateProfilePlafond_(profile) {
+function calculateProfilePlafond_Legacy_(profile) {
   const statutPro  = String(profile.statut_pro  || '').trim();
   const typeClient = String(profile.type_client || 'Locataire').trim();
   const compagnie  = String(profile.compagnie   || '').trim();
 
-  // Accept both legacy field names (net_imposable_1/2/3) and frontend field names (salaires[])
+  const sourceNI = Array.isArray(profile.net_imposable)
+    ? profile.net_imposable
+    : (Array.isArray(profile.salaires) ? profile.salaires : []);
   const ni = [
-    Number(profile.net_imposable_1 !== undefined ? profile.net_imposable_1
-         : (profile.salaires && profile.salaires[0] !== undefined ? profile.salaires[0]
-         : (profile.net_imposable && profile.net_imposable[0] || 0))),
-    Number(profile.net_imposable_2 !== undefined ? profile.net_imposable_2
-         : (profile.salaires && profile.salaires[1] !== undefined ? profile.salaires[1]
-         : (profile.net_imposable && profile.net_imposable[1] || 0))),
-    Number(profile.net_imposable_3 !== undefined ? profile.net_imposable_3
-         : (profile.salaires && profile.salaires[2] !== undefined ? profile.salaires[2]
-         : (profile.net_imposable && profile.net_imposable[2] || 0)))
+    Number(profile.net_imposable_1 !== undefined ? profile.net_imposable_1 : (sourceNI[0] || 0)),
+    Number(profile.net_imposable_2 !== undefined ? profile.net_imposable_2 : (sourceNI[1] || 0)),
+    Number(profile.net_imposable_3 !== undefined ? profile.net_imposable_3 : (sourceNI[2] || 0))
   ];
-
   const avgNI = average_(ni);
 
   let plafond   = 0;
@@ -1439,78 +1295,101 @@ function calculateProfilePlafond_(profile) {
       plafond   = avgNI * ratioUsed;
       details   = statutPro + ' · ratio ' + (ratioUsed * 100).toFixed(0) + '% · base ' + avgNI.toFixed(2);
       break;
-
     case 'CDD':
       if (compagnie === 'AXA') {
-        ratioUsed = 0.25;
-        plafond   = avgNI * 0.25;
-        details   = 'CDD AXA · 25% de ' + avgNI.toFixed(2);
+        ratioUsed = 0.25; plafond = avgNI * 0.25;
+        details = 'CDD AXA · 25% de ' + avgNI.toFixed(2);
       } else if (compagnie === 'ALLIANZ') {
-        // Accept boolean cdd_moins_12_mois OR derive from numeric duree_cdd_mois (frontend field)
-        const cddMoins12 = profile.cdd_moins_12_mois === true || String(profile.cdd_moins_12_mois) === 'true'
-          || (profile.cdd_moins_12_mois === undefined && Number(profile.duree_cdd_mois) > 0 && Number(profile.duree_cdd_mois) < 12);
-        if (cddMoins12) {
-          ratioUsed = 0.37;
-          plafond   = (avgNI / 2) * 0.37;
-          details   = 'CDD ALLIANZ <12 mois · 37% de (net imposable/2) = ' + (avgNI / 2).toFixed(2);
+        if (profile.cdd_moins_12_mois === true || String(profile.cdd_moins_12_mois) === 'true') {
+          ratioUsed = 0.37; plafond = (avgNI / 2) * 0.37;
+          details = 'CDD ALLIANZ <12 mois · 37% de (net/2)';
         } else {
-          // HYPOTHÈSE : CDD ALLIANZ ≥12 mois → règle standard 37 % de la moyenne net imposable
-          ratioUsed = 0.37;
-          plafond   = avgNI * 0.37;
-          details   = 'CDD ALLIANZ ≥12 mois · 37% de ' + avgNI.toFixed(2) + ' (hypothèse standard)';
+          ratioUsed = 0.37; plafond = avgNI * 0.37;
+          details = 'CDD ALLIANZ ≥12 mois · 37%';
         }
       } else {
-        // CDD sans compagnie identifiée → 37 % par défaut
-        ratioUsed = 0.37;
-        plafond   = avgNI * 0.37;
-        details   = 'CDD (défaut) · 37% de ' + avgNI.toFixed(2);
+        ratioUsed = 0.37; plafond = avgNI * 0.37;
+        details = 'CDD (défaut) · 37% de ' + avgNI.toFixed(2);
       }
       break;
-
     case 'Étudiant':
-      // Étudiant → Garant obligatoire, ratio 33 %
-      ratioUsed = 0.33;
-      plafond   = avgNI * 0.33;
-      details   = 'Étudiant · Garant · 33% de ' + avgNI.toFixed(2);
+      ratioUsed = 0.33; plafond = avgNI * 0.33;
+      details = 'Étudiant · Garant · 33% de ' + avgNI.toFixed(2);
       break;
-
     case 'Retraité':
-      // TODO: Brancher la règle métier ici quand disponible.
-      // HYPOTHÈSE : Plafond = 0 en attendant la définition officielle.
-      plafond = 0;
-      details = 'Retraité · règle en attente de définition (plafond = 0 par défaut)';
+      plafond = 0; details = 'Retraité · règle en attente';
       break;
-
     case 'TNS':
-      // TODO: Brancher la règle métier ici quand disponible.
-      // HYPOTHÈSE : Plafond = 0 en attendant la définition officielle.
-      plafond = 0;
-      details = 'TNS · règle en attente de définition (plafond = 0 par défaut)';
+      plafond = 0; details = 'TNS · règle en attente';
       break;
-
     default:
-      plafond = 0;
-      details = 'Statut pro inconnu : ' + statutPro;
+      plafond = 0; details = 'Statut pro inconnu : ' + statutPro;
   }
 
-  // Revenu complémentaire par profil — accept both field name variants
-  const revCompMontant = Number(
-    profile.revenu_complementaire_montant !== undefined
-      ? profile.revenu_complementaire_montant
-      : (profile.montant_complementaire || 0)
-  );
-  const revComp = (
-    profile.revenu_complementaire === true ||
-    String(profile.revenu_complementaire) === 'true'
-  ) ? revCompMontant : 0;
+  const revCompMontant = profile.revenu_complementaire_montant !== undefined
+    ? profile.revenu_complementaire_montant
+    : (profile.montant_complementaire !== undefined ? profile.montant_complementaire : 0);
+  const revComp = (profile.revenu_complementaire === true || String(profile.revenu_complementaire) === 'true')
+    ? Number(revCompMontant || 0) : 0;
 
   return {
-    plafond:                 plafond,
-    revenu_complementaire:   revComp,
-    plafond_avec_revenu:     plafond + revComp,
-    avg_net_imposable:       avgNI,
-    ratio_used:              ratioUsed,
-    details:                 details
+    plafond:              plafond,
+    revenu_complementaire: revComp,
+    plafond_avec_revenu:  plafond + revComp,
+    avg_net_imposable:    avgNI,
+    ratio_used:           ratioUsed,
+    details:              details
+  };
+}
+
+/**
+ * Calcule le plafond de loyer pour UN SEUL profil.
+ * Nouvelle logique : utilise taux_plafond manuel si présent, sinon fallback legacy.
+ *
+ * @param {Object} profile
+ * @returns {{ plafond, revenu_complementaire, plafond_avec_revenu, avg_net_imposable, ratio_used, details }}
+ */
+function calculateProfilePlafond_(profile) {
+  // ── Fallback legacy si pas de taux_plafond manuel ─────────────
+  const tauxRaw = String(profile.taux_plafond || '').trim();
+  if (!tauxRaw) {
+    return calculateProfilePlafond_Legacy_(profile);
+  }
+
+  // ── Taux manuel ───────────────────────────────────────────────
+  const sourceNI = Array.isArray(profile.net_imposable)
+    ? profile.net_imposable
+    : (Array.isArray(profile.salaires) ? profile.salaires : []);
+  const ni = [
+    Number(profile.net_imposable_1 !== undefined ? profile.net_imposable_1 : (sourceNI[0] || 0)),
+    Number(profile.net_imposable_2 !== undefined ? profile.net_imposable_2 : (sourceNI[1] || 0)),
+    Number(profile.net_imposable_3 !== undefined ? profile.net_imposable_3 : (sourceNI[2] || 0))
+  ];
+  const avgNI = average_(ni);
+
+  // Résoudre le taux : 'autre' → taux_plafond_autre ; sinon la valeur directe
+  let tauxPct;
+  if (tauxRaw === 'autre') {
+    tauxPct = Number(profile.taux_plafond_autre || 0);
+  } else {
+    tauxPct = Number(tauxRaw);
+  }
+  const ratio   = tauxPct / 100;
+  const plafond = avgNI * ratio;
+
+  const revCompMontant = profile.revenu_complementaire_montant !== undefined
+    ? profile.revenu_complementaire_montant
+    : (profile.montant_complementaire !== undefined ? profile.montant_complementaire : 0);
+  const revComp = (profile.revenu_complementaire === true || String(profile.revenu_complementaire) === 'true')
+    ? Number(revCompMontant || 0) : 0;
+
+  return {
+    plafond:              plafond,
+    revenu_complementaire: revComp,
+    plafond_avec_revenu:  plafond + revComp,
+    avg_net_imposable:    avgNI,
+    ratio_used:           ratio,
+    details:              'Taux manuel ' + tauxPct + '% · base ' + avgNI.toFixed(2)
   };
 }
 
@@ -1535,9 +1414,11 @@ function calculateMultiProfileSolvabiliteServer(payload) {
   const effectifTypeClient = forceGarant ? 'Garant' : typeClient;
 
   const profileResults = profils.map(function(profil, idx) {
+    // Each profil may have its own type_client (Change 1). Fall back to global if not set.
+    const profilTypeClient = String(profil.type_client || effectifTypeClient).trim();
     const p = Object.assign({}, profil, {
-      type_client: effectifTypeClient,
-      compagnie:   compagnie
+      type_client: forceGarant ? 'Garant' : profilTypeClient,
+      compagnie:   String(profil.compagnie || compagnie).trim()
     });
     const result = calculateProfilePlafond_(p);
     return Object.assign({ profil_index: idx + 1, statut_pro: profil.statut_pro || '' }, result);
@@ -1548,8 +1429,9 @@ function calculateMultiProfileSolvabiliteServer(payload) {
   }, 0);
 
   return {
-    profils:              profileResults,   // alias used by frontend
     profils_calculs:      profileResults,
+    // Alias de compat pour les clients qui lisent encore `result.profils`
+    profils:              profileResults,
     plafond_total:        plafondTotal,
     loyer:                loyer,
     type_client_effectif: effectifTypeClient,
@@ -1647,9 +1529,10 @@ function listAgrements(token, filters) {
 // ── Validation ────────────────────────────────────────────────
 
 function validateAgrementPayload_(row) {
-  if (!row.type_dossier) throw new Error('Le type de dossier est obligatoire.');
-  if (!row.type_client)  throw new Error('Le type de client est obligatoire.');
-  if (!row.statut)       throw new Error('Le statut est obligatoire.');
+  if (!row.type_dossier)        throw new Error('Le type de dossier est obligatoire.');
+  if (!row.priorite)            throw new Error('La priorité est obligatoire.');
+  if (!row.ambassadeur_assigne) throw new Error('L\'ambassadeur assigné est obligatoire.');
+  if (!row.statut)              throw new Error('Le statut est obligatoire.');
   if (row.statut === 'Validé' && !row.motif_validation) {
     throw new Error('Le motif Solvable / Non solvable est obligatoire lorsque le statut est Validé.');
   }
@@ -1680,7 +1563,7 @@ function saveAgrement(token, payload) {
     // TL : peut assigner à n'importe quel ambassadeur de son équipe
     if (ambassadeurAssigne) {
       const target = users.find(function(u) { return u.id === ambassadeurAssigne; });
-      if (!target || (target.team_id !== session.user.team_id && target.team_leader_id !== session.user.id)) {
+      if (!target || target.team_id !== session.user.team_id) {
         throw new Error('L\'ambassadeur sélectionné n\'appartient pas à votre équipe.');
       }
     }
@@ -1693,10 +1576,7 @@ function saveAgrement(token, payload) {
   let equipeId = existing ? (existing.equipe_id || '') : '';
   if (ambassadeurAssigne) {
     const amb = users.find(function(u) { return u.id === ambassadeurAssigne; });
-    if (amb) {
-      // Ambassador with direct team_id → use it; otherwise fall back to TL's own team
-      equipeId = amb.team_id || (session.role === ROLES.TEAM_LEADER ? (session.user.team_id || equipeId) : equipeId);
-    }
+    if (amb && amb.team_id) equipeId = amb.team_id;
   }
   // Fallback non bloquant : si toujours vide, essayer la règle AGREMENT_TYPE_TEAM_MAP
   if (!equipeId) {
@@ -1705,14 +1585,26 @@ function saveAgrement(token, payload) {
     );
   }
 
-  // ── Type client : Garant forcé si profil Étudiant ──────────
-  let typeClient = String(data.type_client || (existing && existing.type_client) || 'Locataire').trim();
+  // ── Profils : migration backward-compat ───────────────────
   const profils  = Array.isArray(data.profils)
     ? data.profils
     : safeParseJson_(data.profils_json, []);
 
-  if (profils.some(function(p) { return String(p.statut_pro || '') === 'Étudiant'; })) {
+  // Migration : profils sans type_client héritent de 'Locataire'
+  profils.forEach(function(p) {
+    if (!p.type_client) p.type_client = 'Locataire';
+  });
+
+  // ── Type client : dérivé du premier profil (ou 'Garant' si un profil est Étudiant) ──
+  const forceGarant = profils.some(function(p) { return String(p.statut_pro || '') === 'Étudiant'; });
+  let typeClient;
+  if (forceGarant) {
     typeClient = 'Garant';
+  } else if (profils.length > 0 && profils[0].type_client) {
+    typeClient = String(profils[0].type_client).trim();
+  } else {
+    // Fallback rétro-compat : lire le champ global si présent
+    typeClient = String(data.type_client || (existing && existing.type_client) || 'Locataire').trim();
   }
 
   // ── Statut / motif ─────────────────────────────────────────
@@ -1724,35 +1616,13 @@ function saveAgrement(token, payload) {
   const solv    = data.solvabilite || null;
   const now     = nowIso_();
 
-  // ── Loyer : accept data.loyer (new multi-profil payload) or legacy solv.loyer ──
-  const loyerVal = data.loyer !== undefined
-    ? Number(data.loyer)
-    : (solv ? Number(solv.loyer || 0) : Number((existing && existing.loyer) || 0));
-
-  // ── Auto-compute plafond_final + résultat from multi-profils on every save ──
-  let plafondFinal        = Number(data.plafond_final || (existing && existing.plafond_final) || 0);
-  let resultatSolvabilite = solv
-    ? String(solv.resultat || '')
-    : String((existing && existing.resultat_solvabilite) || '');
-
-  if (profils.length > 0) {
-    const calcResult = calculateMultiProfileSolvabiliteServer({
-      profils:     profils,
-      compagnie:   String(data.compagnie || (existing && existing.compagnie) || ''),
-      type_client: typeClient,
-      loyer:       loyerVal
-    });
-    plafondFinal = calcResult.plafond_total;
-    if (loyerVal > 0) resultatSolvabilite = calcResult.resultat;
-  }
-
   const row = Object.assign({}, existing || {}, {
     id:          existing ? existing.id        : nextId_('AGR'),
     reference:   existing ? existing.reference : nextReference_('AGR'),
     // Infos dossier
     type_dossier:        normalizeDossierType_(data.type_dossier || (existing && existing.type_dossier) || ''),
     no_dossier:          String(data.no_dossier || (existing && existing.no_dossier) || '').trim(),
-    priorite:            String(data.priorite || data.priority || (existing && existing.priorite) || 'Normale').trim(),
+    priorite:            String(data.priorite   || (existing && existing.priorite)   || 'Normale').trim(),
     client:              String(data.client     || (existing && existing.client)     || '').trim(),
     adresse:             String(data.adresse    || (existing && existing.adresse)    || '').trim(),
     type_client:         typeClient,
@@ -1765,10 +1635,10 @@ function saveAgrement(token, payload) {
     statut:                   statut,
     motif_validation:         motifValidation,
     statut_fin_traitement:    String(data.statut_fin_traitement || (existing && existing.statut_fin_traitement) || '').trim(),
-    // Multi-profils + solvabilité auto-calculée
-    nombre_profils:       Number(data.nombre_profils || (existing && existing.nombre_profils) || 1),
-    profils_json:         profils.length ? JSON.stringify(profils) : (existing ? (existing.profils_json || '') : ''),
-    plafond_final:        plafondFinal,
+    // Multi-profils
+    nombre_profils:   Number(data.nombre_profils || (existing && existing.nombre_profils) || 1),
+    profils_json:     profils.length ? JSON.stringify(profils) : (existing ? (existing.profils_json || '') : ''),
+    plafond_final:    Number(data.plafond_final  || (existing && existing.plafond_final)  || 0),
     // Solvabilité legacy (mono-profil rétro-compat)
     net_a_payer_1:    solv ? Number(solv.net_a_payer && solv.net_a_payer[0] || 0)     : Number((existing && existing.net_a_payer_1)    || 0),
     net_a_payer_2:    solv ? Number(solv.net_a_payer && solv.net_a_payer[1] || 0)     : Number((existing && existing.net_a_payer_2)    || 0),
@@ -1779,13 +1649,15 @@ function saveAgrement(token, payload) {
     brut_1: solv ? Number(solv.brut && solv.brut[0] || 0) : Number((existing && existing.brut_1) || 0),
     brut_2: solv ? Number(solv.brut && solv.brut[1] || 0) : Number((existing && existing.brut_2) || 0),
     brut_3: solv ? Number(solv.brut && solv.brut[2] || 0) : Number((existing && existing.brut_3) || 0),
-    loyer:                   loyerVal,
+    loyer:                   solv
+      ? Number(solv.loyer || 0)
+      : Number((data.loyer !== undefined ? data.loyer : ((existing && existing.loyer) || 0)) || 0),
     moyenne_net_a_payer:     solv ? Number(solv.moyenne_net_a_payer || 0)     : Number((existing && existing.moyenne_net_a_payer)     || 0),
     moyenne_net_avant_impot: solv ? Number(solv.moyenne_net_avant_impot || 0) : Number((existing && existing.moyenne_net_avant_impot) || 0),
     moyenne_brut:            solv ? Number(solv.moyenne_brut || 0)            : Number((existing && existing.moyenne_brut)            || 0),
     ratio_max:               solv ? Number(solv.ratio_max || 0)               : Number((existing && existing.ratio_max)               || 0),
     plafond_loyer:           solv ? Number(solv.plafond_loyer || 0)           : Number((existing && existing.plafond_loyer)           || 0),
-    resultat_solvabilite:    resultatSolvabilite,
+    resultat_solvabilite:    solv ? String(solv.resultat || '')               : String((existing && existing.resultat_solvabilite)    || ''),
     // Override solvabilité (non réinitialisé lors d'un simple save)
     solvabilite_override:    String((existing && existing.solvabilite_override)    || 'FALSE'),
     solvabilite_commentaire: String((existing && existing.solvabilite_commentaire) || ''),
@@ -1803,6 +1675,39 @@ function saveAgrement(token, payload) {
   upsertRow_('AGREMENTS', 'id', row);
   addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'AGREMENT', row.id,
     'Enregistrement agrément', existing, row);
+
+  // Historique de versions
+  saveEntityVersion_(session, 'AGREMENT', row.id, row,
+    String(data.commentaire_mise_a_jour || '').trim(),
+    existing ? 'UPDATE' : 'CREATE');
+
+  const usersById = indexBy_(readTable_('USERS'), 'id');
+  const teamsById = indexBy_(readTable_('TEAMS'), 'id');
+  return hydrateAgrementRow_(Object.assign({}, row), usersById, teamsById);
+}
+
+/**
+ * Marque un agrément comme traité (nouveau concept v4.1).
+ */
+function traiterAgrement(token, id, commentaire) {
+  const session  = requireSession_(token);
+  const rows     = readTable_('AGREMENTS');
+  const existing = rows.find(function(r) { return r.id === id; });
+
+  if (!existing)                                    throw new Error('Agrément introuvable.');
+  if (!scopeAgrements_(session, [existing]).length) throw new Error('Accès refusé.');
+
+  const now = nowIso_();
+  const row = Object.assign({}, existing, {
+    statut:     'Clos',
+    closed_at:  now,
+    updated_by: session.user.id,
+    updated_at: now
+  });
+
+  upsertRow_('AGREMENTS', 'id', row);
+  addAuditLog_(session, 'TRAITE', 'AGREMENT', row.id, 'Agrément traité', existing, row);
+  saveEntityVersion_(session, 'AGREMENT', row.id, row, String(commentaire || '').trim(), 'TRAITE');
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   const teamsById = indexBy_(readTable_('TEAMS'), 'id');
@@ -1876,19 +1781,15 @@ function reassignerAgrement(token, agrementId, newAmbassadeurId) {
   const newAmb = users.find(function(u) { return u.id === newAmbassadeurId; });
   if (!newAmb || newAmb.role !== ROLES.AMBASSADOR)  throw new Error('Ambassadeur introuvable.');
 
-  if (session.role === ROLES.TEAM_LEADER &&
-      newAmb.team_id !== session.user.team_id &&
-      newAmb.team_leader_id !== session.user.id) {
+  if (session.role === ROLES.TEAM_LEADER && newAmb.team_id !== session.user.team_id) {
     throw new Error('L\'ambassadeur sélectionné n\'appartient pas à votre équipe.');
   }
 
   const oldAmb = existing.ambassadeur_assigne;
   const now    = nowIso_();
 
-  // Équipe mise à jour selon le nouvel ambassadeur (fallback au TL si l'ambassadeur n'a pas de team_id)
-  const newEquipeId = newAmb.team_id
-    || (session.role === ROLES.TEAM_LEADER ? session.user.team_id : null)
-    || existing.equipe_id;
+  // Équipe mise à jour selon le nouvel ambassadeur
+  const newEquipeId = newAmb.team_id || existing.equipe_id;
 
   const row = Object.assign({}, existing, {
     ambassadeur_assigne: newAmbassadeurId,
@@ -2009,17 +1910,18 @@ function saveSinistre(token, payload) {
     updated_at:    now,
     // Réinitialisation du traitement si remise en travail
     traite_at:      wasTraite ? '' : (existing ? (existing.traite_at || '') : ''),
-    delai_secondes: wasTraite ? 0  : (existing ? (existing.delai_secondes || 0) : 0)
+    delai_secondes: wasTraite ? 0  : (existing ? (existing.delai_secondes || 0) : 0),
+    // Horodatage de début de traitement : mis à jour à chaque mise à jour
+    delai_traitement_start: existing ? now : now
   });
 
   upsertRow_('SINISTRES', 'id', row);
-  addAuditLog_(
-    session,
-    existing ? (wasTraite ? 'UPDATE_AFTER_TREATMENT' : 'UPDATE') : 'CREATE',
-    'SINISTRE', row.id,
+  const actionType = existing ? (wasTraite ? 'UPDATE_AFTER_TREATMENT' : 'UPDATE') : 'CREATE';
+  addAuditLog_(session, actionType, 'SINISTRE', row.id,
     wasTraite ? 'Sinistre remis en traitement après mise à jour' : 'Enregistrement sinistre',
-    existing, row
-  );
+    existing, row);
+  saveEntityVersion_(session, 'SINISTRE', row.id, row,
+    String(data.commentaire_mise_a_jour || '').trim(), actionType);
   return row;
 }
 
@@ -2037,9 +1939,10 @@ function traiterSinistre(token, id) {
   if (existing.statut === 'Traité')                 throw new Error('Ce sinistre est déjà traité. Faites une mise à jour avant de re-traiter.');
 
   const now       = nowIso_();
-  const createdMs = parseDateMs_(existing.created_at);
+  // Délai calculé depuis delai_traitement_start si disponible, sinon created_at
+  const startMs   = parseDateMs_(existing.delai_traitement_start || existing.created_at);
   const nowMs     = parseDateMs_(now);
-  const delai     = Math.max(0, Math.round((nowMs - createdMs) / 1000));
+  const delai     = Math.max(0, Math.round((nowMs - startMs) / 1000));
 
   // Historique : enregistre l'action Traité
   const historique = safeParseJson_(existing.historique_json, []);
@@ -2062,7 +1965,8 @@ function traiterSinistre(token, id) {
   });
 
   upsertRow_('SINISTRES', 'id', row);
-  addAuditLog_(session, 'UPDATE', 'SINISTRE', row.id, 'Sinistre traité', existing, row);
+  addAuditLog_(session, 'TRAITE', 'SINISTRE', row.id, 'Sinistre traité', existing, row);
+  saveEntityVersion_(session, 'SINISTRE', row.id, row, '', 'TRAITE');
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   row.created_by_name = usersById[row.created_by] ? usersById[row.created_by].full_name : '';
@@ -2158,27 +2062,30 @@ function saveFacture(token, payload) {
     created_at:    existing ? existing.created_at : now,
     updated_at:    now,
     traite_at:      existing ? (existing.traite_at     || '') : '',
-    delai_secondes: existing ? (existing.delai_secondes || 0) : 0
+    delai_secondes: existing ? (existing.delai_secondes || 0) : 0,
+    // Horodatage de début de traitement : mis à jour à chaque save
+    delai_traitement_start: existing ? now : now
   });
 
   upsertRow_('FACTURES', 'id', row);
-  addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'FACTURE', row.id,
-    'Enregistrement facture', existing, row);
+  const actionType = existing ? 'UPDATE' : 'CREATE';
+  addAuditLog_(session, actionType, 'FACTURE', row.id, 'Enregistrement facture', existing, row);
+  saveEntityVersion_(session, 'FACTURE', row.id, row,
+    String(data.commentaire_mise_a_jour || '').trim(), actionType);
   return row;
 }
 
 /**
  * Traite ou remonte une facture.
  *
- * Workflow :
- *  → TL NON encore vérifié : TOUJOURS Remonté (pour validation TL)
- *      • Commentaire obligatoire si étapes incomplètes
- *      • Les étapes cochées en UI sont sauvegardées
- *  → TL déjà vérifié ET toutes étapes faites : Traité (traitement final)
+ * Logique :
+ *  1. Toutes les étapes cochées → traitement direct (statut = Traité)
+ *  2. Dossier Vérifié par TL → traitement autorisé même si étapes incomplètes
+ *  3. Étapes incomplètes sans vérification → commentaire obligatoire → statut = Remonté
  *
  * @param {string}  token
  * @param {string}  id
- * @param {Object}  options  - { commentaire, etape_verification, etape_calcul, etape_reglement }
+ * @param {Object}  options         - { commentaire }
  */
 function traiterFacture(token, id, options) {
   const session  = requireSession_(token);
@@ -2190,78 +2097,63 @@ function traiterFacture(token, id, options) {
   if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
   if (existing.statut === 'Traité')                 throw new Error('Cette facture est déjà traitée.');
 
-  // Lire les étapes depuis le payload UI (priorité) puis depuis la DB
-  const veri = opts.etape_verification !== undefined
-    ? (opts.etape_verification === true || opts.etape_verification === 'true')
-    : String(existing.etape_verification) === 'TRUE';
-  const calc = opts.etape_calcul !== undefined
-    ? (opts.etape_calcul === true || opts.etape_calcul === 'true')
-    : String(existing.etape_calcul) === 'TRUE';
-  const regl = opts.etape_reglement !== undefined
-    ? (opts.etape_reglement === true || opts.etape_reglement === 'true')
-    : String(existing.etape_reglement) === 'TRUE';
-
-  const allDone     = veri && calc && regl;
-  const isVerifie   = String(existing.verifie_badge) === 'TRUE';
+  const veri      = String(existing.etape_verification) === 'TRUE';
+  const calc      = String(existing.etape_calcul)        === 'TRUE';
+  const regl      = String(existing.etape_reglement)     === 'TRUE';
+  const allDone   = veri && calc && regl;
+  const isVerifie = String(existing.verifie_badge)       === 'TRUE';
   const commentaire = String(opts.commentaire || '').trim();
 
-  // ── Traitement final : TL a déjà vérifié ET toutes les étapes sont faites ──
-  if (isVerifie && allDone) {
-    const now       = nowIso_();
-    const createdMs = parseDateMs_(existing.created_at);
-    const delai     = Math.max(0, Math.round((parseDateMs_(now) - createdMs) / 1000));
-
-    const row = Object.assign({}, existing, {
-      etape_verification:     toBool_(veri),
-      etape_calcul:           toBool_(calc),
-      etape_reglement:        toBool_(regl),
-      commentaire_traitement: commentaire || (existing.commentaire_traitement || ''),
-      statut:         'Traité',
-      traite_at:      now,
-      delai_secondes: delai,
-      updated_at:     now
+  // Cas 3 : étapes incomplètes, pas encore vérifiée → Remonté
+  if (!allDone && !isVerifie) {
+    if (!commentaire) {
+      throw new Error('Un commentaire est obligatoire pour justifier les étapes non complétées.');
+    }
+    const now_r = nowIso_();
+    const row_r = Object.assign({}, existing, {
+      commentaire_traitement: commentaire,
+      statut:     'Remonté',
+      remonte_at: now_r,
+      updated_at: now_r
     });
-
-    upsertRow_('FACTURES', 'id', row);
-    addAuditLog_(session, 'TRAITE', 'FACTURE', row.id,
-      'Facture traitée (après vérification TL)', existing, row);
-
-    const usersById = indexBy_(readTable_('USERS'), 'id');
-    row.created_by_name  = usersById[row.created_by]  ? usersById[row.created_by].full_name  : '';
-    row.verifie_par_name = usersById[row.verifie_par] ? usersById[row.verifie_par].full_name : '';
-    row.delai_formate    = formatDelai_(row.delai_secondes);
-    row.progression      = 3;
-    return row;
+    upsertRow_('FACTURES', 'id', row_r);
+    addAuditLog_(session, 'REMONTE', 'FACTURE', row_r.id,
+      'Facture remontée pour vérification TL. Commentaire : ' + commentaire, existing, row_r);
+    saveEntityVersion_(session, 'FACTURE', row_r.id, row_r, commentaire, 'REMONTE');
+    const uid_r = indexBy_(readTable_('USERS'), 'id');
+    row_r.created_by_name = uid_r[row_r.created_by] ? uid_r[row_r.created_by].full_name : '';
+    row_r.delai_formate   = formatDelai_(row_r.delai_secondes);
+    row_r.progression     = [row_r.etape_verification, row_r.etape_calcul, row_r.etape_reglement]
+      .filter(function(v) { return String(v) === 'TRUE'; }).length;
+    return Object.assign(row_r, { is_remonte: true });
   }
 
-  // ── Remonter au TL pour validation ──
-  // Commentaire obligatoire si les étapes ne sont pas toutes faites
-  if (!allDone && !commentaire) {
-    throw new Error('Un commentaire est obligatoire pour justifier les étapes non complétées.');
-  }
+  // Cas 1 & 2 : traitement final
+  const now       = nowIso_();
+  const startMs   = parseDateMs_(existing.delai_traitement_start || existing.created_at);
+  const nowMs     = parseDateMs_(now);
+  const delai     = Math.max(0, Math.round((nowMs - startMs) / 1000));
 
-  const now_r = nowIso_();
-  const row_r = Object.assign({}, existing, {
-    etape_verification:     toBool_(veri),
-    etape_calcul:           toBool_(calc),
-    etape_reglement:        toBool_(regl),
+  const row = Object.assign({}, existing, {
     commentaire_traitement: commentaire || (existing.commentaire_traitement || ''),
-    statut:     'Remonté',
-    remonte_at: now_r,
-    updated_at: now_r
+    statut:         'Traité',
+    traite_at:      now,
+    delai_secondes: delai,
+    updated_at:     now
   });
 
-  upsertRow_('FACTURES', 'id', row_r);
-  addAuditLog_(session, 'REMONTE', 'FACTURE', row_r.id,
-    'Facture remontée pour vérification TL' + (commentaire ? '. Commentaire : ' + commentaire : ''),
-    existing, row_r);
+  upsertRow_('FACTURES', 'id', row);
+  addAuditLog_(session, 'TRAITE', 'FACTURE', row.id,
+    isVerifie ? 'Facture traitée (après vérification TL)' : 'Facture traitée',
+    existing, row);
+  saveEntityVersion_(session, 'FACTURE', row.id, row, commentaire, 'TRAITE');
 
-  const uid_r = indexBy_(readTable_('USERS'), 'id');
-  row_r.created_by_name = uid_r[row_r.created_by] ? uid_r[row_r.created_by].full_name : '';
-  row_r.delai_formate   = formatDelai_(row_r.delai_secondes);
-  row_r.progression     = [row_r.etape_verification, row_r.etape_calcul, row_r.etape_reglement]
-    .filter(function(v) { return String(v) === 'TRUE'; }).length;
-  return Object.assign(row_r, { is_remonte: true });
+  const usersById = indexBy_(readTable_('USERS'), 'id');
+  row.created_by_name  = usersById[row.created_by]  ? usersById[row.created_by].full_name  : '';
+  row.verifie_par_name = usersById[row.verifie_par] ? usersById[row.verifie_par].full_name : '';
+  row.delai_formate    = formatDelai_(row.delai_secondes);
+  row.progression      = 3;
+  return row;
 }
 
 /**
@@ -2269,9 +2161,8 @@ function traiterFacture(token, id, options) {
  * Après vérification : statut = 'Vérifié', verifie_badge = 'TRUE'.
  * Le dossier revient dans la liste Factures et remonte en tête.
  */
-function verifierFacture(token, id, options) {
+function verifierFacture(token, id) {
   const session  = requireSession_(token);
-  const opts     = options || {};
 
   if (session.role === ROLES.AMBASSADOR) {
     throw new Error('Seuls les Team Leaders et Admins peuvent vérifier les factures.');
@@ -2284,21 +2175,19 @@ function verifierFacture(token, id, options) {
   if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
   if (existing.statut !== 'Remonté')                throw new Error('Cette facture n\'est pas en statut "Remonté".');
 
-  const commentaire = String(opts.commentaire || '').trim();
   const now = nowIso_();
   const row = Object.assign({}, existing, {
-    statut:                   'Vérifié',
-    verifie_badge:            'TRUE',
-    verifie_at:               now,
-    verifie_par:              session.user.id,
-    commentaire_verification: commentaire,
-    updated_at:               now
+    statut:       'Vérifié',
+    verifie_badge: 'TRUE',
+    verifie_at:   now,
+    verifie_par:  session.user.id,
+    updated_at:   now
   });
 
   upsertRow_('FACTURES', 'id', row);
   addAuditLog_(session, 'VERIFIE', 'FACTURE', row.id,
-    'Facture vérifiée par ' + session.user.full_name +
-    (commentaire ? ' — ' + commentaire : ''), existing, row);
+    'Facture vérifiée par ' + session.user.full_name, existing, row);
+  saveEntityVersion_(session, 'FACTURE', row.id, row, '', 'VERIFIE');
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   row.created_by_name  = usersById[row.created_by]  ? usersById[row.created_by].full_name  : '';
@@ -2362,12 +2251,16 @@ function saveResiliation(token, payload) {
     updated_at: now,
     soumis_at:  existing ? (existing.soumis_at || '') : '',
     delai_ouverture_soumission_secondes: existing
-      ? (existing.delai_ouverture_soumission_secondes || 0) : 0
+      ? (existing.delai_ouverture_soumission_secondes || 0) : 0,
+    // Horodatage de début de traitement : mis à jour à chaque save
+    delai_traitement_start: existing ? now : now
   });
 
   upsertRow_('RESILIATIONS', 'id', row);
-  addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'RESILIATION', row.id,
-    'Enregistrement résiliation', existing, row);
+  const actionType = existing ? 'UPDATE' : 'CREATE';
+  addAuditLog_(session, actionType, 'RESILIATION', row.id, 'Enregistrement résiliation', existing, row);
+  saveEntityVersion_(session, 'RESILIATION', row.id, row,
+    String(data.commentaire_mise_a_jour || '').trim(), actionType);
   return row;
 }
 
@@ -2397,8 +2290,8 @@ function soumettreResiliation(token, id, payload) {
   else                                   statut = 'En cours';
 
   const now       = nowIso_();
-  const createdMs = parseDateMs_(existing.created_at);
-  const delai     = Math.max(0, Math.round((parseDateMs_(now) - createdMs) / 1000));
+  const startMs   = parseDateMs_(existing.delai_traitement_start || existing.created_at);
+  const delai     = Math.max(0, Math.round((parseDateMs_(now) - startMs) / 1000));
 
   const row = Object.assign({}, existing, {
     completude:   completude,
@@ -2412,6 +2305,7 @@ function soumettreResiliation(token, id, payload) {
 
   upsertRow_('RESILIATIONS', 'id', row);
   addAuditLog_(session, 'UPDATE', 'RESILIATION', row.id, 'Soumission résiliation', existing, row);
+  saveEntityVersion_(session, 'RESILIATION', row.id, row, String(commentaire || ''), 'SOUMIS');
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   row.created_by_name = usersById[row.created_by] ? usersById[row.created_by].full_name : '';
@@ -2601,11 +2495,186 @@ function doGet() {
 }
 
 function getBootstrapData(token) {
-  // Utilisé pour reprendre une session existante (F5 / retour onglet).
-  // Charge session + lookups uniquement ; le dashboard est demandé séparément.
   const session = requireSession_(token);
   return {
-    session: buildSessionPayload_(session),
-    lookups: getLookups(token)
+    session:   buildSessionPayload_(session),
+    lookups:   getLookups(token),
+    dashboard: getDashboardData(token)
   };
+}
+// ============================================================
+// SECTION 16 — VERSIONS D'ENTITÉS + RECHERCHE GLOBALE
+// ============================================================
+
+// ── Historique immuable des entités ──────────────────────────
+
+/**
+ * Sauvegarde un snapshot de version pour une entité.
+ * Appelé depuis saveAgrement, saveSinistre, saveFacture,
+ * saveResiliation, traiterSinistre, traiterFacture,
+ * verifierFacture, soumettreResiliation.
+ *
+ * @param {Object} session       - session courante
+ * @param {string} entityType    - 'AGREMENT' | 'SINISTRE' | 'FACTURE' | 'RESILIATION'
+ * @param {string} entityId
+ * @param {Object} snapshot      - objet row complet
+ * @param {string} commentaire   - commentaire de mise à jour (optionnel)
+ * @param {string} actionType    - 'CREATE' | 'UPDATE' | 'TRAITE' | etc.
+ */
+function saveEntityVersion_(session, entityType, entityId, snapshot, commentaire, actionType) {
+  try {
+    const existing = readTable_('ENTITY_VERSIONS')
+      .filter(function(v) {
+        return v.entity_type === entityType && v.entity_id === entityId;
+      });
+    const versionNum = existing.length + 1;
+
+    upsertRow_('ENTITY_VERSIONS', 'id', {
+      id:            nextId_('VER'),
+      entity_type:   entityType,
+      entity_id:     entityId,
+      version_num:   versionNum,
+      snapshot_json: safeJson_(snapshot),
+      commentaire:   String(commentaire || ''),
+      action_type:   String(actionType || 'UPDATE'),
+      user_id:       session && session.user ? (session.user.id || '') : '',
+      user_name:     session && session.user ? (session.user.full_name || '') : '',
+      created_at:    nowIso_()
+    });
+  } catch(e) {
+    // Non bloquant — ne pas empêcher la sauvegarde principale
+    Logger.log('saveEntityVersion_ error: ' + e.message);
+  }
+}
+
+/**
+ * Retourne les versions d'une entité, triées desc par version_num.
+ */
+function getEntityVersions(token, entityType, entityId) {
+  const session = requireSession_(token);
+  // Vérifier que l'entité est visible par l'utilisateur
+  if (!entityType || !entityId) throw new Error('entityType et entityId sont requis.');
+
+  return readTable_('ENTITY_VERSIONS')
+    .filter(function(v) {
+      return v.entity_type === entityType && v.entity_id === entityId;
+    })
+    .sort(function(a, b) {
+      return Number(b.version_num || 0) - Number(a.version_num || 0);
+    });
+}
+
+// ── Recherche globale ─────────────────────────────────────────
+
+/**
+ * Recherche transversale sur tous les modules.
+ *
+ * @param {string} token
+ * @param {string} query   - terme de recherche
+ * @param {Array}  modules - ['agrement','sinistre','facture','resiliation'] (tous si vide)
+ */
+function globalSearch(token, query, modules) {
+  const session    = requireSession_(token);
+  const q          = String(query || '').trim().toLowerCase();
+  if (q.length < 2) return [];
+
+  const mods       = Array.isArray(modules) && modules.length
+    ? modules.map(function(m) { return String(m).toLowerCase(); })
+    : ['agrement', 'sinistre', 'facture', 'resiliation'];
+
+  const usersById  = indexBy_(readTable_('USERS'), 'id');
+  const results    = [];
+
+  if (mods.indexOf('agrement') > -1) {
+    scopeAgrements_(session, readTable_('AGREMENTS'))
+      .filter(function(r) {
+        return (r.reference || '').toLowerCase().indexOf(q) > -1 ||
+               (r.no_dossier || '').toLowerCase().indexOf(q) > -1 ||
+               (r.client || '').toLowerCase().indexOf(q) > -1 ||
+               (r.ambassadeur_assigne || '').toLowerCase().indexOf(q) > -1 ||
+               ((usersById[r.ambassadeur_assigne] || {}).full_name || '').toLowerCase().indexOf(q) > -1 ||
+               JSON.stringify(r).toLowerCase().indexOf(q) > -1;
+      })
+      .slice(0, 20)
+      .forEach(function(r) {
+        results.push({
+          module:    'agrement',
+          id:        r.id,
+          reference: r.reference || '',
+          label:     (r.client || r.no_dossier || r.reference || ''),
+          statut:    r.statut || '',
+          date:      r.updated_at || r.created_at || ''
+        });
+      });
+  }
+
+  if (mods.indexOf('sinistre') > -1) {
+    scopeSinistres_(session, readTable_('SINISTRES'))
+      .filter(function(r) {
+        return (r.reference || '').toLowerCase().indexOf(q) > -1 ||
+               (r.no_sinistre || '').toLowerCase().indexOf(q) > -1 ||
+               (r.no_contrat || '').toLowerCase().indexOf(q) > -1 ||
+               (r.gestionnaire || '').toLowerCase().indexOf(q) > -1 ||
+               JSON.stringify(r).toLowerCase().indexOf(q) > -1;
+      })
+      .slice(0, 20)
+      .forEach(function(r) {
+        results.push({
+          module:    'sinistre',
+          id:        r.id,
+          reference: r.reference || '',
+          label:     (r.no_sinistre || r.no_contrat || r.reference || ''),
+          statut:    r.statut || '',
+          date:      r.updated_at || r.created_at || ''
+        });
+      });
+  }
+
+  if (mods.indexOf('facture') > -1) {
+    scopeFactures_(session, readTable_('FACTURES'))
+      .filter(function(r) {
+        return (r.reference || '').toLowerCase().indexOf(q) > -1 ||
+               (r.no_sinistre || '').toLowerCase().indexOf(q) > -1 ||
+               JSON.stringify(r).toLowerCase().indexOf(q) > -1;
+      })
+      .slice(0, 20)
+      .forEach(function(r) {
+        results.push({
+          module:    'facture',
+          id:        r.id,
+          reference: r.reference || '',
+          label:     (r.no_sinistre || r.reference || ''),
+          statut:    r.statut || '',
+          date:      r.updated_at || r.created_at || ''
+        });
+      });
+  }
+
+  if (mods.indexOf('resiliation') > -1) {
+    scopeResiliations_(session, readTable_('RESILIATIONS'))
+      .filter(function(r) {
+        return (r.reference || '').toLowerCase().indexOf(q) > -1 ||
+               (r.no_contrat || '').toLowerCase().indexOf(q) > -1 ||
+               (r.mail || '').toLowerCase().indexOf(q) > -1 ||
+               JSON.stringify(r).toLowerCase().indexOf(q) > -1;
+      })
+      .slice(0, 20)
+      .forEach(function(r) {
+        results.push({
+          module:    'resiliation',
+          id:        r.id,
+          reference: r.reference || '',
+          label:     (r.no_contrat || r.reference || ''),
+          statut:    r.statut || '',
+          date:      r.updated_at || r.created_at || ''
+        });
+      });
+  }
+
+  // Sort by date desc
+  results.sort(function(a, b) {
+    return String(b.date || '').localeCompare(String(a.date || ''));
+  });
+
+  return results.slice(0, 50);
 }

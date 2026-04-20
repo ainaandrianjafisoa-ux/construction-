@@ -57,11 +57,25 @@ function seedBaseData_() {
   setSettingIfEmpty_('APP_VERSION', APP_CONFIG.VERSION);
 
   // Seed paramètres par défaut si absents
-  setSettingIfEmpty_('PARAM_STATUTS_PRO', JSON.stringify(ENUMS.STATUTS_PRO));
-  setSettingIfEmpty_('PARAM_COMPAGNIES', JSON.stringify(ENUMS.COMPAGNIES));
+  setSettingIfEmpty_('PARAM_STATUTS_PRO',            JSON.stringify(ENUMS.STATUTS_PRO));
+  setSettingIfEmpty_('PARAM_COMPAGNIES',             JSON.stringify(ENUMS.COMPAGNIES));
   setSettingIfEmpty_('PARAM_STATUTS_FIN_TRAITEMENT', JSON.stringify(ENUMS.STATUTS_FIN_TRAITEMENT));
-  setSettingIfEmpty_('PARAM_AGREMENT_STATUS', JSON.stringify(ENUMS.AGREMENT_STATUS));
-  setSettingIfEmpty_('PARAM_PRIORITIES', JSON.stringify(ENUMS.PRIORITIES));
+  setSettingIfEmpty_('PARAM_AGREMENT_STATUS',        JSON.stringify(ENUMS.AGREMENT_STATUS));
+  setSettingIfEmpty_('PARAM_PRIORITIES',             JSON.stringify(ENUMS.PRIORITIES));
+  setSettingIfEmpty_('PARAM_AGREMENT_TYPES',         JSON.stringify(ENUMS.AGREMENT_TYPES));
+  setSettingIfEmpty_('PARAM_TYPE_CLIENT',            JSON.stringify(ENUMS.TYPE_CLIENT));
+  setSettingIfEmpty_('PARAM_MOTIF_VALIDATION',       JSON.stringify(ENUMS.MOTIF_VALIDATION));
+  // Module Sinistre
+  setSettingIfEmpty_('PARAM_SINISTRE_SITUATIONS',    JSON.stringify(ENUMS.SINISTRE_SITUATIONS));
+  setSettingIfEmpty_('PARAM_SINISTRE_STATUTS',       JSON.stringify(ENUMS.SINISTRE_STATUTS));
+  setSettingIfEmpty_('PARAM_SINISTRE_COMPLETUDE',    JSON.stringify(ENUMS.SINISTRE_COMPLETUDE));
+  // Module Facture
+  setSettingIfEmpty_('PARAM_FACTURE_STATUTS',        JSON.stringify(ENUMS.FACTURE_STATUTS));
+  // Module Résiliation
+  setSettingIfEmpty_('PARAM_RESILIATION_ORIGINES',   JSON.stringify(ENUMS.RESILIATION_ORIGINES));
+  setSettingIfEmpty_('PARAM_RESILIATION_COMPLETUDE', JSON.stringify(ENUMS.RESILIATION_COMPLETUDE));
+  setSettingIfEmpty_('PARAM_RESILIATION_RESIL',      JSON.stringify(ENUMS.RESILIATION_RESIL));
+  setSettingIfEmpty_('PARAM_RESILIATION_STATUTS',    JSON.stringify(ENUMS.RESILIATION_STATUTS));
 }
 
 // ── Audit log ────────────────────────────────────────────────

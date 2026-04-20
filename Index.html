@@ -1215,6 +1215,19 @@ button { overflow: hidden; }
         <h1 id="top-title">Tableau de bord</h1>
         <p class="sub" id="top-sub" style="margin:0;font-size:.8rem;"></p>
       </div>
+      <!-- Global search bar -->
+      <div style="flex:1;max-width:360px;margin:0 12px;position:relative;" id="global-search-wrap">
+        <input type="text" id="global-search-input" placeholder="Rechercher dans tous les modules…"
+          style="width:100%;min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 36px 6px 12px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast);"
+          onfocus="this.style.borderColor='rgba(201,168,76,.55)';this.style.boxShadow='0 0 0 3px var(--gold-subtle)'"
+          onblur="this.style.borderColor='';this.style.boxShadow=''"
+          oninput="onGlobalSearchInput()"
+          autocomplete="off">
+        <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.8rem;pointer-events:none;">⌕</span>
+        <!-- Search results dropdown -->
+        <div id="global-search-results" class="hidden"
+          style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:90;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow-md);backdrop-filter:var(--blur);max-height:340px;overflow-y:auto;"></div>
+      </div>
       <div class="row" style="gap:8px;flex-shrink:0;">
         <button class="theme-toggle" id="btn-theme" title="Basculer thème">☀</button>
         <button class="b3 fs-sm" id="btn-logout" style="min-height:36px;padding:0 14px;">Déconnexion</button>
@@ -1255,18 +1268,11 @@ button { overflow: hidden; }
           <select id="mag-compagnie"></select>
         </div>
       </div>
-      <div class="g3" style="margin-top:12px;">
+      <div class="g2" style="margin-top:12px;">
         <div class="field">
           <label>Type dossier</label>
           <select id="mag-type-dossier">
             <option value="">— Sélectionner —</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Type client</label>
-          <select id="mag-type-client">
-            <option value="Locataire">Locataire</option>
-            <option value="Garant">Garant</option>
           </select>
         </div>
         <div class="field">
@@ -1665,6 +1671,22 @@ button { overflow: hidden; }
     <div class="modal-foot">
       <button class="b3" onclick="closeModal('modal-reassign')">Annuler</button>
       <button class="b1" id="btn-reassign-confirm">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Historique d'entité ── -->
+<div id="modal-entity-history" class="overlay hidden" onclick="if(event.target===this)closeModal('modal-entity-history')">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <div>
+        <h2>Historique des versions</h2>
+        <div class="sub" id="meh-ref"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-entity-history')">✕</button>
+    </div>
+    <div class="modal-scroll" id="meh-body" style="max-height:calc(100vh - 200px);overflow-y:auto;padding:20px 24px;">
+      <div class="empty">Chargement…</div>
     </div>
   </div>
 </div>
@@ -2928,16 +2950,40 @@ function saveTeam(teamId) {
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   PART I — Module Agrément (multi-profils, calcul, override, réassignation)
+   PART I — Module Agrément : liste, modal open, helpers profil
 ═══════════════════════════════════════════════════════════════ */
 
-var _agrements     = [];
-var _magCurrent    = null;   // row being edited
-var _magProfils    = [];     // array of profil objects
+var _agrements       = [];
+var _magCurrent      = null;
+var _magProfils      = [];
 var _magActiveProfil = 0;
-var _magReassignId = null;
+var _magReassignId   = null;
 
-/* ── List ─────────────────────────────────────────────────── */
+/* ── Helpers ────────────────────────────────────────────────── */
+function parseProfils(r) {
+  if (Array.isArray(r.profils) && r.profils.length) return r.profils;
+  if (r.profils_json) {
+    try { return JSON.parse(r.profils_json); } catch(e) {}
+  }
+  return [];
+}
+
+function buildDefaultProfil(n) {
+  return {
+    num:                  n,
+    statut_pro:           '',
+    statut_pro_autre:     '',
+    type_client:          'Locataire',
+    taux_plafond:         '33',
+    taux_plafond_autre:   '',
+    nb_bulletins:         3,
+    salaires:             [0, 0, 0],
+    revenu_complementaire:  false,
+    montant_complementaire: 0
+  };
+}
+
+/* ── List ───────────────────────────────────────────────────── */
 function renderAgrements() {
   el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
@@ -2948,183 +2994,153 @@ function renderAgrements() {
 
 function paintAgrements(rows) {
   _agrements = rows || [];
-  var perms  = S.permissions || {};
-
+  var lk = S.lookups || {};
   var html = '<div class="card">';
-  html += '<div class="card-head">';
-  html += '<span class="fw8">Agréments</span>';
+  html += '<div class="card-head"><span class="fw8">Agréments</span>';
   html += '<div style="display:flex;gap:8px;align-items:center;">';
   html += '<input type="text" id="ag-search" placeholder="Recherche…" class="filter-input" oninput="filterAgrements()">';
   html += '<select id="ag-filter-statut" class="filter-select" onchange="filterAgrements()"><option value="">Tous statuts</option>';
-  var statuts = ['Initié', 'En attente de traitement', 'En cours de traitement', 'Validé', 'Refusé', 'Clos'];
-  statuts.forEach(function(s){ html += '<option>' + s + '</option>'; });
+  (lk.agrementStatuts || []).forEach(function(s) { html += '<option>' + escHtml(s) + '</option>'; });
   html += '</select>';
   html += '<button class="b1" onclick="openAgrementModal(null)">+ Nouveau</button>';
   html += '</div></div>';
-
-  html += '<div id="ag-table-wrap"></div>';
-  html += '</div>';
+  html += '<div id="ag-table-wrap"></div></div>';
   el('content').innerHTML = html;
   paintAgrementsTable(_agrements);
 }
 
 function filterAgrements() {
-  var search = (el('ag-search') ? el('ag-search').value.toLowerCase() : '');
-  var statut = (el('ag-filter-statut') ? el('ag-filter-statut').value : '');
-  var filtered = _agrements.filter(function(r) {
-    var matchS = !statut || r.statut === statut;
-    var matchQ = !search || JSON.stringify(r).toLowerCase().indexOf(search) > -1;
-    return matchS && matchQ;
-  });
-  paintAgrementsTable(filtered);
+  var search = el('ag-search')        ? el('ag-search').value.toLowerCase()       : '';
+  var statut = el('ag-filter-statut') ? el('ag-filter-statut').value              : '';
+  paintAgrementsTable(_agrements.filter(function(r) {
+    return (!statut || r.statut === statut) &&
+           (!search || JSON.stringify(r).toLowerCase().indexOf(search) > -1);
+  }));
 }
 
 function paintAgrementsTable(rows) {
   var wrap = el('ag-table-wrap');
   if (!wrap) return;
-  var perms = S.permissions || {};
+  var perms     = S.permissions || {};
+  var myId      = S.session && S.session.user ? S.session.user.id : '';
+  var myRole    = S.session && S.session.user ? S.session.user.role : '';
 
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucun agrément.</div>'; return; }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° dossier', 'Compagnie', 'Type', 'Client', 'Loyer', 'Plafond', 'Solvabilité', 'Statut', 'Ambassadeur', 'Actions'],
+    ['Référence', 'N° dossier', 'Compagnie', 'Type', 'Loyer', 'Plafond', 'Solvabilité', 'Statut', 'Ambassadeur', 'Gestionnaire', 'Actions'],
     rows,
     function(r) {
-      var plafond = r.plafond_final ? fmtEuro(r.plafond_final) : '—';
+      var plafond  = r.plafond_final ? fmtEuro(r.plafond_final) : '—';
       var solvChip = r.resultat_solvabilite
         ? (r.resultat_solvabilite === 'Solvable'
             ? '<span class="chip cs">✔ Solvable</span>'
             : '<span class="chip cd">✘ Non solvable</span>')
         : '—';
-      if (r.solvabilite_override) {
+      if (String(r.solvabilite_override) === 'TRUE') {
         solvChip += ' <span class="chip cw" title="Dérogation">⚑</span>';
       }
 
-      var actions = '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openAgrementModal(\'' + r.id + '\')">✎</button>';
+      var canEdit = myRole === 'super_admin' || myRole === 'team_leader' ||
+                    r.ambassadeur_assigne === myId || r.created_by === myId;
+      var actions = canEdit
+        ? '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openAgrementModal(\'' + r.id + '\')">✎</button>'
+        : '';
       if (perms.canReassigner) {
         actions += ' <button class="b2 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openReassignModal(\'' + r.id + '\')">↻</button>';
       }
+      actions += ' <button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'AGREMENT\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>';
 
       return '<tr>' +
-        '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
-        '<td class="fs-sm">' + escHtml(r.no_dossier || '—') + '</td>' +
-        '<td>' + escHtml(r.compagnie || '—') + '</td>' +
-        '<td class="fs-sm">' + escHtml(r.type_dossier || '—') + '</td>' +
-        '<td>' + escHtml(r.type_client || '—') + '</td>' +
-        '<td class="fw7">' + (r.loyer ? fmtEuro(r.loyer) : '—') + '</td>' +
-        '<td class="fw7 t-gold">' + plafond + '</td>' +
-        '<td>' + solvChip + '</td>' +
-        '<td>' + statusChip(r.statut) + '</td>' +
-        '<td class="fs-sm t-muted">' + escHtml(r.ambassadeur_name || '—') + '</td>' +
+        '<td class="fw7 t-gold">'    + escHtml(r.reference    || '—') + '</td>' +
+        '<td class="fs-sm">'         + escHtml(r.no_dossier   || '—') + '</td>' +
+        '<td>'                       + escHtml(r.compagnie    || '—') + '</td>' +
+        '<td class="fs-sm">'         + escHtml(r.type_dossier || '—') + '</td>' +
+        '<td class="fw7">'           + (r.loyer ? fmtEuro(r.loyer) : '—') + '</td>' +
+        '<td class="fw7 t-gold">'    + plafond                        + '</td>' +
+        '<td>'                       + solvChip                       + '</td>' +
+        '<td>'                       + statusChip(r.statut)           + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.ambassadeur_assigne_name || r.ambassadeur_assigne || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.gestionnaire_plus_name  || r.gestionnaire_plus  || '—') + '</td>' +
         '<td><div style="display:flex;gap:4px;">' + actions + '</div></td>' +
         '</tr>';
     }
   );
 }
 
-/* ── Open modal ──────────────────────────────────────────── */
+/* ── Open modal ─────────────────────────────────────────────── */
 function openAgrementModal(agrId) {
   _magCurrent      = agrId ? (_agrements.find(function(x){ return x.id === agrId; }) || null) : null;
   _magProfils      = _magCurrent ? (parseProfils(_magCurrent) || []) : [];
   _magActiveProfil = 0;
 
-  var r   = _magCurrent || {};
-  var lk  = S.lookups || {};
+  var r     = _magCurrent || {};
+  var lk    = S.lookups   || {};
   var perms = S.permissions || {};
 
-  /* Title */
   el('mag-title').textContent = agrId ? 'Modifier agrément' : 'Nouveau dossier agrément';
   el('mag-ref').textContent   = r.reference || '';
 
-  /* Compagnie */
-  populateSelect(el('mag-compagnie'), lk.compagnies || ['AXA', 'ALLIANZ'], r.compagnie, '— Compagnie —');
+  populateSelect(el('mag-compagnie'),    lk.compagnies    || ['AXA','ALLIANZ'], r.compagnie,    '— Compagnie —');
+  populateSelect(el('mag-type-dossier'), lk.typesDossier  || [],                r.type_dossier, '— Type —');
+  populateSelect(el('mag-priority'),     lk.priorities    || [],                r.priorite,     '— Priorité —');
 
-  /* Type dossier */
-  populateSelect(el('mag-type-dossier'), lk.typesDossier || [], r.type_dossier, '— Type —');
-
-  /* Type client */
-  el('mag-type-client').value = r.type_client || 'Locataire';
-
-  /* Priorité */
-  populateSelect(el('mag-priority'), lk.priorities || ['Normale', 'Haute', 'Basse'], r.priorite, '— Priorité —');
-
-  /* Ambassadeur */
   var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'ambassador'; });
   populateSelect(el('mag-ambassadeur'), ambassadeurs, r.ambassadeur_assigne, '— Auto —');
 
-  /* Gestionnaire+ */
   el('mag-gestionnaire-plus').value = r.gestionnaire_plus || '';
-
-  /* N° dossier */
-  el('mag-no-dossier').value = r.no_dossier || '';
-
-  /* Loyer */
-  el('mag-loyer').value = r.loyer || '';
+  el('mag-no-dossier').value        = r.no_dossier        || '';
+  el('mag-loyer').value             = r.loyer             || '';
+  el('mag-commentaire').value       = r.commentaire       || '';
 
   /* Nombre profils */
   var nbProfils = Math.max(1, _magProfils.length || Number(r.nombre_profils) || 1);
   el('mag-nb-profils').value = String(nbProfils);
 
-  /* Init profils array */
-  if (_magProfils.length === 0) {
-    _magProfils = [buildDefaultProfil(1)];
-  }
-  while (_magProfils.length < nbProfils) {
-    _magProfils.push(buildDefaultProfil(_magProfils.length + 1));
-  }
+  /* Init profils */
+  if (_magProfils.length === 0) _magProfils = [buildDefaultProfil(1)];
+  while (_magProfils.length < nbProfils) _magProfils.push(buildDefaultProfil(_magProfils.length + 1));
   _magProfils = _magProfils.slice(0, nbProfils);
+  /* Migration backward-compat : add missing fields to existing profils */
+  _magProfils.forEach(function(p) {
+    if (!p.type_client)    p.type_client    = 'Locataire';
+    if (!p.taux_plafond)   p.taux_plafond   = '33';
+    if (p.taux_plafond_autre === undefined) p.taux_plafond_autre = '';
+    if (!p.statut_pro_autre) p.statut_pro_autre = '';
+  });
 
-  /* Fin de traitement (TL/Admin only) */
+  /* Statut / fin (TL/Admin) */
   if (perms.canValidateAgrement) {
     el('mag-fin-zone').classList.remove('hidden');
     populateSelect(el('mag-statut-fin'), lk.statutsFinTraitement || [], r.statut_fin_traitement, '— Choisir —');
-    populateSelect(el('mag-statut'), lk.agrementStatuts || [], r.statut, '— Choisir —');
+    populateSelect(el('mag-statut'),     lk.agrementStatuts      || [], r.statut,                '— Choisir —');
   } else {
     el('mag-fin-zone').classList.add('hidden');
   }
 
-  el('mag-commentaire').value = r.commentaire || '';
-
-  /* Rebuild profil UI */
-  renderProfilTabs();
-  renderProfilForms();
-  updateMagSolvSummary();
-
-  /* Override zone */
+  /* Override */
   if (agrId && perms.canOverrideSolvabilite) {
     el('mag-override-zone').classList.remove('hidden');
-    el('mag-override-resultat').value = r.resultat_solvabilite || 'Solvable';
+    el('mag-override-resultat').value = r.resultat_solvabilite  || 'Solvable';
     el('mag-override-comment').value  = r.solvabilite_commentaire || '';
   } else {
     el('mag-override-zone').classList.add('hidden');
   }
 
-  /* Wire nombre profils change */
-  el('mag-nb-profils').onchange = onNbProfilsChange;
-  el('btn-mag-save').onclick    = saveMagAgrement;
+  el('mag-nb-profils').onchange  = onNbProfilsChange;
+  el('btn-mag-save').onclick     = saveMagAgrement;
   el('btn-mag-override').onclick = doOverrideSolvabilite;
 
+  renderProfilTabs();
+  renderProfilForms();
+  updateMagSolvSummary();
   openModal('modal-agrement');
 }
 
-/* ── Profil helpers ──────────────────────────────────────── */
-function buildDefaultProfil(n) {
-  return {
-    num:               n,
-    statut_pro:        '',
-    duree_cdd_mois:    '',
-    nb_bulletins:      3,
-    salaires:          ['', '', ''],
-    revenu_complementaire: false,
-    montant_complementaire: 0
-  };
-}
-
+/* ── Profil tabs ────────────────────────────────────────────── */
 function onNbProfilsChange() {
   var n = Number(el('mag-nb-profils').value) || 1;
-  while (_magProfils.length < n) {
-    _magProfils.push(buildDefaultProfil(_magProfils.length + 1));
-  }
+  while (_magProfils.length < n) _magProfils.push(buildDefaultProfil(_magProfils.length + 1));
   _magProfils = _magProfils.slice(0, n);
   if (_magActiveProfil >= _magProfils.length) _magActiveProfil = _magProfils.length - 1;
   renderProfilTabs();
@@ -3134,10 +3150,11 @@ function onNbProfilsChange() {
 
 function renderProfilTabs() {
   var tabs = el('mag-profil-tabs');
+  if (!tabs) return;
   tabs.innerHTML = '';
   _magProfils.forEach(function(p, i) {
     var btn = document.createElement('button');
-    btn.className = 'profil-tab' + (i === _magActiveProfil ? ' active' : '');
+    btn.className   = 'profil-tab' + (i === _magActiveProfil ? ' active' : '');
     btn.textContent = 'Profil ' + (i + 1);
     btn.onclick = function() {
       saveMagProfilFields(_magActiveProfil);
@@ -3148,50 +3165,91 @@ function renderProfilTabs() {
     tabs.appendChild(btn);
   });
 }
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PART I-2 — Module Agrément : formulaires profil, calcul, sauvegarde
+═══════════════════════════════════════════════════════════════ */
 
 function renderProfilForms() {
   var container = el('mag-profil-forms');
+  if (!container) return;
   container.innerHTML = '';
+  var lk            = S.lookups || {};
+  var statutsPro    = lk.statutsPro    || ['CDI', 'Fonctionnaire titulaire', 'CDD', 'Retraité', 'Étudiant', 'TNS'];
+  var typeClientOpts = lk.typeClientOptions || ['Locataire', 'Garant'];
+
   _magProfils.forEach(function(p, i) {
     var vis = i === _magActiveProfil ? '' : 'display:none;';
-    var lk = S.lookups || {};
-    var statutOptions = (lk.statutsPro || ['CDI', 'Fonctionnaire titulaire', 'CDD', 'Retraité', 'Étudiant', 'TNS'])
-      .map(function(s) {
-        return '<option value="' + s + '"' + (p.statut_pro === s ? ' selected' : '') + '>' + s + '</option>';
-      }).join('');
 
-    var cddClass = (p.statut_pro === 'CDD') ? '' : 'hidden';
+    var statutOptions = statutsPro.map(function(s) {
+      return '<option value="' + escHtml(s) + '"' + (p.statut_pro === s ? ' selected' : '') + '>' + escHtml(s) + '</option>';
+    }).join('');
+    var isCustomStatut = !!(p.statut_pro && statutsPro.indexOf(p.statut_pro) === -1);
+
+    var typeClientOptions = typeClientOpts.map(function(tc) {
+      return '<option value="' + escHtml(tc) + '"' + (p.type_client === tc ? ' selected' : '') + '>' + escHtml(tc) + '</option>';
+    }).join('');
+
+    var tauxVal = p.taux_plafond || '33';
+    var tauxOptions = ['33', '37', 'autre'].map(function(t) {
+      return '<option value="' + t + '"' + (tauxVal === t ? ' selected' : '') + '>' +
+        (t === 'autre' ? 'Autre' : t + ' %') + '</option>';
+    }).join('');
+    var showAutreTaux = tauxVal === 'autre' ? '' : ' hidden';
 
     var salInputs = '';
     for (var k = 0; k < 3; k++) {
       salInputs +=
         '<div class="field">' +
         '<label>Bulletin ' + (k + 1) + ' (€)</label>' +
-        '<input type="number" id="mag-sal-' + i + '-' + k + '" value="' + (p.salaires[k] || '') + '" placeholder="0" min="0" step="0.01" oninput="onProfilInput(' + i + ')">' +
+        '<input type="number" id="mag-sal-' + i + '-' + k + '" value="' + (p.salaires[k] || '') +
+        '" placeholder="0" min="0" step="0.01" oninput="onProfilInput(' + i + ')">' +
         '</div>';
     }
 
     var div = document.createElement('div');
-    div.id   = 'mag-profil-' + i;
+    div.id = 'mag-profil-' + i;
     div.style.cssText = vis;
     div.innerHTML =
       '<div class="profil-card active">' +
-      '<div class="profil-card-header">' +
-      '<h4>Profil ' + (i + 1) + '</h4>' +
-      '</div>' +
-      '<div class="g2">' +
+      /* Statut pro */
+      '<div class="g2" style="margin-bottom:12px;">' +
       '<div class="field">' +
       '<label>Statut professionnel</label>' +
       '<select id="mag-statut-pro-' + i + '" onchange="onStatutProChange(' + i + ')">' +
       '<option value="">— Choisir —</option>' + statutOptions +
       '</select>' +
       '</div>' +
-      '<div class="field ' + cddClass + '" id="mag-cdd-field-' + i + '">' +
-      '<label>Durée CDD (mois)</label>' +
-      '<input type="number" id="mag-cdd-mois-' + i + '" value="' + (p.duree_cdd_mois || '') + '" placeholder="ex: 6" min="1" oninput="onProfilInput(' + i + ')">' +
+      '<div class="field' + (isCustomStatut ? '' : ' hidden') + '" id="mag-statut-pro-autre-field-' + i + '">' +
+      '<label>Préciser</label>' +
+      '<input type="text" id="mag-statut-pro-autre-' + i + '" value="' + escHtml(p.statut_pro_autre || '') +
+      '" placeholder="Ex: Gérant…" oninput="onProfilInput(' + i + ')">' +
       '</div>' +
       '</div>' +
-      '<div class="g3" style="margin-top:12px;">' + salInputs + '</div>' +
+      /* Type client + Taux */
+      '<div class="g3" style="margin-bottom:12px;">' +
+      '<div class="field">' +
+      '<label>Type client</label>' +
+      '<select id="mag-type-client-' + i + '" onchange="onProfilInput(' + i + ')">' +
+      typeClientOptions +
+      '</select>' +
+      '</div>' +
+      '<div class="field">' +
+      '<label>Taux plafond</label>' +
+      '<select id="mag-taux-plafond-' + i + '" onchange="onTauxChange(' + i + ')">' +
+      tauxOptions +
+      '</select>' +
+      '</div>' +
+      '<div class="field' + showAutreTaux + '" id="mag-taux-autre-field-' + i + '">' +
+      '<label>Taux personnalisé (%)</label>' +
+      '<input type="number" id="mag-taux-autre-' + i + '" value="' + (p.taux_plafond_autre || '') +
+      '" placeholder="Ex: 30" min="0" max="100" step="0.1" oninput="onProfilInput(' + i + ')">' +
+      '</div>' +
+      '</div>' +
+      /* Bulletins de salaire */
+      '<div class="g3">' + salInputs + '</div>' +
+      /* Revenu complémentaire */
       '<div class="row" style="margin-top:12px;gap:10px;">' +
       '<label style="display:flex;align-items:center;gap:7px;font-size:.86rem;font-weight:600;color:var(--text-soft);cursor:pointer;">' +
       '<input type="checkbox" id="mag-rev-comp-' + i + '"' + (p.revenu_complementaire ? ' checked' : '') + ' onchange="onRevCompChange(' + i + ')">' +
@@ -3200,10 +3258,11 @@ function renderProfilForms() {
       '</div>' +
       '<div id="mag-rev-comp-field-' + i + '" class="field' + (p.revenu_complementaire ? '' : ' hidden') + '" style="margin-top:10px;">' +
       '<label>Montant complémentaire (€)</label>' +
-      '<input type="number" id="mag-rev-comp-montant-' + i + '" value="' + (p.montant_complementaire || '') + '" placeholder="0" min="0" step="0.01" oninput="onProfilInput(' + i + ')">' +
+      '<input type="number" id="mag-rev-comp-montant-' + i + '" value="' + (p.montant_complementaire || '') +
+      '" placeholder="0" min="0" step="0.01" oninput="onProfilInput(' + i + ')">' +
       '</div>' +
       '<div id="mag-profil-result-' + i + '" class="profil-result" style="display:none;"></div>' +
-      '</div>'; // profil-card
+      '</div>'; // .profil-card
 
     container.appendChild(div);
   });
@@ -3212,13 +3271,28 @@ function renderProfilForms() {
 function onStatutProChange(i) {
   var sp = el('mag-statut-pro-' + i);
   if (!sp) return;
-  var v       = sp.value;
-  var cddF    = el('mag-cdd-field-' + i);
-  if (cddF) cddF.classList.toggle('hidden', v !== 'CDD');
+  var v          = sp.value;
+  var lk         = S.lookups || {};
+  var knownStatuts = lk.statutsPro || ['CDI', 'Fonctionnaire titulaire', 'CDD', 'Retraité', 'Étudiant', 'TNS'];
+  var autreField = el('mag-statut-pro-autre-field-' + i);
+  if (autreField) autreField.classList.toggle('hidden', !v || knownStatuts.indexOf(v) !== -1);
 
-  /* Force Garant if Étudiant */
-  if (v === 'Étudiant') el('mag-type-client').value = 'Garant';
+  /* Étudiant → force Garant */
+  if (v === 'Étudiant') {
+    var tcEl = el('mag-type-client-' + i);
+    if (tcEl) tcEl.value = 'Garant';
+    var globalTc = el('mag-type-client');
+    if (globalTc) globalTc.value = 'Garant';
+  }
 
+  saveMagProfilFields(i);
+  onProfilInput(i);
+}
+
+function onTauxChange(i) {
+  var sel    = el('mag-taux-plafond-' + i);
+  var autreF = el('mag-taux-autre-field-' + i);
+  if (autreF && sel) autreF.classList.toggle('hidden', sel.value !== 'autre');
   saveMagProfilFields(i);
   onProfilInput(i);
 }
@@ -3226,7 +3300,7 @@ function onStatutProChange(i) {
 function onRevCompChange(i) {
   var cb  = el('mag-rev-comp-' + i);
   var fld = el('mag-rev-comp-field-' + i);
-  if (fld) fld.classList.toggle('hidden', !cb.checked);
+  if (fld && cb) fld.classList.toggle('hidden', !cb.checked);
   saveMagProfilFields(i);
   onProfilInput(i);
 }
@@ -3239,28 +3313,41 @@ function onProfilInput(i) {
 function saveMagProfilFields(i) {
   if (i < 0 || i >= _magProfils.length) return;
   var p = _magProfils[i];
-  var spEl = el('mag-statut-pro-' + i);
-  if (spEl) p.statut_pro = spEl.value;
-  var cddEl = el('mag-cdd-mois-' + i);
-  if (cddEl) p.duree_cdd_mois = Number(cddEl.value) || '';
+
+  var spEl  = el('mag-statut-pro-' + i);
+  if (spEl)  p.statut_pro = spEl.value;
+
+  var spaEl = el('mag-statut-pro-autre-' + i);
+  if (spaEl) p.statut_pro_autre = spaEl.value;
+
+  var tcEl  = el('mag-type-client-' + i);
+  if (tcEl)  p.type_client = tcEl.value;
+
+  var tauxEl = el('mag-taux-plafond-' + i);
+  if (tauxEl) p.taux_plafond = tauxEl.value;
+
+  var tauxAEl = el('mag-taux-autre-' + i);
+  if (tauxAEl) p.taux_plafond_autre = tauxAEl.value;
+
   p.salaires = [];
   for (var k = 0; k < 3; k++) {
     var sEl = el('mag-sal-' + i + '-' + k);
     p.salaires.push(sEl ? (Number(sEl.value) || 0) : 0);
   }
-  var cbEl  = el('mag-rev-comp-' + i);
-  var mcEl  = el('mag-rev-comp-montant-' + i);
-  p.revenu_complementaire = cbEl ? cbEl.checked : false;
+
+  var cbEl = el('mag-rev-comp-' + i);
+  var mcEl = el('mag-rev-comp-montant-' + i);
+  p.revenu_complementaire  = cbEl ? cbEl.checked : false;
   p.montant_complementaire = mcEl ? (Number(mcEl.value) || 0) : 0;
 }
 
-/* ── Live calc ───────────────────────────────────────────── */
+/* ── Live calc ──────────────────────────────────────────────── */
 function updateMagSolvSummary() {
-  /* Build profils snapshot */
   for (var j = 0; j < _magProfils.length; j++) { saveMagProfilFields(j); }
   var compagnie  = el('mag-compagnie') ? el('mag-compagnie').value : '';
-  var typeClient = el('mag-type-client') ? el('mag-type-client').value : 'Locataire';
   var loyer      = Number(el('mag-loyer') ? el('mag-loyer').value : 0) || 0;
+  var typeClient = (_magProfils.length && _magProfils[0].type_client)
+    || (el('mag-type-client') ? el('mag-type-client').value : 'Locataire');
 
   var payload = {
     profils:     _magProfils,
@@ -3270,9 +3357,7 @@ function updateMagSolvSummary() {
   };
 
   google.script.run
-    .withSuccessHandler(function(result) {
-      paintMagSolvSummary(result, loyer);
-    })
+    .withSuccessHandler(function(result) { paintMagSolvSummary(result, loyer); })
     .withFailureHandler(function() {})
     .calculateMultiProfileSolvabiliteServer(payload);
 }
@@ -3283,14 +3368,10 @@ function paintMagSolvSummary(result, loyer) {
   if (zone) zone.classList.remove('hidden');
   var profilsResult = result.profils_calculs || result.profils || [];
 
-  /* Per-profil result in form */
   profilsResult.forEach(function(pr, i) {
     var resEl = el('mag-profil-result-' + i);
     if (!resEl) return;
     resEl.style.display = '';
-    var baseLabel = pr.revenu_complementaire > 0
-      ? fmtEuro(pr.plafond || 0) + ' + ' + fmtEuro(pr.revenu_complementaire) + ' comp.'
-      : fmtEuro(pr.plafond_avec_revenu || 0);
     resEl.innerHTML =
       '<div style="display:flex;justify-content:space-between;font-size:.83rem;">' +
       '<span class="t-muted">Plafond calculé</span>' +
@@ -3298,13 +3379,15 @@ function paintMagSolvSummary(result, loyer) {
       '</div>' +
       (pr.revenu_complementaire > 0
         ? '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-top:3px;">' +
-          '<span class="t-muted">Dont base / rev. comp.</span>' +
-          '<span class="t-muted">' + baseLabel + '</span>' +
+          '<span class="t-muted">Base / Rev. comp.</span>' +
+          '<span class="t-muted">' + fmtEuro(pr.plafond || 0) + ' + ' + fmtEuro(pr.revenu_complementaire) + '</span>' +
           '</div>'
+        : '') +
+      (pr.details
+        ? '<div style="font-size:.75rem;color:var(--text-soft);margin-top:2px;">' + escHtml(pr.details) + '</div>'
         : '');
   });
 
-  /* Summary strip */
   var strip = el('mag-profils-summary-strip');
   if (strip) {
     strip.innerHTML = profilsResult.map(function(pr, i) {
@@ -3319,11 +3402,9 @@ function paintMagSolvSummary(result, loyer) {
     '</div>';
   }
 
-  /* Total */
   var totalEl = el('mag-total-val');
   if (totalEl) totalEl.textContent = fmtEuro(result.plafond_total || 0);
 
-  /* Solv band */
   var band = el('mag-solv-band');
   if (band && loyer > 0) {
     band.classList.remove('hidden');
@@ -3334,29 +3415,28 @@ function paintMagSolvSummary(result, loyer) {
   }
 }
 
-/* ── Save ────────────────────────────────────────────────── */
+/* ── Sauvegarde ─────────────────────────────────────────────── */
 function saveMagAgrement() {
   var btn = el('btn-mag-save');
   for (var j = 0; j < _magProfils.length; j++) { saveMagProfilFields(j); }
 
-  var perms = S.permissions || {};
+  var perms   = S.permissions || {};
   var payload = {
-    id:               _magCurrent ? _magCurrent.id : '',
-    no_dossier:       el('mag-no-dossier').value.trim(),
-    compagnie:        el('mag-compagnie').value,
-    type_dossier:     el('mag-type-dossier').value,
-    type_client:      el('mag-type-client').value,
-    priority:         el('mag-priority').value,
+    id:                  _magCurrent ? _magCurrent.id : '',
+    no_dossier:          el('mag-no-dossier').value.trim(),
+    compagnie:           el('mag-compagnie').value,
+    type_dossier:        el('mag-type-dossier').value,
+    priorite:            el('mag-priority').value,
     ambassadeur_assigne: el('mag-ambassadeur').value,
-    gestionnaire_plus:el('mag-gestionnaire-plus').value.trim(),
-    loyer:            Number(el('mag-loyer').value) || 0,
-    nombre_profils:   _magProfils.length,
-    profils_json:     JSON.stringify(_magProfils),
-    commentaire:      el('mag-commentaire').value.trim()
+    gestionnaire_plus:   el('mag-gestionnaire-plus').value.trim(),
+    loyer:               Number(el('mag-loyer').value) || 0,
+    nombre_profils:      _magProfils.length,
+    profils_json:        JSON.stringify(_magProfils),
+    commentaire_mise_a_jour: el('mag-commentaire').value.trim()
   };
   if (perms.canValidateAgrement) {
     payload.statut_fin_traitement = el('mag-statut-fin').value;
-    payload.statut = el('mag-statut').value;
+    payload.statut                = el('mag-statut').value;
   }
 
   setBtnLoading(btn, true);
@@ -3371,12 +3451,12 @@ function saveMagAgrement() {
     .saveAgrement(S.token, payload);
 }
 
-/* ── Override solvabilité ────────────────────────────────── */
+/* ── Override solvabilité ───────────────────────────────────── */
 function doOverrideSolvabilite() {
   if (!_magCurrent) return;
-  var btn       = el('btn-mag-override');
-  var resultat  = el('mag-override-resultat').value;
-  var comment   = el('mag-override-comment').value.trim();
+  var btn      = el('btn-mag-override');
+  var resultat = el('mag-override-resultat').value;
+  var comment  = el('mag-override-comment').value.trim();
   if (!comment) { toast('Le motif de dérogation est obligatoire.', 'error'); return; }
 
   setBtnLoading(btn, true);
@@ -3391,13 +3471,12 @@ function doOverrideSolvabilite() {
     .overrideSolvabilite(S.token, _magCurrent.id, resultat, comment);
 }
 
-/* ── Réassignation ───────────────────────────────────────── */
+/* ── Réassignation ──────────────────────────────────────────── */
 function openReassignModal(agrId) {
-  _magReassignId = agrId;
-  var lk = S.lookups || {};
-  var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'ambassador'; });
-  var sel = el('reassign-ambassadeur');
-  populateSelect(sel, ambassadeurs, null, '— Sélectionner —');
+  _magReassignId   = agrId;
+  var lk           = S.lookups || {};
+  var ambassadeurs = (lk.users || []).filter(function(u) { return u.role === 'ambassador'; });
+  populateSelect(el('reassign-ambassadeur'), ambassadeurs, null, '— Sélectionner —');
   el('btn-reassign-confirm').onclick = function() { doReassign(); };
   openModal('modal-reassign');
 }

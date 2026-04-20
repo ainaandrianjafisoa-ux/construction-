@@ -99,17 +99,18 @@ function saveSinistre(token, payload) {
     updated_at:    now,
     // Réinitialisation du traitement si remise en travail
     traite_at:      wasTraite ? '' : (existing ? (existing.traite_at || '') : ''),
-    delai_secondes: wasTraite ? 0  : (existing ? (existing.delai_secondes || 0) : 0)
+    delai_secondes: wasTraite ? 0  : (existing ? (existing.delai_secondes || 0) : 0),
+    // Horodatage de début de traitement : mis à jour à chaque mise à jour
+    delai_traitement_start: existing ? now : now
   });
 
   upsertRow_('SINISTRES', 'id', row);
-  addAuditLog_(
-    session,
-    existing ? (wasTraite ? 'UPDATE_AFTER_TREATMENT' : 'UPDATE') : 'CREATE',
-    'SINISTRE', row.id,
+  const actionType = existing ? (wasTraite ? 'UPDATE_AFTER_TREATMENT' : 'UPDATE') : 'CREATE';
+  addAuditLog_(session, actionType, 'SINISTRE', row.id,
     wasTraite ? 'Sinistre remis en traitement après mise à jour' : 'Enregistrement sinistre',
-    existing, row
-  );
+    existing, row);
+  saveEntityVersion_(session, 'SINISTRE', row.id, row,
+    String(data.commentaire_mise_a_jour || '').trim(), actionType);
   return row;
 }
 
@@ -127,9 +128,10 @@ function traiterSinistre(token, id) {
   if (existing.statut === 'Traité')                 throw new Error('Ce sinistre est déjà traité. Faites une mise à jour avant de re-traiter.');
 
   const now       = nowIso_();
-  const createdMs = parseDateMs_(existing.created_at);
+  // Délai calculé depuis delai_traitement_start si disponible, sinon created_at
+  const startMs   = parseDateMs_(existing.delai_traitement_start || existing.created_at);
   const nowMs     = parseDateMs_(now);
-  const delai     = Math.max(0, Math.round((nowMs - createdMs) / 1000));
+  const delai     = Math.max(0, Math.round((nowMs - startMs) / 1000));
 
   // Historique : enregistre l'action Traité
   const historique = safeParseJson_(existing.historique_json, []);
@@ -152,7 +154,8 @@ function traiterSinistre(token, id) {
   });
 
   upsertRow_('SINISTRES', 'id', row);
-  addAuditLog_(session, 'UPDATE', 'SINISTRE', row.id, 'Sinistre traité', existing, row);
+  addAuditLog_(session, 'TRAITE', 'SINISTRE', row.id, 'Sinistre traité', existing, row);
+  saveEntityVersion_(session, 'SINISTRE', row.id, row, '', 'TRAITE');
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   row.created_by_name = usersById[row.created_by] ? usersById[row.created_by].full_name : '';

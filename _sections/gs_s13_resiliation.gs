@@ -52,12 +52,16 @@ function saveResiliation(token, payload) {
     updated_at: now,
     soumis_at:  existing ? (existing.soumis_at || '') : '',
     delai_ouverture_soumission_secondes: existing
-      ? (existing.delai_ouverture_soumission_secondes || 0) : 0
+      ? (existing.delai_ouverture_soumission_secondes || 0) : 0,
+    // Horodatage de début de traitement : mis à jour à chaque save
+    delai_traitement_start: existing ? now : now
   });
 
   upsertRow_('RESILIATIONS', 'id', row);
-  addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'RESILIATION', row.id,
-    'Enregistrement résiliation', existing, row);
+  const actionType = existing ? 'UPDATE' : 'CREATE';
+  addAuditLog_(session, actionType, 'RESILIATION', row.id, 'Enregistrement résiliation', existing, row);
+  saveEntityVersion_(session, 'RESILIATION', row.id, row,
+    String(data.commentaire_mise_a_jour || '').trim(), actionType);
   return row;
 }
 
@@ -87,8 +91,8 @@ function soumettreResiliation(token, id, payload) {
   else                                   statut = 'En cours';
 
   const now       = nowIso_();
-  const createdMs = parseDateMs_(existing.created_at);
-  const delai     = Math.max(0, Math.round((parseDateMs_(now) - createdMs) / 1000));
+  const startMs   = parseDateMs_(existing.delai_traitement_start || existing.created_at);
+  const delai     = Math.max(0, Math.round((parseDateMs_(now) - startMs) / 1000));
 
   const row = Object.assign({}, existing, {
     completude:   completude,
@@ -102,6 +106,7 @@ function soumettreResiliation(token, id, payload) {
 
   upsertRow_('RESILIATIONS', 'id', row);
   addAuditLog_(session, 'UPDATE', 'RESILIATION', row.id, 'Soumission résiliation', existing, row);
+  saveEntityVersion_(session, 'RESILIATION', row.id, row, String(commentaire || ''), 'SOUMIS');
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   row.created_by_name = usersById[row.created_by] ? usersById[row.created_by].full_name : '';

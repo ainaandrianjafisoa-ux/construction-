@@ -1,0 +1,333 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PART I-2 — Module Agrément : formulaires profil, calcul, sauvegarde
+═══════════════════════════════════════════════════════════════ */
+
+function renderProfilForms() {
+  var container = el('mag-profil-forms');
+  if (!container) return;
+  container.innerHTML = '';
+  var lk            = S.lookups || {};
+  var statutsPro    = lk.statutsPro    || ['CDI', 'Fonctionnaire titulaire', 'CDD', 'Retraité', 'Étudiant', 'TNS'];
+  var typeClientOpts = lk.typeClientOptions || ['Locataire', 'Garant'];
+
+  _magProfils.forEach(function(p, i) {
+    var vis = i === _magActiveProfil ? '' : 'display:none;';
+
+    var statutOptions = statutsPro.map(function(s) {
+      return '<option value="' + escHtml(s) + '"' + (p.statut_pro === s ? ' selected' : '') + '>' + escHtml(s) + '</option>';
+    }).join('');
+    var isCustomStatut = !!(p.statut_pro && statutsPro.indexOf(p.statut_pro) === -1);
+
+    var typeClientOptions = typeClientOpts.map(function(tc) {
+      return '<option value="' + escHtml(tc) + '"' + (p.type_client === tc ? ' selected' : '') + '>' + escHtml(tc) + '</option>';
+    }).join('');
+
+    var tauxVal = p.taux_plafond || '33';
+    var tauxOptions = ['33', '37', 'autre'].map(function(t) {
+      return '<option value="' + t + '"' + (tauxVal === t ? ' selected' : '') + '>' +
+        (t === 'autre' ? 'Autre' : t + ' %') + '</option>';
+    }).join('');
+    var showAutreTaux = tauxVal === 'autre' ? '' : ' hidden';
+
+    var salInputs = '';
+    for (var k = 0; k < 3; k++) {
+      salInputs +=
+        '<div class="field">' +
+        '<label>Bulletin ' + (k + 1) + ' (€)</label>' +
+        '<input type="number" id="mag-sal-' + i + '-' + k + '" value="' + (p.salaires[k] || '') +
+        '" placeholder="0" min="0" step="0.01" oninput="onProfilInput(' + i + ')">' +
+        '</div>';
+    }
+
+    var div = document.createElement('div');
+    div.id = 'mag-profil-' + i;
+    div.style.cssText = vis;
+    div.innerHTML =
+      '<div class="profil-card active">' +
+      /* Statut pro */
+      '<div class="g2" style="margin-bottom:12px;">' +
+      '<div class="field">' +
+      '<label>Statut professionnel</label>' +
+      '<select id="mag-statut-pro-' + i + '" onchange="onStatutProChange(' + i + ')">' +
+      '<option value="">— Choisir —</option>' + statutOptions +
+      '</select>' +
+      '</div>' +
+      '<div class="field' + (isCustomStatut ? '' : ' hidden') + '" id="mag-statut-pro-autre-field-' + i + '">' +
+      '<label>Préciser</label>' +
+      '<input type="text" id="mag-statut-pro-autre-' + i + '" value="' + escHtml(p.statut_pro_autre || '') +
+      '" placeholder="Ex: Gérant…" oninput="onProfilInput(' + i + ')">' +
+      '</div>' +
+      '</div>' +
+      /* Type client + Taux */
+      '<div class="g3" style="margin-bottom:12px;">' +
+      '<div class="field">' +
+      '<label>Type client</label>' +
+      '<select id="mag-type-client-' + i + '" onchange="onProfilInput(' + i + ')">' +
+      typeClientOptions +
+      '</select>' +
+      '</div>' +
+      '<div class="field">' +
+      '<label>Taux plafond</label>' +
+      '<select id="mag-taux-plafond-' + i + '" onchange="onTauxChange(' + i + ')">' +
+      tauxOptions +
+      '</select>' +
+      '</div>' +
+      '<div class="field' + showAutreTaux + '" id="mag-taux-autre-field-' + i + '">' +
+      '<label>Taux personnalisé (%)</label>' +
+      '<input type="number" id="mag-taux-autre-' + i + '" value="' + (p.taux_plafond_autre || '') +
+      '" placeholder="Ex: 30" min="0" max="100" step="0.1" oninput="onProfilInput(' + i + ')">' +
+      '</div>' +
+      '</div>' +
+      /* Bulletins de salaire */
+      '<div class="g3">' + salInputs + '</div>' +
+      /* Revenu complémentaire */
+      '<div class="row" style="margin-top:12px;gap:10px;">' +
+      '<label style="display:flex;align-items:center;gap:7px;font-size:.86rem;font-weight:600;color:var(--text-soft);cursor:pointer;">' +
+      '<input type="checkbox" id="mag-rev-comp-' + i + '"' + (p.revenu_complementaire ? ' checked' : '') + ' onchange="onRevCompChange(' + i + ')">' +
+      'Revenu complémentaire' +
+      '</label>' +
+      '</div>' +
+      '<div id="mag-rev-comp-field-' + i + '" class="field' + (p.revenu_complementaire ? '' : ' hidden') + '" style="margin-top:10px;">' +
+      '<label>Montant complémentaire (€)</label>' +
+      '<input type="number" id="mag-rev-comp-montant-' + i + '" value="' + (p.montant_complementaire || '') +
+      '" placeholder="0" min="0" step="0.01" oninput="onProfilInput(' + i + ')">' +
+      '</div>' +
+      '<div id="mag-profil-result-' + i + '" class="profil-result" style="display:none;"></div>' +
+      '</div>'; // .profil-card
+
+    container.appendChild(div);
+  });
+}
+
+function onStatutProChange(i) {
+  var sp = el('mag-statut-pro-' + i);
+  if (!sp) return;
+  var v          = sp.value;
+  var lk         = S.lookups || {};
+  var knownStatuts = lk.statutsPro || ['CDI', 'Fonctionnaire titulaire', 'CDD', 'Retraité', 'Étudiant', 'TNS'];
+  var autreField = el('mag-statut-pro-autre-field-' + i);
+  if (autreField) autreField.classList.toggle('hidden', !v || knownStatuts.indexOf(v) !== -1);
+
+  /* Étudiant → force Garant */
+  if (v === 'Étudiant') {
+    var tcEl = el('mag-type-client-' + i);
+    if (tcEl) tcEl.value = 'Garant';
+    var globalTc = el('mag-type-client');
+    if (globalTc) globalTc.value = 'Garant';
+  }
+
+  saveMagProfilFields(i);
+  onProfilInput(i);
+}
+
+function onTauxChange(i) {
+  var sel    = el('mag-taux-plafond-' + i);
+  var autreF = el('mag-taux-autre-field-' + i);
+  if (autreF && sel) autreF.classList.toggle('hidden', sel.value !== 'autre');
+  saveMagProfilFields(i);
+  onProfilInput(i);
+}
+
+function onRevCompChange(i) {
+  var cb  = el('mag-rev-comp-' + i);
+  var fld = el('mag-rev-comp-field-' + i);
+  if (fld && cb) fld.classList.toggle('hidden', !cb.checked);
+  saveMagProfilFields(i);
+  onProfilInput(i);
+}
+
+function onProfilInput(i) {
+  saveMagProfilFields(i);
+  updateMagSolvSummary();
+}
+
+function saveMagProfilFields(i) {
+  if (i < 0 || i >= _magProfils.length) return;
+  var p = _magProfils[i];
+
+  var spEl  = el('mag-statut-pro-' + i);
+  if (spEl)  p.statut_pro = spEl.value;
+
+  var spaEl = el('mag-statut-pro-autre-' + i);
+  if (spaEl) p.statut_pro_autre = spaEl.value;
+
+  var tcEl  = el('mag-type-client-' + i);
+  if (tcEl)  p.type_client = tcEl.value;
+
+  var tauxEl = el('mag-taux-plafond-' + i);
+  if (tauxEl) p.taux_plafond = tauxEl.value;
+
+  var tauxAEl = el('mag-taux-autre-' + i);
+  if (tauxAEl) p.taux_plafond_autre = tauxAEl.value;
+
+  p.salaires = [];
+  for (var k = 0; k < 3; k++) {
+    var sEl = el('mag-sal-' + i + '-' + k);
+    p.salaires.push(sEl ? (Number(sEl.value) || 0) : 0);
+  }
+
+  var cbEl = el('mag-rev-comp-' + i);
+  var mcEl = el('mag-rev-comp-montant-' + i);
+  p.revenu_complementaire  = cbEl ? cbEl.checked : false;
+  p.montant_complementaire = mcEl ? (Number(mcEl.value) || 0) : 0;
+}
+
+/* ── Live calc ──────────────────────────────────────────────── */
+function updateMagSolvSummary() {
+  for (var j = 0; j < _magProfils.length; j++) { saveMagProfilFields(j); }
+  var compagnie  = el('mag-compagnie') ? el('mag-compagnie').value : '';
+  var loyer      = Number(el('mag-loyer') ? el('mag-loyer').value : 0) || 0;
+  var typeClient = (_magProfils.length && _magProfils[0].type_client)
+    || (el('mag-type-client') ? el('mag-type-client').value : 'Locataire');
+
+  var payload = {
+    profils:     _magProfils,
+    compagnie:   compagnie,
+    type_client: typeClient,
+    loyer:       loyer
+  };
+
+  google.script.run
+    .withSuccessHandler(function(result) { paintMagSolvSummary(result, loyer); })
+    .withFailureHandler(function() {})
+    .calculateMultiProfileSolvabiliteServer(payload);
+}
+
+function paintMagSolvSummary(result, loyer) {
+  if (!result) return;
+  var zone = el('mag-solv-summary');
+  if (zone) zone.classList.remove('hidden');
+  var profilsResult = result.profils_calculs || result.profils || [];
+
+  profilsResult.forEach(function(pr, i) {
+    var resEl = el('mag-profil-result-' + i);
+    if (!resEl) return;
+    resEl.style.display = '';
+    resEl.innerHTML =
+      '<div style="display:flex;justify-content:space-between;font-size:.83rem;">' +
+      '<span class="t-muted">Plafond calculé</span>' +
+      '<span class="fw7 t-gold">' + fmtEuro(pr.plafond_avec_revenu || pr.plafond || 0) + '</span>' +
+      '</div>' +
+      (pr.revenu_complementaire > 0
+        ? '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-top:3px;">' +
+          '<span class="t-muted">Base / Rev. comp.</span>' +
+          '<span class="t-muted">' + fmtEuro(pr.plafond || 0) + ' + ' + fmtEuro(pr.revenu_complementaire) + '</span>' +
+          '</div>'
+        : '') +
+      (pr.details
+        ? '<div style="font-size:.75rem;color:var(--text-soft);margin-top:2px;">' + escHtml(pr.details) + '</div>'
+        : '');
+  });
+
+  var strip = el('mag-profils-summary-strip');
+  if (strip) {
+    strip.innerHTML = profilsResult.map(function(pr, i) {
+      return '<div class="profil-sum-cell">' +
+        '<div class="psn">Profil ' + (i + 1) + '</div>' +
+        '<div class="psv">' + fmtEuro(pr.plafond_avec_revenu || pr.plafond || 0) + '</div>' +
+        '</div>';
+    }).join('') +
+    '<div class="profil-sum-cell gold">' +
+    '<div class="psn">Total</div>' +
+    '<div class="psv">' + fmtEuro(result.plafond_total || 0) + '</div>' +
+    '</div>';
+  }
+
+  var totalEl = el('mag-total-val');
+  if (totalEl) totalEl.textContent = fmtEuro(result.plafond_total || 0);
+
+  var band = el('mag-solv-band');
+  if (band && loyer > 0) {
+    band.classList.remove('hidden');
+    var ok = (result.plafond_total || 0) >= loyer;
+    band.className = 'solv-band ' + (ok ? 'ok' : 'nok');
+    band.innerHTML = (ok ? '✔ Solvable' : '✘ Non solvable') +
+      ' — Loyer : ' + fmtEuro(loyer) + ' / Plafond : ' + fmtEuro(result.plafond_total || 0);
+  }
+}
+
+/* ── Sauvegarde ─────────────────────────────────────────────── */
+function saveMagAgrement() {
+  var btn = el('btn-mag-save');
+  for (var j = 0; j < _magProfils.length; j++) { saveMagProfilFields(j); }
+
+  var perms   = S.permissions || {};
+  var payload = {
+    id:                  _magCurrent ? _magCurrent.id : '',
+    no_dossier:          el('mag-no-dossier').value.trim(),
+    compagnie:           el('mag-compagnie').value,
+    type_dossier:        el('mag-type-dossier').value,
+    priorite:            el('mag-priority').value,
+    ambassadeur_assigne: el('mag-ambassadeur').value,
+    gestionnaire_plus:   el('mag-gestionnaire-plus').value.trim(),
+    loyer:               Number(el('mag-loyer').value) || 0,
+    nombre_profils:      _magProfils.length,
+    profils_json:        JSON.stringify(_magProfils),
+    commentaire_mise_a_jour: el('mag-commentaire').value.trim()
+  };
+  if (perms.canValidateAgrement) {
+    payload.statut_fin_traitement = el('mag-statut-fin').value;
+    payload.statut                = el('mag-statut').value;
+  }
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-agrement');
+      toast('Agrément enregistré.', 'success');
+      renderAgrements();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .saveAgrement(S.token, payload);
+}
+
+/* ── Override solvabilité ───────────────────────────────────── */
+function doOverrideSolvabilite() {
+  if (!_magCurrent) return;
+  var btn      = el('btn-mag-override');
+  var resultat = el('mag-override-resultat').value;
+  var comment  = el('mag-override-comment').value.trim();
+  if (!comment) { toast('Le motif de dérogation est obligatoire.', 'error'); return; }
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      toast('Dérogation enregistrée.', 'success');
+      closeModal('modal-agrement');
+      renderAgrements();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .overrideSolvabilite(S.token, _magCurrent.id, resultat, comment);
+}
+
+/* ── Réassignation ──────────────────────────────────────────── */
+function openReassignModal(agrId) {
+  _magReassignId   = agrId;
+  var lk           = S.lookups || {};
+  var ambassadeurs = (lk.users || []).filter(function(u) { return u.role === 'ambassador'; });
+  populateSelect(el('reassign-ambassadeur'), ambassadeurs, null, '— Sélectionner —');
+  el('btn-reassign-confirm').onclick = function() { doReassign(); };
+  openModal('modal-reassign');
+}
+
+function doReassign() {
+  if (!_magReassignId) return;
+  var btn      = el('btn-reassign-confirm');
+  var newAmbId = el('reassign-ambassadeur').value;
+  if (!newAmbId) { toast('Sélectionnez un ambassadeur.', 'error'); return; }
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-reassign');
+      toast('Dossier réassigné.', 'success');
+      renderAgrements();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .reassignerAgrement(S.token, _magReassignId, newAmbId);
+}
+</script>

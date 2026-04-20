@@ -44,27 +44,17 @@ function assignTeamByTypeDossierOptional_(typeDossier) {
 // ── Calculs solvabilité ───────────────────────────────────────
 
 /**
- * Calcule le plafond de loyer pour UN SEUL profil.
- *
- * Hypothèses documentées :
- *  - Retraité : règle métier à définir. Structure prête → plafond = 0 par défaut.
- *               Pour brancher : remplacer le case 'Retraité' ci-dessous.
- *  - TNS      : idem.
- *  - CDD ALLIANZ ≥12 mois : 37 % de la moyenne net imposable (règle standard).
- *               Si la règle officielle diffère, modifier le else du case 'CDD'/ALLIANZ.
+ * Calcule le plafond de loyer pour UN SEUL profil — VERSION LEGACY (switch/case).
+ * Conservée pour la rétro-compatibilité des profils sans taux_plafond.
  *
  * @param {Object} profile
  * @returns {{ plafond, revenu_complementaire, plafond_avec_revenu, avg_net_imposable, ratio_used, details }}
  */
-function calculateProfilePlafond_(profile) {
+function calculateProfilePlafond_Legacy_(profile) {
   const statutPro  = String(profile.statut_pro  || '').trim();
   const typeClient = String(profile.type_client || 'Locataire').trim();
   const compagnie  = String(profile.compagnie   || '').trim();
 
-  // Compat front/back :
-  // - net_imposable_1..3 (back historique)
-  // - net_imposable[]       (variante)
-  // - salaires[]            (front module Agrément)
   const sourceNI = Array.isArray(profile.net_imposable)
     ? profile.net_imposable
     : (Array.isArray(profile.salaires) ? profile.salaires : []);
@@ -73,7 +63,6 @@ function calculateProfilePlafond_(profile) {
     Number(profile.net_imposable_2 !== undefined ? profile.net_imposable_2 : (sourceNI[1] || 0)),
     Number(profile.net_imposable_3 !== undefined ? profile.net_imposable_3 : (sourceNI[2] || 0))
   ];
-
   const avgNI = average_(ni);
 
   let plafond   = 0;
@@ -87,73 +76,101 @@ function calculateProfilePlafond_(profile) {
       plafond   = avgNI * ratioUsed;
       details   = statutPro + ' · ratio ' + (ratioUsed * 100).toFixed(0) + '% · base ' + avgNI.toFixed(2);
       break;
-
     case 'CDD':
       if (compagnie === 'AXA') {
-        ratioUsed = 0.25;
-        plafond   = avgNI * 0.25;
-        details   = 'CDD AXA · 25% de ' + avgNI.toFixed(2);
+        ratioUsed = 0.25; plafond = avgNI * 0.25;
+        details = 'CDD AXA · 25% de ' + avgNI.toFixed(2);
       } else if (compagnie === 'ALLIANZ') {
         if (profile.cdd_moins_12_mois === true || String(profile.cdd_moins_12_mois) === 'true') {
-          ratioUsed = 0.37;
-          plafond   = (avgNI / 2) * 0.37;
-          details   = 'CDD ALLIANZ <12 mois · 37% de (net imposable/2) = ' + (avgNI / 2).toFixed(2);
+          ratioUsed = 0.37; plafond = (avgNI / 2) * 0.37;
+          details = 'CDD ALLIANZ <12 mois · 37% de (net/2)';
         } else {
-          // HYPOTHÈSE : CDD ALLIANZ ≥12 mois → règle standard 37 % de la moyenne net imposable
-          ratioUsed = 0.37;
-          plafond   = avgNI * 0.37;
-          details   = 'CDD ALLIANZ ≥12 mois · 37% de ' + avgNI.toFixed(2) + ' (hypothèse standard)';
+          ratioUsed = 0.37; plafond = avgNI * 0.37;
+          details = 'CDD ALLIANZ ≥12 mois · 37%';
         }
       } else {
-        // CDD sans compagnie identifiée → 37 % par défaut
-        ratioUsed = 0.37;
-        plafond   = avgNI * 0.37;
-        details   = 'CDD (défaut) · 37% de ' + avgNI.toFixed(2);
+        ratioUsed = 0.37; plafond = avgNI * 0.37;
+        details = 'CDD (défaut) · 37% de ' + avgNI.toFixed(2);
       }
       break;
-
     case 'Étudiant':
-      // Étudiant → Garant obligatoire, ratio 33 %
-      ratioUsed = 0.33;
-      plafond   = avgNI * 0.33;
-      details   = 'Étudiant · Garant · 33% de ' + avgNI.toFixed(2);
+      ratioUsed = 0.33; plafond = avgNI * 0.33;
+      details = 'Étudiant · Garant · 33% de ' + avgNI.toFixed(2);
       break;
-
     case 'Retraité':
-      // TODO: Brancher la règle métier ici quand disponible.
-      // HYPOTHÈSE : Plafond = 0 en attendant la définition officielle.
-      plafond = 0;
-      details = 'Retraité · règle en attente de définition (plafond = 0 par défaut)';
+      plafond = 0; details = 'Retraité · règle en attente';
       break;
-
     case 'TNS':
-      // TODO: Brancher la règle métier ici quand disponible.
-      // HYPOTHÈSE : Plafond = 0 en attendant la définition officielle.
-      plafond = 0;
-      details = 'TNS · règle en attente de définition (plafond = 0 par défaut)';
+      plafond = 0; details = 'TNS · règle en attente';
       break;
-
     default:
-      plafond = 0;
-      details = 'Statut pro inconnu : ' + statutPro;
+      plafond = 0; details = 'Statut pro inconnu : ' + statutPro;
   }
 
-  // Revenu complémentaire par profil (case à cocher)
   const revCompMontant = profile.revenu_complementaire_montant !== undefined
     ? profile.revenu_complementaire_montant
     : (profile.montant_complementaire !== undefined ? profile.montant_complementaire : 0);
-  const revComp = (
-    profile.revenu_complementaire === true ||
-    String(profile.revenu_complementaire) === 'true'
-  ) ? Number(revCompMontant || 0) : 0;
+  const revComp = (profile.revenu_complementaire === true || String(profile.revenu_complementaire) === 'true')
+    ? Number(revCompMontant || 0) : 0;
 
   return {
-    plafond:                 plafond,
-    revenu_complementaire:   revComp,
-    plafond_avec_revenu:     plafond + revComp,
-    avg_net_imposable:       avgNI,
-    ratio_used:              ratioUsed,
-    details:                 details
+    plafond:              plafond,
+    revenu_complementaire: revComp,
+    plafond_avec_revenu:  plafond + revComp,
+    avg_net_imposable:    avgNI,
+    ratio_used:           ratioUsed,
+    details:              details
+  };
+}
+
+/**
+ * Calcule le plafond de loyer pour UN SEUL profil.
+ * Nouvelle logique : utilise taux_plafond manuel si présent, sinon fallback legacy.
+ *
+ * @param {Object} profile
+ * @returns {{ plafond, revenu_complementaire, plafond_avec_revenu, avg_net_imposable, ratio_used, details }}
+ */
+function calculateProfilePlafond_(profile) {
+  // ── Fallback legacy si pas de taux_plafond manuel ─────────────
+  const tauxRaw = String(profile.taux_plafond || '').trim();
+  if (!tauxRaw) {
+    return calculateProfilePlafond_Legacy_(profile);
+  }
+
+  // ── Taux manuel ───────────────────────────────────────────────
+  const sourceNI = Array.isArray(profile.net_imposable)
+    ? profile.net_imposable
+    : (Array.isArray(profile.salaires) ? profile.salaires : []);
+  const ni = [
+    Number(profile.net_imposable_1 !== undefined ? profile.net_imposable_1 : (sourceNI[0] || 0)),
+    Number(profile.net_imposable_2 !== undefined ? profile.net_imposable_2 : (sourceNI[1] || 0)),
+    Number(profile.net_imposable_3 !== undefined ? profile.net_imposable_3 : (sourceNI[2] || 0))
+  ];
+  const avgNI = average_(ni);
+
+  // Résoudre le taux : 'autre' → taux_plafond_autre ; sinon la valeur directe
+  let tauxPct;
+  if (tauxRaw === 'autre') {
+    tauxPct = Number(profile.taux_plafond_autre || 0);
+  } else {
+    tauxPct = Number(tauxRaw);
+  }
+  const ratio   = tauxPct / 100;
+  const plafond = avgNI * ratio;
+
+  const revCompMontant = profile.revenu_complementaire_montant !== undefined
+    ? profile.revenu_complementaire_montant
+    : (profile.montant_complementaire !== undefined ? profile.montant_complementaire : 0);
+  const revComp = (profile.revenu_complementaire === true || String(profile.revenu_complementaire) === 'true')
+    ? Number(revCompMontant || 0) : 0;
+
+  return {
+    plafond:              plafond,
+    revenu_complementaire: revComp,
+    plafond_avec_revenu:  plafond + revComp,
+    avg_net_imposable:    avgNI,
+    ratio_used:           ratio,
+    details:              'Taux manuel ' + tauxPct + '% · base ' + avgNI.toFixed(2)
   };
 }
 
@@ -178,9 +195,11 @@ function calculateMultiProfileSolvabiliteServer(payload) {
   const effectifTypeClient = forceGarant ? 'Garant' : typeClient;
 
   const profileResults = profils.map(function(profil, idx) {
+    // Each profil may have its own type_client (Change 1). Fall back to global if not set.
+    const profilTypeClient = String(profil.type_client || effectifTypeClient).trim();
     const p = Object.assign({}, profil, {
-      type_client: effectifTypeClient,
-      compagnie:   compagnie
+      type_client: forceGarant ? 'Garant' : profilTypeClient,
+      compagnie:   String(profil.compagnie || compagnie).trim()
     });
     const result = calculateProfilePlafond_(p);
     return Object.assign({ profil_index: idx + 1, statut_pro: profil.statut_pro || '' }, result);
@@ -293,9 +312,6 @@ function listAgrements(token, filters) {
 function validateAgrementPayload_(row) {
   if (!row.type_dossier)        throw new Error('Le type de dossier est obligatoire.');
   if (!row.priorite)            throw new Error('La priorité est obligatoire.');
-  if (!row.client)              throw new Error('Le client est obligatoire.');
-  if (!row.adresse)             throw new Error('L\'adresse est obligatoire.');
-  if (!row.type_client)         throw new Error('Le type de client est obligatoire.');
   if (!row.ambassadeur_assigne) throw new Error('L\'ambassadeur assigné est obligatoire.');
   if (!row.statut)              throw new Error('Le statut est obligatoire.');
   if (row.statut === 'Validé' && !row.motif_validation) {
@@ -350,14 +366,26 @@ function saveAgrement(token, payload) {
     );
   }
 
-  // ── Type client : Garant forcé si profil Étudiant ──────────
-  let typeClient = String(data.type_client || (existing && existing.type_client) || 'Locataire').trim();
+  // ── Profils : migration backward-compat ───────────────────
   const profils  = Array.isArray(data.profils)
     ? data.profils
     : safeParseJson_(data.profils_json, []);
 
-  if (profils.some(function(p) { return String(p.statut_pro || '') === 'Étudiant'; })) {
+  // Migration : profils sans type_client héritent de 'Locataire'
+  profils.forEach(function(p) {
+    if (!p.type_client) p.type_client = 'Locataire';
+  });
+
+  // ── Type client : dérivé du premier profil (ou 'Garant' si un profil est Étudiant) ──
+  const forceGarant = profils.some(function(p) { return String(p.statut_pro || '') === 'Étudiant'; });
+  let typeClient;
+  if (forceGarant) {
     typeClient = 'Garant';
+  } else if (profils.length > 0 && profils[0].type_client) {
+    typeClient = String(profils[0].type_client).trim();
+  } else {
+    // Fallback rétro-compat : lire le champ global si présent
+    typeClient = String(data.type_client || (existing && existing.type_client) || 'Locataire').trim();
   }
 
   // ── Statut / motif ─────────────────────────────────────────
@@ -428,6 +456,39 @@ function saveAgrement(token, payload) {
   upsertRow_('AGREMENTS', 'id', row);
   addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'AGREMENT', row.id,
     'Enregistrement agrément', existing, row);
+
+  // Historique de versions
+  saveEntityVersion_(session, 'AGREMENT', row.id, row,
+    String(data.commentaire_mise_a_jour || '').trim(),
+    existing ? 'UPDATE' : 'CREATE');
+
+  const usersById = indexBy_(readTable_('USERS'), 'id');
+  const teamsById = indexBy_(readTable_('TEAMS'), 'id');
+  return hydrateAgrementRow_(Object.assign({}, row), usersById, teamsById);
+}
+
+/**
+ * Marque un agrément comme traité (nouveau concept v4.1).
+ */
+function traiterAgrement(token, id, commentaire) {
+  const session  = requireSession_(token);
+  const rows     = readTable_('AGREMENTS');
+  const existing = rows.find(function(r) { return r.id === id; });
+
+  if (!existing)                                    throw new Error('Agrément introuvable.');
+  if (!scopeAgrements_(session, [existing]).length) throw new Error('Accès refusé.');
+
+  const now = nowIso_();
+  const row = Object.assign({}, existing, {
+    statut:     'Clos',
+    closed_at:  now,
+    updated_by: session.user.id,
+    updated_at: now
+  });
+
+  upsertRow_('AGREMENTS', 'id', row);
+  addAuditLog_(session, 'TRAITE', 'AGREMENT', row.id, 'Agrément traité', existing, row);
+  saveEntityVersion_(session, 'AGREMENT', row.id, row, String(commentaire || '').trim(), 'TRAITE');
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   const teamsById = indexBy_(readTable_('TEAMS'), 'id');

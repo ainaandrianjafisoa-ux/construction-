@@ -86,12 +86,16 @@ function saveFacture(token, payload) {
     created_at:    existing ? existing.created_at : now,
     updated_at:    now,
     traite_at:      existing ? (existing.traite_at     || '') : '',
-    delai_secondes: existing ? (existing.delai_secondes || 0) : 0
+    delai_secondes: existing ? (existing.delai_secondes || 0) : 0,
+    // Horodatage de début de traitement : mis à jour à chaque save
+    delai_traitement_start: existing ? now : now
   });
 
   upsertRow_('FACTURES', 'id', row);
-  addAuditLog_(session, existing ? 'UPDATE' : 'CREATE', 'FACTURE', row.id,
-    'Enregistrement facture', existing, row);
+  const actionType = existing ? 'UPDATE' : 'CREATE';
+  addAuditLog_(session, actionType, 'FACTURE', row.id, 'Enregistrement facture', existing, row);
+  saveEntityVersion_(session, 'FACTURE', row.id, row,
+    String(data.commentaire_mise_a_jour || '').trim(), actionType);
   return row;
 }
 
@@ -139,6 +143,7 @@ function traiterFacture(token, id, options) {
     upsertRow_('FACTURES', 'id', row_r);
     addAuditLog_(session, 'REMONTE', 'FACTURE', row_r.id,
       'Facture remontée pour vérification TL. Commentaire : ' + commentaire, existing, row_r);
+    saveEntityVersion_(session, 'FACTURE', row_r.id, row_r, commentaire, 'REMONTE');
     const uid_r = indexBy_(readTable_('USERS'), 'id');
     row_r.created_by_name = uid_r[row_r.created_by] ? uid_r[row_r.created_by].full_name : '';
     row_r.delai_formate   = formatDelai_(row_r.delai_secondes);
@@ -149,9 +154,9 @@ function traiterFacture(token, id, options) {
 
   // Cas 1 & 2 : traitement final
   const now       = nowIso_();
-  const createdMs = parseDateMs_(existing.created_at);
+  const startMs   = parseDateMs_(existing.delai_traitement_start || existing.created_at);
   const nowMs     = parseDateMs_(now);
-  const delai     = Math.max(0, Math.round((nowMs - createdMs) / 1000));
+  const delai     = Math.max(0, Math.round((nowMs - startMs) / 1000));
 
   const row = Object.assign({}, existing, {
     commentaire_traitement: commentaire || (existing.commentaire_traitement || ''),
@@ -165,6 +170,7 @@ function traiterFacture(token, id, options) {
   addAuditLog_(session, 'TRAITE', 'FACTURE', row.id,
     isVerifie ? 'Facture traitée (après vérification TL)' : 'Facture traitée',
     existing, row);
+  saveEntityVersion_(session, 'FACTURE', row.id, row, commentaire, 'TRAITE');
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   row.created_by_name  = usersById[row.created_by]  ? usersById[row.created_by].full_name  : '';
@@ -205,6 +211,7 @@ function verifierFacture(token, id) {
   upsertRow_('FACTURES', 'id', row);
   addAuditLog_(session, 'VERIFIE', 'FACTURE', row.id,
     'Facture vérifiée par ' + session.user.full_name, existing, row);
+  saveEntityVersion_(session, 'FACTURE', row.id, row, '', 'VERIFIE');
 
   const usersById = indexBy_(readTable_('USERS'), 'id');
   row.created_by_name  = usersById[row.created_by]  ? usersById[row.created_by].full_name  : '';

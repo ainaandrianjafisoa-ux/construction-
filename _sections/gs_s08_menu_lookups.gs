@@ -97,11 +97,26 @@ function getParametres(token) {
   const session = requireSession_(token);
   if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
   return {
+    // Agrément
+    AGREMENT_TYPES:         getParametrableList_('AGREMENT_TYPES',         ENUMS.AGREMENT_TYPES),
+    TYPE_CLIENT:            getParametrableList_('TYPE_CLIENT',            ENUMS.TYPE_CLIENT),
     STATUTS_PRO:            getParametrableList_('STATUTS_PRO',            ENUMS.STATUTS_PRO),
     COMPAGNIES:             getParametrableList_('COMPAGNIES',             ENUMS.COMPAGNIES),
     STATUTS_FIN_TRAITEMENT: getParametrableList_('STATUTS_FIN_TRAITEMENT', ENUMS.STATUTS_FIN_TRAITEMENT),
     AGREMENT_STATUS:        getParametrableList_('AGREMENT_STATUS',        ENUMS.AGREMENT_STATUS),
-    PRIORITIES:             getParametrableList_('PRIORITIES',             ENUMS.PRIORITIES)
+    PRIORITIES:             getParametrableList_('PRIORITIES',             ENUMS.PRIORITIES),
+    MOTIF_VALIDATION:       getParametrableList_('MOTIF_VALIDATION',       ENUMS.MOTIF_VALIDATION),
+    // Sinistre
+    SINISTRE_SITUATIONS:    getParametrableList_('SINISTRE_SITUATIONS',    ENUMS.SINISTRE_SITUATIONS),
+    SINISTRE_STATUTS:       getParametrableList_('SINISTRE_STATUTS',       ENUMS.SINISTRE_STATUTS),
+    SINISTRE_COMPLETUDE:    getParametrableList_('SINISTRE_COMPLETUDE',    ENUMS.SINISTRE_COMPLETUDE),
+    // Facture
+    FACTURE_STATUTS:        getParametrableList_('FACTURE_STATUTS',        ENUMS.FACTURE_STATUTS),
+    // Résiliation
+    RESILIATION_ORIGINES:   getParametrableList_('RESILIATION_ORIGINES',   ENUMS.RESILIATION_ORIGINES),
+    RESILIATION_COMPLETUDE: getParametrableList_('RESILIATION_COMPLETUDE', ENUMS.RESILIATION_COMPLETUDE),
+    RESILIATION_RESIL:      getParametrableList_('RESILIATION_RESIL',      ENUMS.RESILIATION_RESIL),
+    RESILIATION_STATUTS:    getParametrableList_('RESILIATION_STATUTS',    ENUMS.RESILIATION_STATUTS)
   };
 }
 
@@ -114,7 +129,13 @@ function saveParametres(token, payload) {
   if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
 
   const data    = payload || {};
-  const allowed = ['STATUTS_PRO', 'COMPAGNIES', 'STATUTS_FIN_TRAITEMENT', 'AGREMENT_STATUS', 'PRIORITIES'];
+  const allowed = [
+    'AGREMENT_TYPES', 'TYPE_CLIENT', 'STATUTS_PRO', 'COMPAGNIES',
+    'STATUTS_FIN_TRAITEMENT', 'AGREMENT_STATUS', 'PRIORITIES', 'MOTIF_VALIDATION',
+    'SINISTRE_SITUATIONS', 'SINISTRE_STATUTS', 'SINISTRE_COMPLETUDE',
+    'FACTURE_STATUTS',
+    'RESILIATION_ORIGINES', 'RESILIATION_COMPLETUDE', 'RESILIATION_RESIL', 'RESILIATION_STATUTS'
+  ];
 
   allowed.forEach(function(key) {
     if (data[key] && Array.isArray(data[key]) && data[key].length > 0) {
