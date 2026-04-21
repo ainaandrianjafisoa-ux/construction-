@@ -903,6 +903,20 @@ function authenticateUser(login, password, userAgent) {
   return buildSessionPayload_(session);
 }
 
+/**
+ * Point d'entrée appelé par le front-end lors de la connexion.
+ * Retourne { token, session, lookups } pour hydrater l'app.
+ */
+function loginUser(login, password) {
+  const sessionPayload = authenticateUser(login, password, '');
+  const token          = sessionPayload.token;
+  return {
+    token:   token,
+    session: sessionPayload,
+    lookups: getLookups(token)
+  };
+}
+
 function heartbeatSession(token, meta) {
   const session = requireSession_(token);
   const row     = readTable_('SESSIONS').find(function(s) { return s.session_id === session.session_id; });
@@ -930,6 +944,92 @@ function logoutUser(token, reason) {
 function registerOfflineSignal(token) {
   try { return logoutUser(token, 'client_offline'); }
   catch (e) { return { ok: false, message: e.message }; }
+}
+
+/** Alias front-end pour le heartbeat périodique. */
+function heartbeat(token) {
+  return heartbeatSession(token, {});
+}
+
+/** Changement de mot de passe par l'utilisateur connecté. */
+function changePassword(token, payload) {
+  const session = requireSession_(token);
+  const data    = payload || {};
+  const current = String(data.current_password || '');
+  const newPwd  = String(data.new_password     || '');
+
+  if (!current || !newPwd) throw new Error('Les deux mots de passe sont requis.');
+  if (newPwd.length < 6)   throw new Error('Le nouveau mot de passe doit comporter au moins 6 caractères.');
+
+  const users = readTable_('USERS');
+  const user  = users.find(function(u) { return u.id === session.user_id; });
+  if (!user) throw new Error('Utilisateur introuvable.');
+  if (user.password_hash !== hashPassword_(current)) throw new Error('Mot de passe actuel incorrect.');
+
+  const now = nowIso_();
+  const updated = Object.assign({}, user, {
+    password_hash: hashPassword_(newPwd),
+    updated_at:    now
+  });
+  upsertRow_('USERS', 'id', updated);
+  addAuditLog_(session, 'CHANGE_PASSWORD', 'USER', user.id, 'Changement de mot de passe', null, null);
+  return { ok: true };
+}
+
+/** Liste l'historique des actions (audit log) visible par le rôle. */
+function listAuditLogs(token, filters) {
+  const session    = requireSession_(token);
+  const max        = Number((filters || {}).limit || 200);
+  const usersById  = indexBy_(readTable_('USERS'), 'id');
+  const visibleIds = scopeUsers_(session, readTable_('USERS')).map(function(u) { return u.id; });
+
+  return readTable_('AUDIT_LOG')
+    .filter(function(r) {
+      return session.role === ROLES.SUPER_ADMIN || visibleIds.indexOf(r.user_id) > -1;
+    })
+    .sort(sortDescBy_('timestamp'))
+    .slice(0, max)
+    .map(function(r) {
+      const u = usersById[r.user_id];
+      return {
+        id:          r.id,
+        timestamp:   r.timestamp,
+        user_id:     r.user_id,
+        user_name:   u ? (u.full_name || u.login) : (r.login || r.user_id || ''),
+        action:      r.action_type,
+        entity_type: r.entity_type,
+        entity_id:   r.entity_id,
+        description: r.summary
+      };
+    });
+}
+
+/** Liste les sessions de connexion visibles par le rôle. */
+function listSessions(token, filters) {
+  const session    = requireSession_(token);
+  const max        = Number((filters || {}).limit || 150);
+  const usersById  = indexBy_(readTable_('USERS'), 'id');
+  const visibleIds = scopeUsers_(session, readTable_('USERS')).map(function(u) { return u.id; });
+
+  return readTable_('SESSIONS')
+    .filter(function(r) {
+      return session.role === ROLES.SUPER_ADMIN || visibleIds.indexOf(r.user_id) > -1;
+    })
+    .sort(sortDescBy_('started_at'))
+    .slice(0, max)
+    .map(function(r) {
+      const u = usersById[r.user_id];
+      return {
+        session_id:      r.session_id,
+        user_id:         r.user_id,
+        user_name:       u ? (u.full_name || u.login) : (r.login || r.user_id || ''),
+        role:            r.role,
+        status:          r.status,
+        connected_at:    r.started_at,
+        disconnected_at: r.closed_at || '',
+        user_agent:      r.user_agent || ''
+      };
+    });
 }
 // ============================================================
 // SECTION 8 — MENU, PERMISSIONS, LOOKUPS, PARAMÈTRES
