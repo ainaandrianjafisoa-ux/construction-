@@ -250,6 +250,13 @@ function paintMagSolvSummary(result, loyer) {
   }
 }
 
+/* ── Show/hide motif zone on statut change ──────────────────── */
+function onMagStatutChange() {
+  var sel       = el('mag-statut');
+  var motifZone = el('mag-motif-zone');
+  if (motifZone && sel) motifZone.classList.toggle('hidden', sel.value !== 'Validé');
+}
+
 /* ── Sauvegarde ─────────────────────────────────────────────── */
 function saveMagAgrement() {
   var btn = el('btn-mag-save');
@@ -272,6 +279,7 @@ function saveMagAgrement() {
   if (perms.canValidateAgrement) {
     payload.statut_fin_traitement = el('mag-statut-fin').value;
     payload.statut                = el('mag-statut').value;
+    payload.motif_validation      = el('mag-motif-validation') ? el('mag-motif-validation').value : '';
   }
 
   setBtnLoading(btn, true);

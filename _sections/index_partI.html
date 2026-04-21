@@ -164,6 +164,12 @@ function openAgrementModal(agrId) {
     el('mag-fin-zone').classList.remove('hidden');
     populateSelect(el('mag-statut-fin'), lk.statutsFinTraitement || [], r.statut_fin_traitement, '— Choisir —');
     populateSelect(el('mag-statut'),     lk.agrementStatuts      || [], r.statut,                '— Choisir —');
+    /* Motif de validation */
+    var motifZone = el('mag-motif-zone');
+    var motifSel  = el('mag-motif-validation');
+    var isValide  = r.statut === 'Validé';
+    if (motifZone) motifZone.classList.toggle('hidden', !isValide);
+    if (motifSel)  motifSel.value = r.motif_validation || '';
   } else {
     el('mag-fin-zone').classList.add('hidden');
   }

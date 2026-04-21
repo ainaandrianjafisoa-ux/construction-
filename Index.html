@@ -1472,10 +1472,19 @@ button { overflow: hidden; }
           </div>
           <div class="field">
             <label>Statut dossier</label>
-            <select id="mag-statut">
+            <select id="mag-statut" onchange="onMagStatutChange()">
               <option value="">— Choisir —</option>
             </select>
           </div>
+        </div>
+        <!-- Motif de validation — visible uniquement si statut = Validé -->
+        <div id="mag-motif-zone" class="field hidden" style="margin-top:8px;">
+          <label>Motif de validation <span class="req">*</span></label>
+          <select id="mag-motif-validation">
+            <option value="">— Choisir —</option>
+            <option value="Solvable">Solvable</option>
+            <option value="Non solvable">Non solvable</option>
+          </select>
         </div>
       </div>
     </div><!-- /modal-scroll -->
@@ -3215,6 +3224,12 @@ function openAgrementModal(agrId) {
     el('mag-fin-zone').classList.remove('hidden');
     populateSelect(el('mag-statut-fin'), lk.statutsFinTraitement || [], r.statut_fin_traitement, '— Choisir —');
     populateSelect(el('mag-statut'),     lk.agrementStatuts      || [], r.statut,                '— Choisir —');
+    /* Motif de validation */
+    var motifZone = el('mag-motif-zone');
+    var motifSel  = el('mag-motif-validation');
+    var isValide  = r.statut === 'Validé';
+    if (motifZone) motifZone.classList.toggle('hidden', !isValide);
+    if (motifSel)  motifSel.value = r.motif_validation || '';
   } else {
     el('mag-fin-zone').classList.add('hidden');
   }
@@ -3531,6 +3546,13 @@ function paintMagSolvSummary(result, loyer) {
   }
 }
 
+/* ── Show/hide motif zone on statut change ──────────────────── */
+function onMagStatutChange() {
+  var sel       = el('mag-statut');
+  var motifZone = el('mag-motif-zone');
+  if (motifZone && sel) motifZone.classList.toggle('hidden', sel.value !== 'Validé');
+}
+
 /* ── Sauvegarde ─────────────────────────────────────────────── */
 function saveMagAgrement() {
   var btn = el('btn-mag-save');
@@ -3553,6 +3575,7 @@ function saveMagAgrement() {
   if (perms.canValidateAgrement) {
     payload.statut_fin_traitement = el('mag-statut-fin').value;
     payload.statut                = el('mag-statut').value;
+    payload.motif_validation      = el('mag-motif-validation') ? el('mag-motif-validation').value : '';
   }
 
   setBtnLoading(btn, true);

@@ -249,10 +249,19 @@
           </div>
           <div class="field">
             <label>Statut dossier</label>
-            <select id="mag-statut">
+            <select id="mag-statut" onchange="onMagStatutChange()">
               <option value="">— Choisir —</option>
             </select>
           </div>
+        </div>
+        <!-- Motif de validation — visible uniquement si statut = Validé -->
+        <div id="mag-motif-zone" class="field hidden" style="margin-top:8px;">
+          <label>Motif de validation <span class="req">*</span></label>
+          <select id="mag-motif-validation">
+            <option value="">— Choisir —</option>
+            <option value="Solvable">Solvable</option>
+            <option value="Non solvable">Non solvable</option>
+          </select>
         </div>
       </div>
     </div><!-- /modal-scroll -->

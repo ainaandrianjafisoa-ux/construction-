@@ -1744,12 +1744,11 @@ function listAgrements(token, filters) {
 // ── Validation ────────────────────────────────────────────────
 
 function validateAgrementPayload_(row) {
-  if (!row.type_dossier)        throw new Error('Le type de dossier est obligatoire.');
-  if (!row.priorite)            throw new Error('La priorité est obligatoire.');
-  if (!row.ambassadeur_assigne) throw new Error('L\'ambassadeur assigné est obligatoire.');
-  if (!row.statut)              throw new Error('Le statut est obligatoire.');
+  if (!row.type_dossier) throw new Error('Le type de dossier est obligatoire.');
+  if (!row.priorite)     throw new Error('La priorité est obligatoire.');
+  if (!row.statut)       throw new Error('Le statut est obligatoire.');
   if (row.statut === 'Validé' && !row.motif_validation) {
-    throw new Error('Le motif Solvable / Non solvable est obligatoire lorsque le statut est Validé.');
+    throw new Error('Le motif de validation (Solvable / Non solvable) est obligatoire lorsque le statut est Validé.');
   }
 }
 
@@ -1825,7 +1824,13 @@ function saveAgrement(token, payload) {
   // ── Statut / motif ─────────────────────────────────────────
   const statut          = String(data.statut || (existing && existing.statut) || 'Initié').trim();
   const motifValidation = statut === 'Validé'
-    ? String(data.motif_validation || (existing && existing.motif_validation) || '').trim()
+    ? String(
+        data.motif_validation ||
+        (existing && existing.motif_validation) ||
+        (solv && solv.resultat) ||
+        (existing && existing.resultat_solvabilite) ||
+        ''
+      ).trim()
     : '';
 
   const solv    = data.solvabilite || null;
