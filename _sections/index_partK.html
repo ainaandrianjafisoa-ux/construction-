@@ -189,11 +189,12 @@ function saveFactureModal() {
   markRequired('mfa-no-sinistre', !noSin);
   if (!noSin) { toast('Le N° de sinistre est obligatoire.', 'error'); return; }
 
-  var payload = {
+  var steps = _mfaCurrent ? getStepsPayload() : {};
+  var payload = Object.assign({
     id:                     _mfaCurrent ? _mfaCurrent.id : '',
     no_sinistre:            noSin,
     commentaire_traitement: el('mfa-commentaire').value.trim()
-  };
+  }, steps);
 
   setBtnLoading(btn, true);
   google.script.run

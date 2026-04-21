@@ -85,9 +85,9 @@ function openResiliationModal(resId) {
   el('mre-mail').value         = r.mail || '';
   el('mre-commentaire').value  = r.commentaire || '';
 
-  /* Zone soumission */
+  /* Zone soumission — visible pour tous les dossiers existants */
   var sz = el('mre-soumettre-zone');
-  if (resId && r.statut !== 'Traité') {
+  if (resId) {
     sz.classList.remove('hidden');
     el('mre-completude').value = r.completude || '';
     el('mre-resil').value      = r.resil || '';

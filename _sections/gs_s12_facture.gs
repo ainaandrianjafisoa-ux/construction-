@@ -121,11 +121,17 @@ function traiterFacture(token, id, options) {
   if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
   if (existing.statut === 'Traité')                 throw new Error('Cette facture est déjà traitée.');
 
-  const veri      = String(existing.etape_verification) === 'TRUE';
-  const calc      = String(existing.etape_calcul)        === 'TRUE';
-  const regl      = String(existing.etape_reglement)     === 'TRUE';
+  // Utiliser les étapes depuis opts si fournies (clic direct sur Traiter),
+  // sinon fallback sur les valeurs enregistrées dans le sheet.
+  const curVeri = opts.etape_verification !== undefined ? toBool_(opts.etape_verification) : (existing.etape_verification || 'FALSE');
+  const curCalc = opts.etape_calcul       !== undefined ? toBool_(opts.etape_calcul)       : (existing.etape_calcul       || 'FALSE');
+  const curRegl = opts.etape_reglement    !== undefined ? toBool_(opts.etape_reglement)    : (existing.etape_reglement    || 'FALSE');
+
+  const veri      = String(curVeri) === 'TRUE';
+  const calc      = String(curCalc) === 'TRUE';
+  const regl      = String(curRegl) === 'TRUE';
   const allDone   = veri && calc && regl;
-  const isVerifie = String(existing.verifie_badge)       === 'TRUE';
+  const isVerifie = String(existing.verifie_badge) === 'TRUE';
   const commentaire = String(opts.commentaire || '').trim();
 
   // Cas 3 : étapes incomplètes, pas encore vérifiée → Remonté
@@ -135,6 +141,9 @@ function traiterFacture(token, id, options) {
     }
     const now_r = nowIso_();
     const row_r = Object.assign({}, existing, {
+      etape_verification:     curVeri,
+      etape_calcul:           curCalc,
+      etape_reglement:        curRegl,
       commentaire_traitement: commentaire,
       statut:     'Remonté',
       remonte_at: now_r,
@@ -159,6 +168,9 @@ function traiterFacture(token, id, options) {
   const delai     = Math.max(0, Math.round((nowMs - startMs) / 1000));
 
   const row = Object.assign({}, existing, {
+    etape_verification:     curVeri,
+    etape_calcul:           curCalc,
+    etape_reglement:        curRegl,
     commentaire_traitement: commentaire || (existing.commentaire_traitement || ''),
     statut:         'Traité',
     traite_at:      now,

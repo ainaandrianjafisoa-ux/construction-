@@ -72,7 +72,6 @@ function soumettreResiliation(token, id, payload) {
 
   if (!existing)                                        throw new Error('Résiliation introuvable.');
   if (!scopeResiliations_(session, [existing]).length)  throw new Error('Accès refusé.');
-  if (existing.statut === 'Traité')                     throw new Error('Cette résiliation est déjà traitée.');
 
   const data        = payload || {};
   const completude  = String(data.completude  || existing.completude  || '').trim();

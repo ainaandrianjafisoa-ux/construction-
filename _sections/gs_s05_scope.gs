@@ -25,10 +25,13 @@ function visibleUserIds_(session) {
 function scopeAgrements_(session, rows) {
   if (session.role === ROLES.SUPER_ADMIN) return rows;
   if (session.role === ROLES.TEAM_LEADER) {
-    return rows.filter(function(r) { return r.equipe_id === session.user.team_id; });
+    return rows.filter(function(r) {
+      return String(r.equipe_id || '') === String(session.user.team_id || '');
+    });
   }
   return rows.filter(function(r) {
-    return r.ambassadeur_assigne === session.user.id || r.created_by === session.user.id;
+    return String(r.ambassadeur_assigne || '') === String(session.user.id || '') ||
+           String(r.created_by         || '') === String(session.user.id || '');
   });
 }
 

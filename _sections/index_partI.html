@@ -168,13 +168,25 @@ function openAgrementModal(agrId) {
     el('mag-fin-zone').classList.add('hidden');
   }
 
-  /* Override */
-  if (agrId && perms.canOverrideSolvabilite) {
+  /* Override solvabilité — visible pour tous les rôles sur un dossier existant */
+  if (agrId) {
     el('mag-override-zone').classList.remove('hidden');
-    el('mag-override-resultat').value = r.resultat_solvabilite  || 'Solvable';
+    el('mag-override-resultat').value = r.resultat_solvabilite    || 'Solvable';
     el('mag-override-comment').value  = r.solvabilite_commentaire || '';
   } else {
     el('mag-override-zone').classList.add('hidden');
+  }
+
+  /* Pré-afficher la bande solvabilité stockée dès l'ouverture */
+  var solvBandEl = el('mag-solv-band');
+  if (solvBandEl && agrId && r.resultat_solvabilite) {
+    el('mag-solv-summary').classList.remove('hidden');
+    solvBandEl.classList.remove('hidden');
+    var isSolvable = r.resultat_solvabilite === 'Solvable';
+    solvBandEl.className = 'solv-band ' + (isSolvable ? 'ok' : 'nok');
+    solvBandEl.innerHTML = (isSolvable ? '✔ Solvable' : '✘ Non solvable') +
+      (r.loyer ? ' — Loyer : ' + fmtEuro(Number(r.loyer) || 0) +
+       ' / Plafond : ' + fmtEuro(Number(r.plafond_final) || 0) : '');
   }
 
   el('mag-nb-profils').onchange  = onNbProfilsChange;

@@ -238,12 +238,15 @@ function paintMagSolvSummary(result, loyer) {
   if (totalEl) totalEl.textContent = fmtEuro(result.plafond_total || 0);
 
   var band = el('mag-solv-band');
-  if (band && loyer > 0) {
-    band.classList.remove('hidden');
-    var ok = (result.plafond_total || 0) >= loyer;
-    band.className = 'solv-band ' + (ok ? 'ok' : 'nok');
-    band.innerHTML = (ok ? '✔ Solvable' : '✘ Non solvable') +
-      ' — Loyer : ' + fmtEuro(loyer) + ' / Plafond : ' + fmtEuro(result.plafond_total || 0);
+  if (band) {
+    var plafond = result.plafond_total || 0;
+    if (loyer > 0 || plafond > 0) {
+      band.classList.remove('hidden');
+      var ok = plafond >= loyer;
+      band.className = 'solv-band ' + (ok ? 'ok' : 'nok');
+      band.innerHTML = (ok ? '✔ Solvable' : '✘ Non solvable') +
+        (loyer > 0 ? ' — Loyer : ' + fmtEuro(loyer) + ' / Plafond : ' + fmtEuro(plafond) : ' — Plafond : ' + fmtEuro(plafond));
+    }
   }
 }
 
