@@ -303,7 +303,10 @@ function listAgrements(token, filters) {
     .filter(function(r) { return !f.statut       || r.statut       === f.statut;       })
     .filter(function(r) { return !f.type_dossier || normalizeDossierType_(r.type_dossier) === normalizeDossierType_(f.type_dossier); })
     .filter(function(r) { return !f.search       || JSON.stringify(r).toLowerCase().indexOf(String(f.search).toLowerCase()) > -1; })
-    .map(function(r)    { return hydrateAgrementRow_(Object.assign({}, r), usersById, teamsById); })
+    .map(function(r) {
+      try { return hydrateAgrementRow_(Object.assign({}, r), usersById, teamsById); }
+      catch(e) { Logger.log('hydrateAgrementRow_ err ' + r.id + ': ' + e.message); return r; }
+    })
     .sort(sortDescBy_('updated_at'));
 }
 

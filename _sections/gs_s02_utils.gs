@@ -14,6 +14,8 @@ function normalizeCell_(value) {
   if (Object.prototype.toString.call(value) === '[object Date]') {
     return Utilities.formatDate(value, APP_CONFIG.TIMEZONE, "yyyy-MM-dd'T'HH:mm:ss");
   }
+  // GAS lit TRUE/FALSE depuis Sheets comme booléens natifs — normaliser en chaîne
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
   return (value === null || value === undefined) ? '' : value;
 }
 

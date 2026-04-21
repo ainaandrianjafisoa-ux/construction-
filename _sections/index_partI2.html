@@ -276,10 +276,20 @@ function saveMagAgrement() {
 
   setBtnLoading(btn, true);
   google.script.run
-    .withSuccessHandler(function() {
+    .withSuccessHandler(function(savedRow) {
       setBtnLoading(btn, false);
       closeModal('modal-agrement');
       toast('Agrément enregistré.', 'success');
+      /* Mise à jour optimiste immédiate de la liste */
+      if (savedRow && savedRow.id) {
+        var idx = -1;
+        for (var k = 0; k < _agrements.length; k++) {
+          if (_agrements[k].id === savedRow.id) { idx = k; break; }
+        }
+        if (idx > -1) _agrements[idx] = savedRow;
+        else _agrements.unshift(savedRow);
+        paintAgrementsTable(_agrements);
+      }
       renderAgrements();
     })
     .withFailureHandler(function(e) { gasFailureHandler(e, btn); })

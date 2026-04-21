@@ -162,6 +162,8 @@ function normalizeCell_(value) {
   if (Object.prototype.toString.call(value) === '[object Date]') {
     return Utilities.formatDate(value, APP_CONFIG.TIMEZONE, "yyyy-MM-dd'T'HH:mm:ss");
   }
+  // GAS lit TRUE/FALSE depuis Sheets comme booléens natifs — normaliser en chaîne
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
   return (value === null || value === undefined) ? '' : value;
 }
 
@@ -1732,7 +1734,10 @@ function listAgrements(token, filters) {
     .filter(function(r) { return !f.statut       || r.statut       === f.statut;       })
     .filter(function(r) { return !f.type_dossier || normalizeDossierType_(r.type_dossier) === normalizeDossierType_(f.type_dossier); })
     .filter(function(r) { return !f.search       || JSON.stringify(r).toLowerCase().indexOf(String(f.search).toLowerCase()) > -1; })
-    .map(function(r)    { return hydrateAgrementRow_(Object.assign({}, r), usersById, teamsById); })
+    .map(function(r) {
+      try { return hydrateAgrementRow_(Object.assign({}, r), usersById, teamsById); }
+      catch(e) { Logger.log('hydrateAgrementRow_ err ' + r.id + ': ' + e.message); return r; }
+    })
     .sort(sortDescBy_('updated_at'));
 }
 
@@ -2204,13 +2209,13 @@ function listFactures(token, filters) {
       r.verifie_par_name = usersById[r.verifie_par] ? usersById[r.verifie_par].full_name : '';
       r.delai_formate   = formatDelai_(r.delai_secondes);
       r.progression     = [r.etape_verification, r.etape_calcul, r.etape_reglement]
-        .filter(function(v) { return String(v) === 'TRUE'; }).length;
+        .filter(function(v) { return v === true || String(v).toUpperCase() === 'TRUE'; }).length;
       return r;
     })
     // Dossiers Vérifié remontent en tête de liste
     .sort(function(a, b) {
-      const av = String(a.verifie_badge) === 'TRUE' ? 1 : 0;
-      const bv = String(b.verifie_badge) === 'TRUE' ? 1 : 0;
+      const av = (a.verifie_badge === true || String(a.verifie_badge).toUpperCase() === 'TRUE') ? 1 : 0;
+      const bv = (b.verifie_badge === true || String(b.verifie_badge).toUpperCase() === 'TRUE') ? 1 : 0;
       if (bv !== av) return bv - av;
       return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
     });
@@ -2229,7 +2234,7 @@ function listFacturesRemontees(token) {
       r.created_by_name = usersById[r.created_by] ? usersById[r.created_by].full_name : '';
       r.delai_formate   = formatDelai_(r.delai_secondes);
       r.progression     = [r.etape_verification, r.etape_calcul, r.etape_reglement]
-        .filter(function(v) { return String(v) === 'TRUE'; }).length;
+        .filter(function(v) { return v === true || String(v).toUpperCase() === 'TRUE'; }).length;
       return r;
     })
     .sort(sortDescBy_('remonte_at'));
@@ -2313,11 +2318,11 @@ function traiterFacture(token, id, options) {
   const curCalc = opts.etape_calcul       !== undefined ? toBool_(opts.etape_calcul)       : (existing.etape_calcul       || 'FALSE');
   const curRegl = opts.etape_reglement    !== undefined ? toBool_(opts.etape_reglement)    : (existing.etape_reglement    || 'FALSE');
 
-  const veri      = String(curVeri) === 'TRUE';
-  const calc      = String(curCalc) === 'TRUE';
-  const regl      = String(curRegl) === 'TRUE';
+  const veri      = curVeri === true || String(curVeri).toUpperCase() === 'TRUE';
+  const calc      = curCalc === true || String(curCalc).toUpperCase() === 'TRUE';
+  const regl      = curRegl === true || String(curRegl).toUpperCase() === 'TRUE';
   const allDone   = veri && calc && regl;
-  const isVerifie = String(existing.verifie_badge) === 'TRUE';
+  const isVerifie = existing.verifie_badge === true || String(existing.verifie_badge).toUpperCase() === 'TRUE';
   const commentaire = String(opts.commentaire || '').trim();
 
   // Cas 3 : étapes incomplètes, pas encore vérifiée → Remonté

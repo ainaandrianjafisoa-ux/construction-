@@ -3557,10 +3557,20 @@ function saveMagAgrement() {
 
   setBtnLoading(btn, true);
   google.script.run
-    .withSuccessHandler(function() {
+    .withSuccessHandler(function(savedRow) {
       setBtnLoading(btn, false);
       closeModal('modal-agrement');
       toast('Agrément enregistré.', 'success');
+      /* Mise à jour optimiste immédiate de la liste */
+      if (savedRow && savedRow.id) {
+        var idx = -1;
+        for (var k = 0; k < _agrements.length; k++) {
+          if (_agrements[k].id === savedRow.id) { idx = k; break; }
+        }
+        if (idx > -1) _agrements[idx] = savedRow;
+        else _agrements.unshift(savedRow);
+        paintAgrementsTable(_agrements);
+      }
       renderAgrements();
     })
     .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
@@ -3860,7 +3870,7 @@ function paintFacturesTable(rows) {
         '</div>';
 
       var statutCell = statusChip(r.statut);
-      var verifCell  = r.verifie_badge === 'TRUE' || r.verifie_badge === true
+      var verifCell  = r.verifie_badge === true || String(r.verifie_badge).toUpperCase() === 'TRUE'
         ? '<span class="badge-verified">✔ TL</span>'
         : '<span class="t-muted fs-xs">—</span>';
 
@@ -3898,7 +3908,7 @@ function openFactureModal(facId) {
 
     /* Badge vérifié */
     var vStrip = el('mfa-verified-strip');
-    var isVerif = r.verifie_badge === 'TRUE' || r.verifie_badge === true;
+    var isVerif = r.verifie_badge === true || String(r.verifie_badge).toUpperCase() === 'TRUE';
     if (vStrip) {
       vStrip.classList.toggle('hidden', !isVerif);
       var vPar = el('mfa-verifie-par');
@@ -3937,7 +3947,8 @@ function buildFactureSteps(r) {
   if (!stepsEl) return;
   stepsEl.innerHTML = '';
   FACTURE_STEPS.forEach(function(step) {
-    var done = String(r[step.key]) === 'TRUE';
+    var v = r[step.key];
+    var done = v === true || String(v).toUpperCase() === 'TRUE';
     var row  = document.createElement('div');
     row.className = 'step-row' + (done ? ' done' : '');
 
@@ -4483,7 +4494,13 @@ function onGlobalSearchInput() {
   _gsTimer = setTimeout(function() {
     google.script.run
       .withSuccessHandler(paintGlobalSearchResults)
-      .withFailureHandler(function() {})
+      .withFailureHandler(function(e) {
+        var res = el('global-search-results');
+        if (res) {
+          res.innerHTML = '<div style="padding:10px 14px;font-size:.82rem;color:var(--danger);">Erreur : ' + escHtml((e && e.message) || 'Recherche impossible') + '</div>';
+          res.classList.remove('hidden');
+        }
+      })
       .globalSearch(S.token, q, []);
   }, 350);
 }

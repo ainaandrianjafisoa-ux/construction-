@@ -78,7 +78,13 @@ function onGlobalSearchInput() {
   _gsTimer = setTimeout(function() {
     google.script.run
       .withSuccessHandler(paintGlobalSearchResults)
-      .withFailureHandler(function() {})
+      .withFailureHandler(function(e) {
+        var res = el('global-search-results');
+        if (res) {
+          res.innerHTML = '<div style="padding:10px 14px;font-size:.82rem;color:var(--danger);">Erreur : ' + escHtml((e && e.message) || 'Recherche impossible') + '</div>';
+          res.classList.remove('hidden');
+        }
+      })
       .globalSearch(S.token, q, []);
   }, 350);
 }
