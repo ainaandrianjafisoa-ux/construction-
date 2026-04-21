@@ -170,6 +170,98 @@ function saveParametresInline() {
     .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .saveParametres(S.token, payload);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   HISTORIQUE D'ENTITÉ — drawer latéral droite (tous modules)
+═══════════════════════════════════════════════════════════════ */
+
+function openEntityHistory(entityType, entityId, reference) {
+  var drawer  = el('drawer-history');
+  var overlay = el('drawer-history-overlay');
+  if (!drawer || !overlay) return;
+
+  var typeLabel = {
+    AGREMENT:    'Agrément',
+    SINISTRE:    'Sinistre',
+    FACTURE:     'Facture',
+    RESILIATION: 'Résiliation'
+  }[entityType] || entityType;
+
+  el('meh-title').textContent = 'Historique — ' + typeLabel;
+  el('meh-ref').textContent   = reference || entityId || '';
+  el('meh-body').innerHTML    = '<div class="empty">Chargement…</div>';
+
+  overlay.classList.add('open');
+  drawer.classList.add('open');
+  drawer.setAttribute('aria-hidden', 'false');
+
+  google.script.run
+    .withSuccessHandler(paintEntityHistory)
+    .withFailureHandler(function(e) {
+      el('meh-body').innerHTML =
+        '<div class="empty" style="color:var(--danger);">Erreur : ' +
+        escHtml((e && e.message) || 'Chargement impossible.') + '</div>';
+    })
+    .getEntityVersions(S.token, entityType, entityId);
+}
+
+function closeEntityHistory() {
+  var drawer  = el('drawer-history');
+  var overlay = el('drawer-history-overlay');
+  if (drawer)  { drawer.classList.remove('open'); drawer.setAttribute('aria-hidden', 'true'); }
+  if (overlay) overlay.classList.remove('open');
+}
+
+function paintEntityHistory(rows) {
+  var body = el('meh-body');
+  if (!body) return;
+  rows = rows || [];
+
+  if (!rows.length) {
+    body.innerHTML = '<div class="empty">Aucune version enregistrée.</div>';
+    return;
+  }
+
+  var actionLabels = {
+    CREATE:       'Création',
+    UPDATE:       'Mise à jour',
+    TRAITE:       'Traité',
+    VERIFIE:      'Vérifié par TL',
+    REMONTE:      'Remonté',
+    SOUMIS:       'Soumis'
+  };
+  var actionClass = {
+    CREATE:  'ver-create',
+    TRAITE:  'ver-traite',
+    VERIFIE: 'ver-traite',
+    SOUMIS:  'ver-traite'
+  };
+
+  body.innerHTML = rows.map(function(v) {
+    var cls   = actionClass[v.action_type] || '';
+    var label = actionLabels[v.action_type] || v.action_type || 'Mise à jour';
+    var when  = fmtDateTime(v.created_at);
+    var who   = v.user_name || v.user_id || '—';
+    return '<div class="ver-item ' + cls + '">' +
+      '<div class="ver-head">' +
+        '<span class="ver-action">' + escHtml(label) + '</span>' +
+        '<span class="ver-num">v' + escHtml(String(v.version_num || '—')) + '</span>' +
+      '</div>' +
+      '<div class="ver-meta">' + escHtml(who) + ' · ' + escHtml(when) + '</div>' +
+      (v.commentaire
+        ? '<div class="ver-comment">' + escHtml(v.commentaire) + '</div>'
+        : '') +
+    '</div>';
+  }).join('');
+}
+
+/* Fermeture au ESC */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var d = el('drawer-history');
+    if (d && d.classList.contains('open')) closeEntityHistory();
+  }
+});
 </script>
 </body>
 </html>

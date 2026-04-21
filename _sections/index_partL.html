@@ -64,7 +64,10 @@ function paintResiliationsTable(rows) {
         '<td>' + statusChip(r.statut) + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.delai_formate || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.created_by_name || '—') + '</td>' +
-        '<td><button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openResiliationModal(\'' + r.id + '\')">✎</button></td>' +
+        '<td><div style="display:flex;gap:4px;">' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openResiliationModal(\'' + r.id + '\')">✎</button>' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'RESILIATION\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
+        '</div></td>' +
         '</tr>';
     }
   );

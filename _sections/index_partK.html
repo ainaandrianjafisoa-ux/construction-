@@ -78,7 +78,10 @@ function paintFacturesTable(rows) {
         '<td>' + statutCell + '</td>' +
         '<td>' + verifCell + '</td>' +
         '<td class="fs-sm t-muted">' + fmtDate(r.updated_at) + '</td>' +
-        '<td><button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openFactureModal(\'' + r.id + '\')">✎</button></td>' +
+        '<td><div style="display:flex;gap:4px;">' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openFactureModal(\'' + r.id + '\')">✎</button>' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'FACTURE\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
+        '</div></td>' +
         '</tr>';
     }
   );
@@ -272,7 +275,10 @@ function paintFacturesRemontees(rows) {
         '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.created_by_name || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + fmtDateTime(r.remonte_at || r.updated_at) + '</td>' +
-        '<td><button class="verifier-btn fs-xs" style="min-height:32px;padding:0 12px;" onclick="openVerifModal(\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\',\'' + escHtml(r.created_by_name||'') + '\')">✦ Vérifier</button></td>' +
+        '<td><div style="display:flex;gap:4px;">' +
+          '<button class="verifier-btn fs-xs" style="min-height:32px;padding:0 12px;" onclick="openVerifModal(\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\',\'' + escHtml(r.created_by_name||'') + '\')">✦ Vérifier</button>' +
+          '<button class="b3 fs-xs" style="min-height:32px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'FACTURE\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
+        '</div></td>' +
         '</tr>';
     }
   );

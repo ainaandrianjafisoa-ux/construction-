@@ -61,7 +61,10 @@ function paintSinistresTable(rows) {
         '<td>' + statusChip(r.statut) + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.delai_formate || '—') + '</td>' +
         '<td class="fs-sm t-muted">' + fmtDate(r.updated_at) + '</td>' +
-        '<td><button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openSinistreModal(\'' + r.id + '\')">✎</button></td>' +
+        '<td><div style="display:flex;gap:4px;">' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openSinistreModal(\'' + r.id + '\')">✎</button>' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'SINISTRE\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
+        '</div></td>' +
         '</tr>';
     }
   );

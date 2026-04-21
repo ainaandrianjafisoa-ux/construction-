@@ -554,21 +554,20 @@
   </div>
 </div>
 
-<!-- ── Modal Historique d'entité ── -->
-<div id="modal-entity-history" class="overlay hidden" onclick="if(event.target===this)closeModal('modal-entity-history')">
-  <div class="modal modal-wide">
-    <div class="modal-head">
-      <div>
-        <h2>Historique des versions</h2>
-        <div class="sub" id="meh-ref"></div>
-      </div>
-      <button class="modal-close" onclick="closeModal('modal-entity-history')">✕</button>
+<!-- ── Drawer latéral : Historique d'entité ── -->
+<div id="drawer-history-overlay" class="drawer-overlay" onclick="closeEntityHistory()"></div>
+<aside id="drawer-history" class="side-drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <h3 id="meh-title">Historique</h3>
+      <div class="sub" id="meh-ref"></div>
     </div>
-    <div class="modal-scroll" id="meh-body" style="max-height:calc(100vh - 200px);overflow-y:auto;padding:20px 24px;">
-      <div class="empty">Chargement…</div>
-    </div>
+    <button class="modal-close" onclick="closeEntityHistory()" title="Fermer">✕</button>
   </div>
-</div>
+  <div class="drawer-body" id="meh-body">
+    <div class="empty">Chargement…</div>
+  </div>
+</aside>
 
 <!-- ── Toasts ── -->
 <div class="toasts" id="toasts"></div>
