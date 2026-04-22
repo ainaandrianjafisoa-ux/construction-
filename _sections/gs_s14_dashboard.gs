@@ -205,46 +205,79 @@ function buildDossiersEnAlerte_(session) {
 
 function getDashboardData(token) {
   const session        = requireSession_(token);
+  const allUsers       = readTable_('USERS');
+  const allTeams       = readTable_('TEAMS');
   const presence       = getPresenceSummary(token, todayKey_());
   const ambassPresence = presence.rows.filter(function(r) { return r.role === ROLES.AMBASSADOR; });
   const moduleStats    = buildModuleStats_(session);
-  const treatEvents    = buildTreatmentEvents_(session);
-  const trend30j       = buildTrend30j_(treatEvents);
+  const allEvents      = buildTreatmentEvents_(session); // already all rows (scope funcs return all)
   const solvStats      = buildSolvabiliteStats_(session);
   const dossiersAlerte = buildDossiersEnAlerte_(session);
   const delaiMoyen     = buildDelaiMoyen_(session);
 
+  // Scope events by role
+  var treatEvents;
+  if (session.role === ROLES.AMBASSADOR) {
+    treatEvents = allEvents.filter(function(e) { return e.agent_id === session.user.id; });
+  } else if (session.role === ROLES.TEAM_LEADER) {
+    const myTeamUserIds = allUsers
+      .filter(function(u) { return u.team_id === session.user.team_id; })
+      .map(function(u) { return u.id; });
+    treatEvents = allEvents.filter(function(e) { return myTeamUserIds.indexOf(e.agent_id) > -1; });
+  } else {
+    treatEvents = allEvents; // admin : tous
+  }
+
+  const trend30j = buildTrend30j_(treatEvents);
+
+  // Listes pour les filtres du tableau de bord (admin/TL seulement)
+  var filterTeams = [];
+  var filterAmbassadors = [];
+  if (session.role === ROLES.SUPER_ADMIN) {
+    filterTeams       = allTeams.map(function(t) { return { id: t.id, name: t.name }; });
+    filterAmbassadors = allUsers
+      .filter(function(u) { return u.role === ROLES.AMBASSADOR; })
+      .map(function(u) { return { id: u.id, name: u.full_name, team_id: u.team_id }; });
+  } else if (session.role === ROLES.TEAM_LEADER) {
+    filterAmbassadors = allUsers
+      .filter(function(u) { return u.role === ROLES.AMBASSADOR && u.team_id === session.user.team_id; })
+      .map(function(u) { return { id: u.id, name: u.full_name, team_id: u.team_id }; });
+  }
+
   const base = {
+    role:            session.role,
     trend30j:        trend30j,
     treatmentEvents: treatEvents,
     solvabilite:     solvStats,
     dossiersAlerte:  dossiersAlerte,
     delaiMoyen:      delaiMoyen,
     moduleStats:     moduleStats,
+    filterTeams:     filterTeams,
+    filterAmbassadors: filterAmbassadors,
     ambassadorPresence: ambassPresence,
     presenceSummary: {
       total_users:          presence.total_users,
       online_now:           presence.online_now,
+      total_connections:    presence.total_connections,
       total_online_seconds: presence.total_online_seconds
     }
   };
 
   if (session.role === ROLES.SUPER_ADMIN) {
-    const users    = readTable_('USERS');
     const agrements = readTable_('AGREMENTS');
-    const taux     = agrements.filter(function(d) { return d.statut === 'Validé'; }).length;
+    const taux      = agrements.filter(function(d) { return d.statut === 'Validé'; }).length;
 
     return Object.assign(base, {
-      scopeLabel:      'Vision globale',
+      scopeLabel: 'Vision globale',
       kpis: [
-        { label: 'Utilisateurs actifs',   value: users.filter(function(u) { return u.status === 'Actif'; }).length,     tone: 'primary' },
-        { label: 'Agréments en cours',    value: agrements.filter(function(d) { return d.statut !== 'Clos'; }).length,  tone: 'warning' },
-        { label: 'Agréments validés',     value: taux,                                                                   tone: 'success' },
-        { label: 'Factures remontées',    value: moduleStats.facture.remontees,                                          tone: 'danger'  },
-        { label: 'Dossiers en alerte',    value: dossiersAlerte,                                                         tone: dossiersAlerte > 0 ? 'danger' : 'success' },
-        { label: 'Délai moy. facture',    value: delaiMoyen > 0 ? formatDelai_(delaiMoyen) : '—',                       tone: 'neutral' },
-        { label: 'Solvabilité',           value: solvStats.total > 0 ? Math.round(solvStats.solvable / solvStats.total * 100) + ' %' : '—', tone: 'primary' },
-        { label: 'Connexions du jour',    value: presence.total_connections,                                             tone: 'primary' }
+        { label: 'Utilisateurs actifs', value: allUsers.filter(function(u) { return u.status === 'Actif'; }).length, tone: 'primary' },
+        { label: 'Agréments en cours',  value: agrements.filter(function(d) { return d.statut !== 'Clos'; }).length, tone: 'warning' },
+        { label: 'Agréments validés',   value: taux,                                                                  tone: 'success' },
+        { label: 'Factures remontées',  value: moduleStats.facture.remontees,                                         tone: 'danger'  },
+        { label: 'Dossiers en alerte',  value: dossiersAlerte, tone: dossiersAlerte > 0 ? 'danger' : 'success'               },
+        { label: 'Délai moy. facture',  value: delaiMoyen > 0 ? formatDelai_(delaiMoyen) : '—',                      tone: 'neutral' },
+        { label: 'Solvabilité',         value: solvStats.total > 0 ? Math.round(solvStats.solvable / solvStats.total * 100) + ' %' : '—', tone: 'primary' },
+        { label: 'Connexions du jour',  value: presence.total_connections,                                            tone: 'primary' }
       ],
       statusBreakdown: buildStatusBreakdown_(agrements, 'statut'),
       performance:     buildTeamPerformance_()
@@ -252,41 +285,40 @@ function getDashboardData(token) {
   }
 
   if (session.role === ROLES.TEAM_LEADER) {
-    const users     = scopeUsers_(session, readTable_('USERS'));
-    const agrements  = scopeAgrements_(session, readTable_('AGREMENTS'));
+    const myUsers    = allUsers.filter(function(u) { return u.team_id === session.user.team_id; });
+    const agrements  = readTable_('AGREMENTS').filter(function(d) { return d.equipe_id === session.user.team_id; });
 
     return Object.assign(base, {
-      scopeLabel:      'Mon équipe',
+      scopeLabel: 'Mon équipe',
       kpis: [
-        { label: 'Ambassadeurs actifs', value: users.filter(function(u) { return u.role === ROLES.AMBASSADOR && u.status === 'Actif'; }).length, tone: 'primary' },
-        { label: 'Agréments ouverts',   value: agrements.filter(function(d) { return d.statut !== 'Clos'; }).length,                             tone: 'warning' },
-        { label: 'Validés',             value: agrements.filter(function(d) { return d.statut === 'Validé'; }).length,                           tone: 'success' },
-        { label: 'Factures remontées',  value: moduleStats.facture.remontees,                                                                    tone: 'danger'  },
-        { label: 'Dossiers en alerte',  value: dossiersAlerte,                                                                                   tone: dossiersAlerte > 0 ? 'danger' : 'success' },
-        { label: 'Délai moy. facture',  value: delaiMoyen > 0 ? formatDelai_(delaiMoyen) : '—',                                                 tone: 'neutral' },
-        { label: 'Connexions du jour',  value: presence.total_connections,                                                                       tone: 'primary' }
+        { label: 'Ambassadeurs actifs', value: myUsers.filter(function(u) { return u.role === ROLES.AMBASSADOR && u.status === 'Actif'; }).length, tone: 'primary' },
+        { label: 'Agréments ouverts',   value: agrements.filter(function(d) { return d.statut !== 'Clos'; }).length,   tone: 'warning' },
+        { label: 'Validés',             value: agrements.filter(function(d) { return d.statut === 'Validé'; }).length,  tone: 'success' },
+        { label: 'Factures remontées',  value: moduleStats.facture.remontees,                                           tone: 'danger'  },
+        { label: 'Dossiers en alerte',  value: dossiersAlerte, tone: dossiersAlerte > 0 ? 'danger' : 'success'                 },
+        { label: 'Délai moy. facture',  value: delaiMoyen > 0 ? formatDelai_(delaiMoyen) : '—',                        tone: 'neutral' },
+        { label: 'Connexions du jour',  value: presence.total_connections,                                              tone: 'primary' }
       ],
       statusBreakdown: buildStatusBreakdown_(agrements, 'statut'),
       performance:     buildAmbassadorPerformance_(session)
     });
   }
 
-  // Ambassador
-  const agrements = scopeAgrements_(session, readTable_('AGREMENTS'));
-  const myEvents  = treatEvents.filter(function(e) { return e.agent_id === session.user.id; });
-  const now30d    = new Date(new Date().getTime() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const traites30 = myEvents.filter(function(e) { return e.date >= now30d; }).length;
+  // Ambassador — uniquement ses propres données
+  const myAgrements = readTable_('AGREMENTS').filter(function(d) { return d.ambassadeur_assigne === session.user.id; });
+  const now30d      = new Date(new Date().getTime() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const traites30   = treatEvents.filter(function(e) { return e.date >= now30d; }).length;
 
   return Object.assign(base, {
-    scopeLabel:      'Mon activité',
+    scopeLabel: 'Mon activité',
     kpis: [
-      { label: 'Agréments ouverts',   value: agrements.filter(function(d) { return d.statut !== 'Clos'; }).length,                   tone: 'primary' },
-      { label: 'Validés',             value: agrements.filter(function(d) { return d.statut === 'Validé'; }).length,                  tone: 'success' },
-      { label: 'Dossiers en alerte',  value: dossiersAlerte,                                                                          tone: dossiersAlerte > 0 ? 'danger' : 'success' },
-      { label: 'Traitements 30j',     value: traites30,                                                                               tone: 'primary' },
-      { label: 'Délai moy. facture',  value: delaiMoyen > 0 ? formatDelai_(delaiMoyen) : '—',                                        tone: 'neutral' }
+      { label: 'Mes agréments ouverts', value: myAgrements.filter(function(d) { return d.statut !== 'Clos'; }).length,   tone: 'primary' },
+      { label: 'Validés',               value: myAgrements.filter(function(d) { return d.statut === 'Validé'; }).length,  tone: 'success' },
+      { label: 'Dossiers en alerte',    value: dossiersAlerte, tone: dossiersAlerte > 0 ? 'danger' : 'success'                    },
+      { label: 'Mes traitements 30j',   value: traites30,                                                                  tone: 'primary' },
+      { label: 'Délai moy. facture',    value: delaiMoyen > 0 ? formatDelai_(delaiMoyen) : '—',                           tone: 'neutral' }
     ],
-    statusBreakdown: buildStatusBreakdown_(agrements, 'statut'),
+    statusBreakdown: buildStatusBreakdown_(myAgrements, 'statut'),
     performance:     []
   });
 }

@@ -387,6 +387,7 @@ function saveAgrement(token, payload) {
   }
 
   // ── Statut / motif ─────────────────────────────────────────
+  const solv            = data.solvabilite || null;
   const statut          = String(data.statut || (existing && existing.statut) || 'Initié').trim();
   const motifValidation = statut === 'Validé'
     ? String(
@@ -397,8 +398,6 @@ function saveAgrement(token, payload) {
         ''
       ).trim()
     : '';
-
-  const solv    = data.solvabilite || null;
   const now     = nowIso_();
 
   const row = Object.assign({}, existing || {}, {

@@ -276,11 +276,10 @@ function saveMagAgrement() {
     profils_json:        JSON.stringify(_magProfils),
     commentaire_mise_a_jour: el('mag-commentaire').value.trim()
   };
-  if (perms.canValidateAgrement) {
-    payload.statut_fin_traitement = el('mag-statut-fin').value;
-    payload.statut                = el('mag-statut').value;
-    payload.motif_validation      = el('mag-motif-validation') ? el('mag-motif-validation').value : '';
-  }
+  /* Statut toujours inclus (champ visible pour tous les rôles) */
+  payload.statut_fin_traitement = el('mag-statut-fin') ? el('mag-statut-fin').value : '';
+  payload.statut                = el('mag-statut')     ? el('mag-statut').value     : '';
+  payload.motif_validation      = el('mag-motif-validation') ? el('mag-motif-validation').value : '';
 
   /* Effacer le message d'erreur précédent */
   var errEl = el('mag-save-error');
