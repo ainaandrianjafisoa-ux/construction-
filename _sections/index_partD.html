@@ -95,14 +95,19 @@
         <p class="sub" id="top-sub" style="margin:0;font-size:.8rem;"></p>
       </div>
       <!-- Global search bar -->
-      <div style="flex:1;max-width:360px;margin:0 12px;position:relative;" id="global-search-wrap">
-        <input type="text" id="global-search-input" placeholder="Rechercher dans tous les modules…"
-          style="width:100%;min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 36px 6px 12px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast);"
-          onfocus="this.style.borderColor='rgba(201,168,76,.55)';this.style.boxShadow='0 0 0 3px var(--gold-subtle)'"
-          onblur="this.style.borderColor='';this.style.boxShadow=''"
-          oninput="onGlobalSearchInput()"
-          autocomplete="off">
-        <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.8rem;pointer-events:none;">⌕</span>
+      <div style="flex:1;max-width:420px;margin:0 12px;position:relative;" id="global-search-wrap">
+        <div style="display:flex;gap:0;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--glass);overflow:hidden;transition:border-color var(--t-fast),box-shadow var(--t-fast);" id="global-search-box"
+          onfocusin="this.style.borderColor='rgba(201,168,76,.55)';this.style.boxShadow='0 0 0 3px var(--gold-subtle)'"
+          onfocusout="this.style.borderColor='';this.style.boxShadow=''">
+          <input type="text" id="global-search-input" placeholder="Rechercher…"
+            style="flex:1;min-height:36px;border:none;padding:6px 12px;font:inherit;font-size:.86rem;background:transparent;color:var(--text);outline:none;"
+            oninput="onGlobalSearchInput()"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();triggerGlobalSearch();}"
+            autocomplete="off">
+          <button onclick="triggerGlobalSearch()"
+            style="padding:0 14px;background:var(--gold);color:#000;border:none;cursor:pointer;font-size:.82rem;font-weight:700;white-space:nowrap;transition:opacity var(--t-fast);"
+            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Rechercher</button>
+        </div>
         <!-- Search results dropdown -->
         <div id="global-search-results" class="hidden"
           style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:90;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow-md);backdrop-filter:var(--blur);max-height:340px;overflow-y:auto;"></div>

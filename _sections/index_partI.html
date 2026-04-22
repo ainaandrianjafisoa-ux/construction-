@@ -74,11 +74,9 @@ function filterAgrements() {
 }
 
 function paintAgrementsTable(rows) {
-  var wrap = el('ag-table-wrap');
+  var wrap  = el('ag-table-wrap');
   if (!wrap) return;
-  var perms     = S.permissions || {};
-  var myId      = S.session && S.session.user ? S.session.user.id : '';
-  var myRole    = S.session && S.session.user ? S.session.user.role : '';
+  var perms = S.permissions || {};
 
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucun agrément.</div>'; return; }
 
@@ -96,11 +94,7 @@ function paintAgrementsTable(rows) {
         solvChip += ' <span class="chip cw" title="Dérogation">⚑</span>';
       }
 
-      var canEdit = myRole === 'super_admin' || myRole === 'team_leader' ||
-                    r.ambassadeur_assigne === myId || r.created_by === myId;
-      var actions = canEdit
-        ? '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openAgrementModal(\'' + r.id + '\')">✎</button>'
-        : '';
+      var actions = '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openAgrementModal(\'' + r.id + '\')">✎</button>';
       if (perms.canReassigner) {
         actions += ' <button class="b2 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openReassignModal(\'' + r.id + '\')">↻</button>';
       }

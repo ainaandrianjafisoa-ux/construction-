@@ -33,8 +33,6 @@ function listFactures(token, filters) {
 /** Liste uniquement les dossiers en statut "Remonté" (pour Team Leaders / Admin) */
 function listFacturesRemontees(token) {
   const session   = requireSession_(token);
-  if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
-
   const usersById = indexBy_(readTable_('USERS'), 'id');
 
   return scopeFactures_(session, readTable_('FACTURES'))
@@ -54,10 +52,6 @@ function saveFacture(token, payload) {
   const data     = payload || {};
   const rows     = readTable_('FACTURES');
   const existing = data.id ? rows.find(function(r) { return r.id === data.id; }) : null;
-
-  if (existing && !scopeFactures_(session, [existing]).length) {
-    throw new Error('Accès refusé à cette facture.');
-  }
 
   const noSinistre = String(data.no_sinistre || (existing && existing.no_sinistre) || '').trim();
   if (!noSinistre) throw new Error('Le N° de sinistre est obligatoire.');
@@ -117,9 +111,8 @@ function traiterFacture(token, id, options) {
   const existing = rows.find(function(r) { return r.id === id; });
   const opts     = options || {};
 
-  if (!existing)                                    throw new Error('Facture introuvable.');
-  if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
-  if (existing.statut === 'Traité')                 throw new Error('Cette facture est déjà traitée.');
+  if (!existing)                    throw new Error('Facture introuvable.');
+  if (existing.statut === 'Traité') throw new Error('Cette facture est déjà traitée.');
 
   // Utiliser les étapes depuis opts si fournies (clic direct sur Traiter),
   // sinon fallback sur les valeurs enregistrées dans le sheet.
@@ -200,16 +193,11 @@ function traiterFacture(token, id, options) {
 function verifierFacture(token, id) {
   const session  = requireSession_(token);
 
-  if (session.role === ROLES.AMBASSADOR) {
-    throw new Error('Seuls les Team Leaders et Admins peuvent vérifier les factures.');
-  }
-
   const rows     = readTable_('FACTURES');
   const existing = rows.find(function(r) { return r.id === id; });
 
-  if (!existing)                                    throw new Error('Facture introuvable.');
-  if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
-  if (existing.statut !== 'Remonté')                throw new Error('Cette facture n\'est pas en statut "Remonté".');
+  if (!existing)                     throw new Error('Facture introuvable.');
+  if (existing.statut !== 'Remonté') throw new Error('Cette facture n\'est pas en statut "Remonté".');
 
   const now = nowIso_();
   const row = Object.assign({}, existing, {

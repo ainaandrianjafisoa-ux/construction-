@@ -26,10 +26,6 @@ function saveResiliation(token, payload) {
   const rows     = readTable_('RESILIATIONS');
   const existing = data.id ? rows.find(function(r) { return r.id === data.id; }) : null;
 
-  if (existing && !scopeResiliations_(session, [existing]).length) {
-    throw new Error('Accès refusé à cette résiliation.');
-  }
-
   const noContrat = String(data.no_contrat || (existing && existing.no_contrat) || '').trim();
   if (!noContrat) throw new Error('Le N° de contrat est obligatoire.');
 
@@ -70,8 +66,7 @@ function soumettreResiliation(token, id, payload) {
   const rows     = readTable_('RESILIATIONS');
   const existing = rows.find(function(r) { return r.id === id; });
 
-  if (!existing)                                        throw new Error('Résiliation introuvable.');
-  if (!scopeResiliations_(session, [existing]).length)  throw new Error('Accès refusé.');
+  if (!existing) throw new Error('Résiliation introuvable.');
 
   const data        = payload || {};
   const completude  = String(data.completude  || existing.completude  || '').trim();

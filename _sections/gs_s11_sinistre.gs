@@ -29,10 +29,6 @@ function saveSinistre(token, payload) {
   const rows     = readTable_('SINISTRES');
   const existing = data.id ? rows.find(function(r) { return r.id === data.id; }) : null;
 
-  if (existing && !scopeSinistres_(session, [existing]).length) {
-    throw new Error('Accès refusé à ce sinistre.');
-  }
-
   const wasTraite = existing && existing.statut === 'Traité';
 
   // Règle : mise à jour d'un dossier traité → commentaire obligatoire
@@ -123,8 +119,7 @@ function traiterSinistre(token, id) {
   const rows     = readTable_('SINISTRES');
   const existing = rows.find(function(r) { return r.id === id; });
 
-  if (!existing)                                    throw new Error('Sinistre introuvable.');
-  if (!scopeSinistres_(session, [existing]).length) throw new Error('Accès refusé.');
+  if (!existing) throw new Error('Sinistre introuvable.');
   if (existing.statut === 'Traité')                 throw new Error('Ce sinistre est déjà traité. Faites une mise à jour avant de re-traiter.');
 
   const now       = nowIso_();

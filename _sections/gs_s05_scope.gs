@@ -21,43 +21,19 @@ function visibleUserIds_(session) {
   return scopeUsers_(session, readTable_('USERS')).map(function(u) { return u.id; });
 }
 
-// Agrément — v4 : l'ambassadeur voit ses dossiers assignés OU créés par lui
+// Agrément — tous les utilisateurs voient tous les dossiers
 function scopeAgrements_(session, rows) {
-  if (session.role === ROLES.SUPER_ADMIN) return rows;
-  if (session.role === ROLES.TEAM_LEADER) {
-    return rows.filter(function(r) {
-      return String(r.equipe_id || '') === String(session.user.team_id || '');
-    });
-  }
-  return rows.filter(function(r) {
-    return String(r.ambassadeur_assigne || '') === String(session.user.id || '') ||
-           String(r.created_by         || '') === String(session.user.id || '');
-  });
+  return rows;
 }
 
 function scopeSinistres_(session, rows) {
-  if (session.role === ROLES.SUPER_ADMIN) return rows;
-  if (session.role === ROLES.TEAM_LEADER) {
-    const ids = visibleUserIds_(session);
-    return rows.filter(function(r) { return ids.indexOf(r.created_by) > -1; });
-  }
-  return rows.filter(function(r) { return r.created_by === session.user.id; });
+  return rows;
 }
 
 function scopeFactures_(session, rows) {
-  if (session.role === ROLES.SUPER_ADMIN) return rows;
-  if (session.role === ROLES.TEAM_LEADER) {
-    const ids = visibleUserIds_(session);
-    return rows.filter(function(r) { return ids.indexOf(r.created_by) > -1; });
-  }
-  return rows.filter(function(r) { return r.created_by === session.user.id; });
+  return rows;
 }
 
 function scopeResiliations_(session, rows) {
-  if (session.role === ROLES.SUPER_ADMIN) return rows;
-  if (session.role === ROLES.TEAM_LEADER) {
-    const ids = visibleUserIds_(session);
-    return rows.filter(function(r) { return ids.indexOf(r.created_by) > -1; });
-  }
-  return rows.filter(function(r) { return r.created_by === session.user.id; });
+  return rows;
 }

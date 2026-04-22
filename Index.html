@@ -1318,14 +1318,19 @@ button { overflow: hidden; }
         <p class="sub" id="top-sub" style="margin:0;font-size:.8rem;"></p>
       </div>
       <!-- Global search bar -->
-      <div style="flex:1;max-width:360px;margin:0 12px;position:relative;" id="global-search-wrap">
-        <input type="text" id="global-search-input" placeholder="Rechercher dans tous les modules…"
-          style="width:100%;min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 36px 6px 12px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;transition:border-color var(--t-fast),box-shadow var(--t-fast);"
-          onfocus="this.style.borderColor='rgba(201,168,76,.55)';this.style.boxShadow='0 0 0 3px var(--gold-subtle)'"
-          onblur="this.style.borderColor='';this.style.boxShadow=''"
-          oninput="onGlobalSearchInput()"
-          autocomplete="off">
-        <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.8rem;pointer-events:none;">⌕</span>
+      <div style="flex:1;max-width:420px;margin:0 12px;position:relative;" id="global-search-wrap">
+        <div style="display:flex;gap:0;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--glass);overflow:hidden;transition:border-color var(--t-fast),box-shadow var(--t-fast);" id="global-search-box"
+          onfocusin="this.style.borderColor='rgba(201,168,76,.55)';this.style.boxShadow='0 0 0 3px var(--gold-subtle)'"
+          onfocusout="this.style.borderColor='';this.style.boxShadow=''">
+          <input type="text" id="global-search-input" placeholder="Rechercher…"
+            style="flex:1;min-height:36px;border:none;padding:6px 12px;font:inherit;font-size:.86rem;background:transparent;color:var(--text);outline:none;"
+            oninput="onGlobalSearchInput()"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();triggerGlobalSearch();}"
+            autocomplete="off">
+          <button onclick="triggerGlobalSearch()"
+            style="padding:0 14px;background:var(--gold);color:#000;border:none;cursor:pointer;font-size:.82rem;font-weight:700;white-space:nowrap;transition:opacity var(--t-fast);"
+            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Rechercher</button>
+        </div>
         <!-- Search results dropdown -->
         <div id="global-search-results" class="hidden"
           style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:90;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow-md);backdrop-filter:var(--blur);max-height:340px;overflow-y:auto;"></div>
@@ -3306,11 +3311,9 @@ function filterAgrements() {
 }
 
 function paintAgrementsTable(rows) {
-  var wrap = el('ag-table-wrap');
+  var wrap  = el('ag-table-wrap');
   if (!wrap) return;
-  var perms     = S.permissions || {};
-  var myId      = S.session && S.session.user ? S.session.user.id : '';
-  var myRole    = S.session && S.session.user ? S.session.user.role : '';
+  var perms = S.permissions || {};
 
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucun agrément.</div>'; return; }
 
@@ -3328,11 +3331,7 @@ function paintAgrementsTable(rows) {
         solvChip += ' <span class="chip cw" title="Dérogation">⚑</span>';
       }
 
-      var canEdit = myRole === 'super_admin' || myRole === 'team_leader' ||
-                    r.ambassadeur_assigne === myId || r.created_by === myId;
-      var actions = canEdit
-        ? '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openAgrementModal(\'' + r.id + '\')">✎</button>'
-        : '';
+      var actions = '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openAgrementModal(\'' + r.id + '\')">✎</button>';
       if (perms.canReassigner) {
         actions += ' <button class="b2 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openReassignModal(\'' + r.id + '\')">↻</button>';
       }
@@ -4688,6 +4687,33 @@ function paintHistorique(rows) {
 
 /* ═══ RECHERCHE GLOBALE ══════════════════════════════════════ */
 var _gsTimer = null;
+
+/* Recherche immédiate (bouton / Enter) */
+function triggerGlobalSearch() {
+  var input   = el('global-search-input');
+  var results = el('global-search-results');
+  if (!input) return;
+  var q = input.value.trim();
+  clearTimeout(_gsTimer);
+  if (q.length < 1) {
+    if (results) { results.innerHTML = ''; results.classList.add('hidden'); }
+    return;
+  }
+  if (results) {
+    results.innerHTML = '<div style="padding:10px 14px;font-size:.82rem;color:var(--text-soft);">Recherche en cours…</div>';
+    results.classList.remove('hidden');
+  }
+  google.script.run
+    .withSuccessHandler(paintGlobalSearchResults)
+    .withFailureHandler(function(e) {
+      var res = el('global-search-results');
+      if (res) {
+        res.innerHTML = '<div style="padding:10px 14px;font-size:.82rem;color:var(--danger);">Erreur : ' + escHtml((e && e.message) || 'Recherche impossible') + '</div>';
+        res.classList.remove('hidden');
+      }
+    })
+    .globalSearch(S.token, q, []);
+}
 
 var _GS_MODULES = {
   agrement:    { label: 'Agrément',    view: 'agrements'    },

@@ -56,6 +56,33 @@ function paintHistorique(rows) {
 /* ═══ RECHERCHE GLOBALE ══════════════════════════════════════ */
 var _gsTimer = null;
 
+/* Recherche immédiate (bouton / Enter) */
+function triggerGlobalSearch() {
+  var input   = el('global-search-input');
+  var results = el('global-search-results');
+  if (!input) return;
+  var q = input.value.trim();
+  clearTimeout(_gsTimer);
+  if (q.length < 1) {
+    if (results) { results.innerHTML = ''; results.classList.add('hidden'); }
+    return;
+  }
+  if (results) {
+    results.innerHTML = '<div style="padding:10px 14px;font-size:.82rem;color:var(--text-soft);">Recherche en cours…</div>';
+    results.classList.remove('hidden');
+  }
+  google.script.run
+    .withSuccessHandler(paintGlobalSearchResults)
+    .withFailureHandler(function(e) {
+      var res = el('global-search-results');
+      if (res) {
+        res.innerHTML = '<div style="padding:10px 14px;font-size:.82rem;color:var(--danger);">Erreur : ' + escHtml((e && e.message) || 'Recherche impossible') + '</div>';
+        res.classList.remove('hidden');
+      }
+    })
+    .globalSearch(S.token, q, []);
+}
+
 var _GS_MODULES = {
   agrement:    { label: 'Agrément',    view: 'agrements'    },
   sinistre:    { label: 'Sinistre',    view: 'sinistres'    },

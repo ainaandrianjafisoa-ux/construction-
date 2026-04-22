@@ -700,45 +700,21 @@ function visibleUserIds_(session) {
   return scopeUsers_(session, readTable_('USERS')).map(function(u) { return u.id; });
 }
 
-// Agrément — v4 : l'ambassadeur voit ses dossiers assignés OU créés par lui
+// Agrément — tous les utilisateurs voient tous les dossiers
 function scopeAgrements_(session, rows) {
-  if (session.role === ROLES.SUPER_ADMIN) return rows;
-  if (session.role === ROLES.TEAM_LEADER) {
-    return rows.filter(function(r) {
-      return String(r.equipe_id || '') === String(session.user.team_id || '');
-    });
-  }
-  return rows.filter(function(r) {
-    return String(r.ambassadeur_assigne || '') === String(session.user.id || '') ||
-           String(r.created_by         || '') === String(session.user.id || '');
-  });
+  return rows;
 }
 
 function scopeSinistres_(session, rows) {
-  if (session.role === ROLES.SUPER_ADMIN) return rows;
-  if (session.role === ROLES.TEAM_LEADER) {
-    const ids = visibleUserIds_(session);
-    return rows.filter(function(r) { return ids.indexOf(r.created_by) > -1; });
-  }
-  return rows.filter(function(r) { return r.created_by === session.user.id; });
+  return rows;
 }
 
 function scopeFactures_(session, rows) {
-  if (session.role === ROLES.SUPER_ADMIN) return rows;
-  if (session.role === ROLES.TEAM_LEADER) {
-    const ids = visibleUserIds_(session);
-    return rows.filter(function(r) { return ids.indexOf(r.created_by) > -1; });
-  }
-  return rows.filter(function(r) { return r.created_by === session.user.id; });
+  return rows;
 }
 
 function scopeResiliations_(session, rows) {
-  if (session.role === ROLES.SUPER_ADMIN) return rows;
-  if (session.role === ROLES.TEAM_LEADER) {
-    const ids = visibleUserIds_(session);
-    return rows.filter(function(r) { return ids.indexOf(r.created_by) > -1; });
-  }
-  return rows.filter(function(r) { return r.created_by === session.user.id; });
+  return rows;
 }
 // ============================================================
 // SECTION 6 — PRÉSENCE (POINTAGE)
@@ -1760,10 +1736,6 @@ function saveAgrement(token, payload) {
   const rows     = readTable_('AGREMENTS');
   const existing = data.id ? rows.find(function(r) { return r.id === data.id; }) : null;
 
-  if (existing && !scopeAgrements_(session, [existing]).length) {
-    throw new Error('Accès refusé à cet agrément.');
-  }
-
   const users = readTable_('USERS');
 
   // ── Assignation ambassadeur ────────────────────────────────
@@ -1914,8 +1886,7 @@ function traiterAgrement(token, id, commentaire) {
   const rows     = readTable_('AGREMENTS');
   const existing = rows.find(function(r) { return r.id === id; });
 
-  if (!existing)                                    throw new Error('Agrément introuvable.');
-  if (!scopeAgrements_(session, [existing]).length) throw new Error('Accès refusé.');
+  if (!existing) throw new Error('Agrément introuvable.');
 
   const now = nowIso_();
   const row = Object.assign({}, existing, {
@@ -1946,8 +1917,7 @@ function overrideSolvabilite(token, agrementId, newResultat, commentaire) {
   const rows     = readTable_('AGREMENTS');
   const existing = rows.find(function(r) { return r.id === agrementId; });
 
-  if (!existing)                                    throw new Error('Agrément introuvable.');
-  if (!scopeAgrements_(session, [existing]).length) throw new Error('Accès refusé.');
+  if (!existing) throw new Error('Agrément introuvable.');
 
   const valid = ['Solvable', 'Non solvable'];
   if (!valid.includes(newResultat))            throw new Error('Résultat de solvabilité invalide.');
@@ -1994,8 +1964,7 @@ function reassignerAgrement(token, agrementId, newAmbassadeurId) {
   const rows     = readTable_('AGREMENTS');
   const existing = rows.find(function(r) { return r.id === agrementId; });
 
-  if (!existing)                                    throw new Error('Agrément introuvable.');
-  if (!scopeAgrements_(session, [existing]).length) throw new Error('Accès refusé.');
+  if (!existing) throw new Error('Agrément introuvable.');
 
   const users  = readTable_('USERS');
   const newAmb = users.find(function(u) { return u.id === newAmbassadeurId; });
@@ -2059,10 +2028,6 @@ function saveSinistre(token, payload) {
   const data     = payload || {};
   const rows     = readTable_('SINISTRES');
   const existing = data.id ? rows.find(function(r) { return r.id === data.id; }) : null;
-
-  if (existing && !scopeSinistres_(session, [existing]).length) {
-    throw new Error('Accès refusé à ce sinistre.');
-  }
 
   const wasTraite = existing && existing.statut === 'Traité';
 
@@ -2154,8 +2119,7 @@ function traiterSinistre(token, id) {
   const rows     = readTable_('SINISTRES');
   const existing = rows.find(function(r) { return r.id === id; });
 
-  if (!existing)                                    throw new Error('Sinistre introuvable.');
-  if (!scopeSinistres_(session, [existing]).length) throw new Error('Accès refusé.');
+  if (!existing) throw new Error('Sinistre introuvable.');
   if (existing.statut === 'Traité')                 throw new Error('Ce sinistre est déjà traité. Faites une mise à jour avant de re-traiter.');
 
   const now       = nowIso_();
@@ -2229,8 +2193,6 @@ function listFactures(token, filters) {
 /** Liste uniquement les dossiers en statut "Remonté" (pour Team Leaders / Admin) */
 function listFacturesRemontees(token) {
   const session   = requireSession_(token);
-  if (session.role === ROLES.AMBASSADOR) throw new Error('Accès non autorisé.');
-
   const usersById = indexBy_(readTable_('USERS'), 'id');
 
   return scopeFactures_(session, readTable_('FACTURES'))
@@ -2250,10 +2212,6 @@ function saveFacture(token, payload) {
   const data     = payload || {};
   const rows     = readTable_('FACTURES');
   const existing = data.id ? rows.find(function(r) { return r.id === data.id; }) : null;
-
-  if (existing && !scopeFactures_(session, [existing]).length) {
-    throw new Error('Accès refusé à cette facture.');
-  }
 
   const noSinistre = String(data.no_sinistre || (existing && existing.no_sinistre) || '').trim();
   if (!noSinistre) throw new Error('Le N° de sinistre est obligatoire.');
@@ -2313,9 +2271,8 @@ function traiterFacture(token, id, options) {
   const existing = rows.find(function(r) { return r.id === id; });
   const opts     = options || {};
 
-  if (!existing)                                    throw new Error('Facture introuvable.');
-  if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
-  if (existing.statut === 'Traité')                 throw new Error('Cette facture est déjà traitée.');
+  if (!existing)                    throw new Error('Facture introuvable.');
+  if (existing.statut === 'Traité') throw new Error('Cette facture est déjà traitée.');
 
   // Utiliser les étapes depuis opts si fournies (clic direct sur Traiter),
   // sinon fallback sur les valeurs enregistrées dans le sheet.
@@ -2396,16 +2353,11 @@ function traiterFacture(token, id, options) {
 function verifierFacture(token, id) {
   const session  = requireSession_(token);
 
-  if (session.role === ROLES.AMBASSADOR) {
-    throw new Error('Seuls les Team Leaders et Admins peuvent vérifier les factures.');
-  }
-
   const rows     = readTable_('FACTURES');
   const existing = rows.find(function(r) { return r.id === id; });
 
-  if (!existing)                                    throw new Error('Facture introuvable.');
-  if (!scopeFactures_(session, [existing]).length)  throw new Error('Accès refusé.');
-  if (existing.statut !== 'Remonté')                throw new Error('Cette facture n\'est pas en statut "Remonté".');
+  if (!existing)                     throw new Error('Facture introuvable.');
+  if (existing.statut !== 'Remonté') throw new Error('Cette facture n\'est pas en statut "Remonté".');
 
   const now = nowIso_();
   const row = Object.assign({}, existing, {
@@ -2457,10 +2409,6 @@ function saveResiliation(token, payload) {
   const rows     = readTable_('RESILIATIONS');
   const existing = data.id ? rows.find(function(r) { return r.id === data.id; }) : null;
 
-  if (existing && !scopeResiliations_(session, [existing]).length) {
-    throw new Error('Accès refusé à cette résiliation.');
-  }
-
   const noContrat = String(data.no_contrat || (existing && existing.no_contrat) || '').trim();
   if (!noContrat) throw new Error('Le N° de contrat est obligatoire.');
 
@@ -2501,8 +2449,7 @@ function soumettreResiliation(token, id, payload) {
   const rows     = readTable_('RESILIATIONS');
   const existing = rows.find(function(r) { return r.id === id; });
 
-  if (!existing)                                        throw new Error('Résiliation introuvable.');
-  if (!scopeResiliations_(session, [existing]).length)  throw new Error('Accès refusé.');
+  if (!existing) throw new Error('Résiliation introuvable.');
 
   const data        = payload || {};
   const completude  = String(data.completude  || existing.completude  || '').trim();

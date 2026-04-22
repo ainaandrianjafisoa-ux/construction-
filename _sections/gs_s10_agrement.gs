@@ -329,10 +329,6 @@ function saveAgrement(token, payload) {
   const rows     = readTable_('AGREMENTS');
   const existing = data.id ? rows.find(function(r) { return r.id === data.id; }) : null;
 
-  if (existing && !scopeAgrements_(session, [existing]).length) {
-    throw new Error('Accès refusé à cet agrément.');
-  }
-
   const users = readTable_('USERS');
 
   // ── Assignation ambassadeur ────────────────────────────────
@@ -483,8 +479,7 @@ function traiterAgrement(token, id, commentaire) {
   const rows     = readTable_('AGREMENTS');
   const existing = rows.find(function(r) { return r.id === id; });
 
-  if (!existing)                                    throw new Error('Agrément introuvable.');
-  if (!scopeAgrements_(session, [existing]).length) throw new Error('Accès refusé.');
+  if (!existing) throw new Error('Agrément introuvable.');
 
   const now = nowIso_();
   const row = Object.assign({}, existing, {
@@ -515,8 +510,7 @@ function overrideSolvabilite(token, agrementId, newResultat, commentaire) {
   const rows     = readTable_('AGREMENTS');
   const existing = rows.find(function(r) { return r.id === agrementId; });
 
-  if (!existing)                                    throw new Error('Agrément introuvable.');
-  if (!scopeAgrements_(session, [existing]).length) throw new Error('Accès refusé.');
+  if (!existing) throw new Error('Agrément introuvable.');
 
   const valid = ['Solvable', 'Non solvable'];
   if (!valid.includes(newResultat))            throw new Error('Résultat de solvabilité invalide.');
@@ -563,8 +557,7 @@ function reassignerAgrement(token, agrementId, newAmbassadeurId) {
   const rows     = readTable_('AGREMENTS');
   const existing = rows.find(function(r) { return r.id === agrementId; });
 
-  if (!existing)                                    throw new Error('Agrément introuvable.');
-  if (!scopeAgrements_(session, [existing]).length) throw new Error('Accès refusé.');
+  if (!existing) throw new Error('Agrément introuvable.');
 
   const users  = readTable_('USERS');
   const newAmb = users.find(function(u) { return u.id === newAmbassadeurId; });
