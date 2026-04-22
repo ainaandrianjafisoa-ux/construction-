@@ -1489,6 +1489,7 @@ button { overflow: hidden; }
       </div>
     </div><!-- /modal-scroll -->
 
+    <div id="mag-save-error" class="hidden" style="margin:0 0 8px;padding:10px 14px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);border-radius:8px;color:#ef4444;font-size:.84rem;"></div>
     <div class="modal-foot">
       <button class="b3" onclick="closeModal('modal-agrement')">Annuler</button>
       <button class="b1 save-btn" id="btn-mag-save">
@@ -3269,7 +3270,12 @@ function renderAgrements() {
   el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintAgrements)
-    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .withFailureHandler(function(e) {
+      el('content').innerHTML = '<div class="card"><div class="card-head"><span class="fw8">Agréments</span></div>' +
+        '<div style="padding:16px;color:#ef4444;font-size:.88rem;">⚠ Erreur de chargement : ' +
+        escHtml((e && e.message) || String(e)) +
+        '</div></div>';
+    })
     .listAgrements(S.token, {});
 }
 
@@ -3361,6 +3367,9 @@ function openAgrementModal(agrId) {
 
   el('mag-title').textContent = agrId ? 'Modifier agrément' : 'Nouveau dossier agrément';
   el('mag-ref').textContent   = r.reference || '';
+  /* Effacer l'erreur précédente */
+  var _errEl = el('mag-save-error');
+  if (_errEl) { _errEl.textContent = ''; _errEl.classList.add('hidden'); }
 
   populateSelect(el('mag-compagnie'),    lk.compagnies    || ['AXA','ALLIANZ'], r.compagnie,    '— Compagnie —');
   populateSelect(el('mag-type-dossier'), lk.typesDossier  || [],                r.type_dossier, '— Type —');
@@ -3749,10 +3758,15 @@ function saveMagAgrement() {
     payload.motif_validation      = el('mag-motif-validation') ? el('mag-motif-validation').value : '';
   }
 
+  /* Effacer le message d'erreur précédent */
+  var errEl = el('mag-save-error');
+  if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+
   setBtnLoading(btn, true);
   google.script.run
     .withSuccessHandler(function(savedRow) {
       setBtnLoading(btn, false);
+      if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
       closeModal('modal-agrement');
       toast('Agrément enregistré.', 'success');
       /* Mise à jour optimiste immédiate de la liste */
@@ -3767,7 +3781,16 @@ function saveMagAgrement() {
       }
       renderAgrements();
     })
-    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .withFailureHandler(function(e) {
+      setBtnLoading(btn, false);
+      var msg = (e && e.message) ? e.message : String(e);
+      if (errEl) {
+        errEl.textContent = '⚠ ' + msg;
+        errEl.classList.remove('hidden');
+        errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      toast(msg, 'error', 8000);
+    })
     .saveAgrement(S.token, payload);
 }
 

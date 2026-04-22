@@ -84,12 +84,11 @@ function globalSearch(token, query, modules) {
   if (mods.indexOf('agrement') > -1) {
     scopeAgrements_(session, readTable_('AGREMENTS'))
       .filter(function(r) {
-        return (r.reference || '').toLowerCase().indexOf(q) > -1 ||
-               (r.no_dossier || '').toLowerCase().indexOf(q) > -1 ||
-               (r.client || '').toLowerCase().indexOf(q) > -1 ||
-               (r.ambassadeur_assigne || '').toLowerCase().indexOf(q) > -1 ||
-               ((usersById[r.ambassadeur_assigne] || {}).full_name || '').toLowerCase().indexOf(q) > -1 ||
-               JSON.stringify(r).toLowerCase().indexOf(q) > -1;
+        return JSON.stringify(r).toLowerCase().indexOf(q) > -1 ||
+               String(r.reference    || '').toLowerCase().indexOf(q) > -1 ||
+               String(r.no_dossier   || '').toLowerCase().indexOf(q) > -1 ||
+               String(r.client       || '').toLowerCase().indexOf(q) > -1 ||
+               ((usersById[r.ambassadeur_assigne] || {}).full_name || '').toLowerCase().indexOf(q) > -1;
       })
       .slice(0, 20)
       .forEach(function(r) {
@@ -107,11 +106,11 @@ function globalSearch(token, query, modules) {
   if (mods.indexOf('sinistre') > -1) {
     scopeSinistres_(session, readTable_('SINISTRES'))
       .filter(function(r) {
-        return (r.reference || '').toLowerCase().indexOf(q) > -1 ||
-               (r.no_sinistre || '').toLowerCase().indexOf(q) > -1 ||
-               (r.no_contrat || '').toLowerCase().indexOf(q) > -1 ||
-               (r.gestionnaire || '').toLowerCase().indexOf(q) > -1 ||
-               JSON.stringify(r).toLowerCase().indexOf(q) > -1;
+        return JSON.stringify(r).toLowerCase().indexOf(q) > -1 ||
+               String(r.reference   || '').toLowerCase().indexOf(q) > -1 ||
+               String(r.no_sinistre || '').toLowerCase().indexOf(q) > -1 ||
+               String(r.no_contrat  || '').toLowerCase().indexOf(q) > -1 ||
+               String(r.gestionnaire|| '').toLowerCase().indexOf(q) > -1;
       })
       .slice(0, 20)
       .forEach(function(r) {
@@ -129,9 +128,9 @@ function globalSearch(token, query, modules) {
   if (mods.indexOf('facture') > -1) {
     scopeFactures_(session, readTable_('FACTURES'))
       .filter(function(r) {
-        return (r.reference || '').toLowerCase().indexOf(q) > -1 ||
-               (r.no_sinistre || '').toLowerCase().indexOf(q) > -1 ||
-               JSON.stringify(r).toLowerCase().indexOf(q) > -1;
+        return JSON.stringify(r).toLowerCase().indexOf(q) > -1 ||
+               String(r.reference   || '').toLowerCase().indexOf(q) > -1 ||
+               String(r.no_sinistre || '').toLowerCase().indexOf(q) > -1;
       })
       .slice(0, 20)
       .forEach(function(r) {
@@ -149,10 +148,10 @@ function globalSearch(token, query, modules) {
   if (mods.indexOf('resiliation') > -1) {
     scopeResiliations_(session, readTable_('RESILIATIONS'))
       .filter(function(r) {
-        return (r.reference || '').toLowerCase().indexOf(q) > -1 ||
-               (r.no_contrat || '').toLowerCase().indexOf(q) > -1 ||
-               (r.mail || '').toLowerCase().indexOf(q) > -1 ||
-               JSON.stringify(r).toLowerCase().indexOf(q) > -1;
+        return JSON.stringify(r).toLowerCase().indexOf(q) > -1 ||
+               String(r.reference  || '').toLowerCase().indexOf(q) > -1 ||
+               String(r.no_contrat || '').toLowerCase().indexOf(q) > -1 ||
+               String(r.mail       || '').toLowerCase().indexOf(q) > -1;
       })
       .slice(0, 20)
       .forEach(function(r) {

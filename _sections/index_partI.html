@@ -38,7 +38,12 @@ function renderAgrements() {
   el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintAgrements)
-    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .withFailureHandler(function(e) {
+      el('content').innerHTML = '<div class="card"><div class="card-head"><span class="fw8">Agréments</span></div>' +
+        '<div style="padding:16px;color:#ef4444;font-size:.88rem;">⚠ Erreur de chargement : ' +
+        escHtml((e && e.message) || String(e)) +
+        '</div></div>';
+    })
     .listAgrements(S.token, {});
 }
 
@@ -130,6 +135,9 @@ function openAgrementModal(agrId) {
 
   el('mag-title').textContent = agrId ? 'Modifier agrément' : 'Nouveau dossier agrément';
   el('mag-ref').textContent   = r.reference || '';
+  /* Effacer l'erreur précédente */
+  var _errEl = el('mag-save-error');
+  if (_errEl) { _errEl.textContent = ''; _errEl.classList.add('hidden'); }
 
   populateSelect(el('mag-compagnie'),    lk.compagnies    || ['AXA','ALLIANZ'], r.compagnie,    '— Compagnie —');
   populateSelect(el('mag-type-dossier'), lk.typesDossier  || [],                r.type_dossier, '— Type —');

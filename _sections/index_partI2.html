@@ -282,10 +282,15 @@ function saveMagAgrement() {
     payload.motif_validation      = el('mag-motif-validation') ? el('mag-motif-validation').value : '';
   }
 
+  /* Effacer le message d'erreur précédent */
+  var errEl = el('mag-save-error');
+  if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+
   setBtnLoading(btn, true);
   google.script.run
     .withSuccessHandler(function(savedRow) {
       setBtnLoading(btn, false);
+      if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
       closeModal('modal-agrement');
       toast('Agrément enregistré.', 'success');
       /* Mise à jour optimiste immédiate de la liste */
@@ -300,7 +305,16 @@ function saveMagAgrement() {
       }
       renderAgrements();
     })
-    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .withFailureHandler(function(e) {
+      setBtnLoading(btn, false);
+      var msg = (e && e.message) ? e.message : String(e);
+      if (errEl) {
+        errEl.textContent = '⚠ ' + msg;
+        errEl.classList.remove('hidden');
+        errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      toast(msg, 'error', 8000);
+    })
     .saveAgrement(S.token, payload);
 }
 
