@@ -861,7 +861,7 @@ button { overflow: hidden; }
   background: rgba(10,14,22,.35);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  z-index: 60;
+  z-index: 160;
   opacity: 0;
   pointer-events: none;
   transition: opacity .25s var(--ease);
@@ -879,7 +879,7 @@ button { overflow: hidden; }
   -webkit-backdrop-filter: var(--blur);
   border-left: 1px solid var(--glass-border);
   box-shadow: -12px 0 40px rgba(10,14,22,.35);
-  z-index: 70;
+  z-index: 170;
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
@@ -955,6 +955,15 @@ button { overflow: hidden; }
   border-top: 1px dashed var(--line);
   white-space: pre-wrap;
 }
+
+.ver-diff-list { display:grid; gap:8px; margin-top:10px; }
+.ver-diff-item { border:1px solid var(--line); border-radius: var(--radius-xs); background: rgba(128,140,160,.06); padding:8px 10px; }
+.ver-diff-field { font-size:.74rem; font-weight:700; color:var(--gold); margin-bottom:4px; letter-spacing:.02em; }
+.ver-diff-values { display:flex; flex-wrap:wrap; align-items:center; gap:7px; font-size:.8rem; color:var(--text-soft); }
+.ver-diff-old, .ver-diff-new { display:inline-flex; align-items:center; max-width:100%; padding:3px 8px; border-radius:999px; border:1px solid var(--line); background: var(--glass); }
+.ver-diff-new { border-color: rgba(201,168,76,.35); color: var(--text); }
+.ver-diff-arrow { color: var(--muted); font-size:.78rem; }
+.ver-diff-more { font-size:.76rem; color:var(--muted); margin-top:2px; }
 
 /* ── Nav actif : accent barre gauche ─────────────────────────── */
 .nav button.active {
@@ -1358,6 +1367,7 @@ button { overflow: hidden; }
       <div>
         <h2 id="mag-title">Nouveau dossier agrément</h2>
         <div class="sub" id="mag-ref"></div>
+        <div id="mag-meta" class="chips" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"></div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-agrement')">✕</button>
     </div>
@@ -1540,10 +1550,29 @@ button { overflow: hidden; }
           </select>
         </div>
       </div>
+      <div class="g2" style="margin-top:12px;">
+        <div class="field">
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span>Situation</span>
+            <span id="msi-origin-badge" class="chip cp hidden">Origine</span>
+          </label>
+          <select id="msi-situation"></select>
+          <div id="msi-situation-hint" class="sub" style="margin-top:6px;font-size:.78rem;"></div>
+        </div>
+        <div class="field">
+          <label>Statut calculé</label>
+          <select id="msi-statut" disabled>
+            <option value="Complet">Complet</option>
+            <option value="Relance">Relance</option>
+            <option value="Traité">Traité</option>
+          </select>
+        </div>
+      </div>
       <div class="field" style="margin-top:12px;">
         <label>Commentaire</label>
         <textarea id="msi-commentaire" placeholder="Description / observation…" rows="3"></textarea>
       </div>
+      <div id="msi-meta" class="chips" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;"></div>
 
       <!-- Zone traitement (si pas nouveau) -->
       <div id="msi-traiter-zone" class="traiter-zone hidden">
@@ -1555,14 +1584,6 @@ button { overflow: hidden; }
           <span>Ce dossier a déjà été traité. Toute modification réinitialisera le statut et nécessitera un nouveau traitement.</span>
         </div>
 
-        <div class="field">
-          <label>Statut</label>
-          <select id="msi-statut">
-            <option value="Complet">Complet</option>
-            <option value="Relance">Relance</option>
-            <option value="Traité">Traité</option>
-          </select>
-        </div>
         <button class="bs" id="btn-msi-traiter" style="margin-top:12px;width:100%;">
           Marquer comme Traité
         </button>
@@ -1584,6 +1605,51 @@ button { overflow: hidden; }
   </div>
 </div>
 
+<!-- ── Modal Relance Sinistre ── -->
+<div id="modal-sinistre-relance" class="overlay hidden">
+  <div class="modal modal-narrow">
+    <div class="modal-head">
+      <div>
+        <h2 id="msr-title">Relance du sinistre</h2>
+        <div class="sub">Ajouter un commentaire avant de valider la relance.</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-sinistre-relance')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Commentaire de relance <span class="req">*</span></label>
+        <textarea id="msr-commentaire" rows="4" placeholder="Préciser l'objet de la relance…"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="b3" onclick="closeModal('modal-sinistre-relance')">Annuler</button>
+      <button class="b1 save-btn" id="btn-msr-save">
+        <span class="label">Valider la relance</span>
+        <span class="spinner hidden"><i></i></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Commentaires relance Sinistre ── -->
+<div id="modal-sinistre-relance-comments" class="overlay hidden">
+  <div class="modal modal-narrow">
+    <div class="modal-head">
+      <div>
+        <h2 id="msrc-title">Commentaires de relance</h2>
+        <div class="sub">Historique des relances du plus ancien au plus récent.</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-sinistre-relance-comments')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="msrc-list"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="b3" onclick="closeModal('modal-sinistre-relance-comments')">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal Facture ── -->
 <div id="modal-facture" class="overlay hidden">
   <div class="modal">
@@ -1591,6 +1657,7 @@ button { overflow: hidden; }
       <div>
         <h2 id="mfa-title">Nouvelle facture</h2>
         <div class="sub" id="mfa-ref"></div>
+        <div id="mfa-meta" class="chips" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"></div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-facture')">✕</button>
     </div>
@@ -1650,6 +1717,7 @@ button { overflow: hidden; }
       <div>
         <h2 id="mre-title">Nouvelle résiliation</h2>
         <div class="sub" id="mre-ref"></div>
+        <div id="mre-meta" class="chips" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"></div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-resiliation')">✕</button>
     </div>
@@ -1915,12 +1983,222 @@ function fmtDateTime(iso) {
   const d = new Date(iso);
   return isNaN(d) ? iso : d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+function fmtRelative(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  const diffMs = Date.now() - d.getTime();
+  if (diffMs < 0) return 'à l’instant';
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'à l’instant';
+  if (mins < 60) return mins + ' min';
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return hours + ' h';
+  const days = Math.floor(hours / 24);
+  if (days < 30) return days + ' j';
+  const months = Math.floor(days / 30);
+  if (months < 12) return months + ' mois';
+  const years = Math.floor(months / 12);
+  return years + ' an' + (years > 1 ? 's' : '');
+}
+
+function lookupUserLabel(userId) {
+  if (!userId) return '';
+  var users = (S.lookups && S.lookups.users) || [];
+  var found = users.find(function(u) { return u.id === userId; });
+  return found ? (found.full_name || found.login || userId) : String(userId);
+}
+function buildAgrementMetaChips(r) {
+  var chips = [];
+  if (r.ambassadeur_assigne_name || r.ambassadeur_assigne) {
+    chips.push('<span class="chip cp">Amb. : ' + escHtml(r.ambassadeur_assigne_name || lookupUserLabel(r.ambassadeur_assigne) || r.ambassadeur_assigne) + '</span>');
+  }
+  if (r.created_at) chips.push('<span class="chip">Créé : ' + escHtml(fmtDateTime(r.created_at)) + '</span>');
+  if (r.updated_at) chips.push('<span class="chip cg">der. màj ' + escHtml(fmtRelative(r.updated_at)) + '</span>');
+  return chips.join('');
+}
+function buildFactureMetaChips(r) {
+  var chips = [];
+  if (r.created_by_name || r.created_by) {
+    chips.push('<span class="chip cp">Amb. : ' + escHtml(r.created_by_name || lookupUserLabel(r.created_by) || r.created_by) + '</span>');
+  }
+  if (r.created_at) chips.push('<span class="chip">Créé : ' + escHtml(fmtDateTime(r.created_at)) + '</span>');
+  if (r.updated_at) chips.push('<span class="chip cg">der. màj ' + escHtml(fmtRelative(r.updated_at)) + '</span>');
+  return chips.join('');
+}
+function buildResiliationMetaChips(r) {
+  var chips = [];
+  if (r.created_by_name || r.created_by) {
+    chips.push('<span class="chip cp">Amb. : ' + escHtml(r.created_by_name || lookupUserLabel(r.created_by) || r.created_by) + '</span>');
+  }
+  if (r.created_at) chips.push('<span class="chip">Créé : ' + escHtml(fmtDateTime(r.created_at)) + '</span>');
+  if (r.updated_at) chips.push('<span class="chip cg">der. màj ' + escHtml(fmtRelative(r.updated_at)) + '</span>');
+  return chips.join('');
+}
+
+var VERSION_FIELD_LABELS = {
+  reference: 'Référence',
+  type_dossier: 'Type dossier',
+  no_dossier: 'N° dossier',
+  priorite: 'Priorité',
+  client: 'Client',
+  adresse: 'Adresse',
+  type_client: 'Type client',
+  compagnie: 'Compagnie',
+  ambassadeur_assigne: 'Ambassadeur assigné',
+  gestionnaire_plus: 'Gestionnaire +',
+  statut: 'Statut',
+  motif_validation: 'Motif validation',
+  statut_fin_traitement: 'Statut fin traitement',
+  nombre_profils: 'Nb profils',
+  profils_json: 'Profils',
+  plafond_final: 'Plafond final',
+  loyer: 'Loyer',
+  resultat_solvabilite: 'Résultat solvabilité',
+  commentaire: 'Commentaire',
+  no_sinistre: 'N° sinistre',
+  no_contrat: 'N° contrat',
+  date_reception: 'Date réception',
+  gestionnaire: 'Gestionnaire',
+  completude: 'Complétude',
+  situation: 'Situation',
+  origine: 'Origine',
+  mail: 'Mail',
+  resil: 'Résil',
+  commentaire_traitement: 'Commentaire traitement',
+  commentaire_verification: 'Commentaire vérification',
+  etape_verification: 'Étape vérification',
+  etape_calcul: 'Étape calcul',
+  etape_reglement: 'Étape règlement',
+  verifie_badge: 'Vérifié TL',
+  remonte_at: 'Date remontée',
+  soumis_at: 'Date soumission',
+  traitement_session_active: 'Traitement en cours',
+  traitement_session_type: 'Type de traitement',
+  traitement_session_started_at: 'Début traitement',
+  traitement_session_closed_at: 'Fin traitement',
+  dernier_traitement_secondes: 'Dernier temps de traitement'
+};
+var VERSION_IGNORED_FIELDS = {
+  id: true,
+  historique_json: true,
+  delai_secondes: true,
+  delai_formate: true,
+  delai_traitement_start: true,
+  created_by_name: true,
+  verifie_par_name: true,
+  equipe_name: true,
+  solvabilite: true,
+  profils: true,
+  ambassadeur_assigne_name: true,
+  gestionnaire_plus_name: true,
+  solvabilite_override_by_name: true
+};
+function parseVersionSnapshot(snapshotJson) {
+  if (!snapshotJson) return {};
+  try { return JSON.parse(snapshotJson) || {}; } catch(e) { return {}; }
+}
+function compareVersionValue(field, value) {
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value === 'object') {
+    try { return JSON.stringify(value); } catch(e) { return '[object]'; }
+  }
+  return String(value);
+}
+function formatVersionValue(field, value) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (field === 'ambassadeur_assigne' || field === 'gestionnaire_plus' || field === 'created_by' || field === 'updated_by' || field === 'verifie_par' || field === 'solvabilite_override_by') {
+    return lookupUserLabel(value) || String(value);
+  }
+  if (typeof value === 'boolean') return value ? 'Oui' : 'Non';
+  if (String(value) === 'TRUE') return 'Oui';
+  if (String(value) === 'FALSE') return 'Non';
+  if (/(_at|_date)$/.test(field) || field === 'created_at' || field === 'updated_at' || field === 'closed_at' || field === 'date_reception' || field === 'traite_at' || field === 'remonte_at' || field === 'soumis_at' || field === 'verifie_at') {
+    return field === 'date_reception' ? fmtDate(value) : fmtDateTime(value);
+  }
+  if (field === 'loyer' || field === 'plafond_final' || field === 'plafond_loyer' || field === 'moyenne_net_a_payer' || field === 'moyenne_net_avant_impot' || field === 'moyenne_brut') {
+    var n = Number(value || 0);
+    return n ? fmtEuro(n) : '0 €';
+  }
+  if (field === 'dernier_traitement_secondes') return fmtDuration(value);
+  if (field === 'traitement_session_type') return String(value) === 'CREATE' ? 'Création' : (String(value) === 'UPDATE' ? 'Mise à jour' : String(value));
+  if (field === 'profils_json') return 'Profils mis à jour';
+  if (Array.isArray(value)) return value.length ? 'Mis à jour (' + value.length + ')' : '—';
+  if (typeof value === 'object') return 'Mis à jour';
+  return String(value);
+}
+function buildVersionDiffHtml(currentVersion, olderVersion) {
+  var currentSnapshot = parseVersionSnapshot(currentVersion && currentVersion.snapshot_json);
+  var olderSnapshot   = parseVersionSnapshot(olderVersion && olderVersion.snapshot_json);
+  var keys = Object.keys(currentSnapshot).concat(Object.keys(olderSnapshot)).filter(function(key, idx, arr) {
+    return arr.indexOf(key) === idx && !VERSION_IGNORED_FIELDS[key];
+  });
+  var diffs = [];
+  keys.forEach(function(field) {
+    var cur = compareVersionValue(field, currentSnapshot[field]);
+    var old = compareVersionValue(field, olderSnapshot[field]);
+    if (cur === old) return;
+    diffs.push({
+      field: field,
+      label: VERSION_FIELD_LABELS[field] || field.replace(/_/g, ' '),
+      oldFormatted: formatVersionValue(field, olderSnapshot[field]),
+      newFormatted: formatVersionValue(field, currentSnapshot[field])
+    });
+  });
+  if (!diffs.length) return '';
+  var maxItems = 12;
+  var html = '<div class="ver-diff-list">' + diffs.slice(0, maxItems).map(function(diff) {
+    return '<div class="ver-diff-item">' +
+      '<div class="ver-diff-field">' + escHtml(diff.label) + '</div>' +
+      '<div class="ver-diff-values">' +
+        '<span class="ver-diff-old">' + escHtml(diff.oldFormatted) + '</span>' +
+        '<span class="ver-diff-arrow">→</span>' +
+        '<span class="ver-diff-new">' + escHtml(diff.newFormatted) + '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+  if (diffs.length > maxItems) {
+    html += '<div class="ver-diff-more">+' + (diffs.length - maxItems) + ' autre(s) modification(s)</div>';
+  }
+  return html;
+}
 function fmtDuration(s) {
   if (!s) return '—';
   s = Number(s);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   return h ? h + 'h ' + m + 'min' : m + 'min';
+}
+
+function isTrueFlag(v) {
+  return String(v || '').toUpperCase() === 'TRUE' || v === true;
+}
+function currentTraitementStartIso() {
+  return new Date().toISOString();
+}
+function buildClotureTraitementBtn(entityType, row) {
+  if (!row || !isTrueFlag(row.traitement_session_active)) return '';
+  return '<button class="b2 fs-xs" style="min-height:30px;padding:0 10px;" title="Clôturer le traitement en cours" onclick="cloturerTraitementSessionAction(\'' + entityType + '\',\'' + row.id + '\')">⏱ Clôturer</button>';
+}
+function refreshActiveView() {
+  switch (S.activeView) {
+    case 'agrements':          renderAgrements();         break;
+    case 'sinistres':          renderSinistres();         break;
+    case 'factures':           renderFactures();          break;
+    case 'resiliations':       renderResiliations();      break;
+    case 'factures-remontees': renderFacturesRemontees(); break;
+    default: navigate(S.activeView || 'dashboard');
+  }
+}
+function cloturerTraitementSessionAction(entityType, id) {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      var delai = result && result.dernier_traitement_formate ? result.dernier_traitement_formate : '—';
+      toast('Traitement clôturé • ' + delai, 'success');
+      refreshActiveView();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .cloturerTraitementSession(S.token, entityType, id);
 }
 function initials(name) {
   if (!name) return '?';
@@ -2570,29 +2848,492 @@ function _filterEvents(events) {
   return filtered;
 }
 
+
+function _filterDashboardRecords(records) {
+  var filtered = records || [];
+
+  if (_dashFilterTeam) {
+    filtered = filtered.filter(function(r) { return r.team_id === _dashFilterTeam || r.team_name === _dashFilterTeam; });
+  }
+  if (_dashFilterAmbass) {
+    filtered = filtered.filter(function(r) { return r.agent_id === _dashFilterAmbass; });
+  }
+  if (_dashDateStart) {
+    filtered = filtered.filter(function(r) { return r.date_ref && r.date_ref >= _dashDateStart; });
+  }
+  if (_dashDateEnd) {
+    filtered = filtered.filter(function(r) { return r.date_ref && r.date_ref <= _dashDateEnd; });
+  }
+  if (!_dashDateStart && !_dashDateEnd && _dashPeriod > 0) {
+    var cutoff = new Date(Date.now() - _dashPeriod * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    filtered = filtered.filter(function(r) { return r.date_ref && r.date_ref >= cutoff; });
+  }
+  return filtered;
+}
+
+function _countByField(records, field) {
+  var map = {};
+  (records || []).forEach(function(r) {
+    var raw = r && r[field] !== undefined && r[field] !== null ? String(r[field]).trim() : '';
+    if (!raw) return;
+    map[raw] = (map[raw] || 0) + 1;
+  });
+  return Object.keys(map)
+    .map(function(key) { return { label: key, value: map[key] }; })
+    .sort(function(a, b) {
+      if (b.value !== a.value) return b.value - a.value;
+      return String(a.label).localeCompare(String(b.label));
+    });
+}
+
+function _renderBreakdownLine(title, counts, toneClass) {
+  if (!counts || !counts.length) return '';
+  var html = '<div style="margin-top:10px;">';
+  html += '<div class="fs-xs fw7 t-muted" style="text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">' + escHtml(title) + '</div>';
+  html += '<div class="chips">';
+  counts.forEach(function(c) {
+    html += '<span class="chip ' + (toneClass || '') + '">' + escHtml(c.label) + ' · ' + c.value + '</span>';
+  });
+  html += '</div></div>';
+  return html;
+}
+
+function _moduleStateConfigs() {
+  return [
+    {
+      key: 'agrement',
+      title: 'Agréments',
+      subtitle: 'Statuts et états métier',
+      lines: [
+        { field: 'statut', label: 'Statuts', tone: 'cg' },
+        { field: 'resultat_solvabilite', label: 'Solvabilité', tone: 'cs' },
+        { field: 'motif_validation', label: 'Motif validation', tone: 'cp' },
+        { field: 'statut_fin_traitement', label: 'Fin traitement', tone: 'cw' }
+      ]
+    },
+    {
+      key: 'sinistre',
+      title: 'Sinistres',
+      subtitle: 'Statuts, situations et complétude',
+      lines: [
+        { field: 'statut', label: 'Statuts', tone: 'cg' },
+        { field: 'situation', label: 'Situations', tone: 'cp' },
+        { field: 'completude', label: 'Complétude', tone: 'cw' }
+      ]
+    },
+    {
+      key: 'facture',
+      title: 'Factures',
+      subtitle: 'Statuts et étapes courantes',
+      lines: [
+        { field: 'statut', label: 'Statuts', tone: 'cg' },
+        { field: 'etape_verification', label: 'Vérification', tone: 'cp' },
+        { field: 'etape_calcul', label: 'Calcul', tone: 'cw' },
+        { field: 'etape_reglement', label: 'Règlement', tone: 'cs' }
+      ]
+    },
+    {
+      key: 'resiliation',
+      title: 'Résiliations',
+      subtitle: 'Statuts, complétude et décision',
+      lines: [
+        { field: 'statut', label: 'Statuts', tone: 'cg' },
+        { field: 'completude', label: 'Complétude', tone: 'cp' },
+        { field: 'resil', label: 'Résil', tone: 'cw' }
+      ]
+    }
+  ];
+}
+
+function paintDashboardModuleStateBoard() {
+  var data = S.dashboard;
+  var wrap = el('dash-module-state-board');
+  if (!wrap || !data) return;
+
+  var records = _filterDashboardRecords(data.dashboardRecords || []);
+  if (!records.length) {
+    wrap.innerHTML = '<div class="empty" style="padding:16px;">Aucune donnée de dossier sur cette période.</div>';
+    return;
+  }
+
+  var html = '';
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px;">';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+  html += '<span class="chip cg">' + records.length + ' dossier(s) filtré(s)</span>';
+  html += '<span class="chip">Lecture basée sur la dernière mise à jour / création</span>';
+  html += '</div>';
+  html += '<span class="fs-xs t-muted">Les filtres du haut s\'appliquent aussi ici.</span>';
+  html += '</div>';
+
+  html += '<div class="module-cards">';
+  _moduleStateConfigs().forEach(function(cfg) {
+    var moduleRecords = records.filter(function(r) { return r.module === cfg.key; });
+    var total = moduleRecords.length;
+    html += '<div class="module-card" style="cursor:default;">';
+    html += '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">';
+    html += '<div><h4 style="margin-bottom:6px;">' + escHtml(cfg.title) + '</h4><div class="fs-sm t-muted">' + escHtml(cfg.subtitle) + '</div></div>';
+    html += '<span class="chip cg">' + total + '</span>';
+    html += '</div>';
+    if (!total) {
+      html += '<div class="empty" style="padding:14px;margin-top:12px;">Aucun dossier filtré.</div>';
+    } else {
+      cfg.lines.forEach(function(line) {
+        html += _renderBreakdownLine(line.label, _countByField(moduleRecords, line.field), line.tone);
+      });
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+
+  wrap.innerHTML = html;
+}
+
+
+function paintDashboardAgrementStatusBreakdown() {
+  var data = S.dashboard;
+  var wrap = el('dash-agrement-status-breakdown');
+  if (!wrap || !data) return;
+
+  var records = _filterDashboardRecords(data.dashboardRecords || []).filter(function(r) { return r.module === 'agrement'; });
+  if (!records.length) {
+    wrap.innerHTML = '<div class="empty" style="padding:16px;">Aucun agrément sur cette période.</div>';
+    return;
+  }
+
+  var counts = _countByField(records, 'statut');
+  if (!counts.length) {
+    wrap.innerHTML = '<div class="empty" style="padding:16px;">Aucun statut disponible.</div>';
+    return;
+  }
+
+  var maxVal = Math.max.apply(null, counts.map(function(r) { return r.value; })) || 0;
+  var total  = counts.reduce(function(sum, r) { return sum + r.value; }, 0);
+  var html = '';
+  counts.forEach(function(r) {
+    var pct      = maxVal > 0 ? Math.round(r.value / maxVal * 100) : 0;
+    var pctTotal = total  > 0 ? Math.round(r.value / total * 100) : 0;
+    html += '<div style="margin-bottom:10px;">';
+    html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
+    html += '<span class="fs-sm">' + escHtml(r.label) + '</span>';
+    html += '<span class="fs-sm fw7">' + r.value + ' <span class="t-muted">(' + pctTotal + ' %)</span></span>';
+    html += '</div>';
+    html += '<div class="stat-bar"><div class="stat-bar-fill" style="width:' + pct + '%"></div></div>';
+    html += '</div>';
+  });
+
+  wrap.innerHTML = html;
+}
+
+function paintDashboardModuleSummary() {
+  var data = S.dashboard;
+  var wrap = el('dash-module-summary');
+  if (!wrap || !data) return;
+
+  var records = _filterDashboardRecords(data.dashboardRecords || []);
+  if (!records.length) {
+    wrap.innerHTML = '<div class="empty" style="padding:16px;">Aucun dossier sur cette période.</div>';
+    return;
+  }
+
+  function modCount(moduleKey, field, value) {
+    return records.filter(function(r) {
+      return r.module === moduleKey && (!field || String(r[field] || '') === String(value || ''));
+    }).length;
+  }
+
+  var html = '<div class="module-cards">';
+  html += '<div class="module-card" onclick="navigate(\'agrements\')">';
+  html += '<h4>Agréments</h4>';
+  html += '<div class="stat-row"><span>Total</span><strong>' + modCount('agrement') + '</strong></div>';
+  html += '<div class="stat-row"><span>Initié</span><strong>' + modCount('agrement','statut','Initié') + '</strong></div>';
+  html += '<div class="stat-row"><span>En cours</span><strong>' + modCount('agrement','statut','En cours de traitement') + '</strong></div>';
+  html += '<div class="stat-row"><span>Validés</span><strong class="t-gold">' + modCount('agrement','statut','Validé') + '</strong></div>';
+  html += '<div class="stat-row"><span>Clos</span><strong>' + modCount('agrement','statut','Clos') + '</strong></div>';
+  html += '</div>';
+
+  html += '<div class="module-card" onclick="navigate(\'sinistres\')">';
+  html += '<h4>Sinistres</h4>';
+  html += '<div class="stat-row"><span>Total</span><strong>' + modCount('sinistre') + '</strong></div>';
+  html += '<div class="stat-row"><span>Complets</span><strong>' + modCount('sinistre','statut','Complet') + '</strong></div>';
+  html += '<div class="stat-row"><span>Relances</span><strong>' + modCount('sinistre','statut','Relance') + '</strong></div>';
+  html += '<div class="stat-row"><span>Traités</span><strong class="t-gold">' + modCount('sinistre','statut','Traité') + '</strong></div>';
+  html += '<div class="stat-row"><span>En attente</span><strong>' + modCount('sinistre','situation','En attente') + '</strong></div>';
+  html += '</div>';
+
+  html += '<div class="module-card" onclick="navigate(\'factures\')">';
+  html += '<h4>Factures</h4>';
+  html += '<div class="stat-row"><span>Total</span><strong>' + modCount('facture') + '</strong></div>';
+  html += '<div class="stat-row"><span>En cours</span><strong>' + modCount('facture','statut','En cours') + '</strong></div>';
+  html += '<div class="stat-row"><span>Remontées</span><strong class="t-danger">' + modCount('facture','statut','Remonté') + '</strong></div>';
+  html += '<div class="stat-row"><span>Vérifiées</span><strong>' + modCount('facture','statut','Vérifié') + '</strong></div>';
+  html += '<div class="stat-row"><span>Traitées</span><strong class="t-gold">' + modCount('facture','statut','Traité') + '</strong></div>';
+  html += '</div>';
+
+  html += '<div class="module-card" onclick="navigate(\'resiliations\')">';
+  html += '<h4>Résiliations</h4>';
+  html += '<div class="stat-row"><span>Total</span><strong>' + modCount('resiliation') + '</strong></div>';
+  html += '<div class="stat-row"><span>En cours</span><strong>' + modCount('resiliation','statut','En cours') + '</strong></div>';
+  html += '<div class="stat-row"><span>Relances</span><strong>' + modCount('resiliation','statut','Relance') + '</strong></div>';
+  html += '<div class="stat-row"><span>Traitées</span><strong class="t-gold">' + modCount('resiliation','statut','Traité') + '</strong></div>';
+  html += '<div class="stat-row"><span>Résil OK</span><strong>' + modCount('resiliation','resil','Résil OK') + '</strong></div>';
+  html += '</div>';
+
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+
+function _moduleKeysDash() {
+  return ['agrement', 'sinistre', 'facture', 'resiliation'];
+}
+
+function _getDashboardAmbassadorBase() {
+  var data = S.dashboard || {};
+  var teamsById = {};
+  (data.filterTeams || []).forEach(function(t) {
+    teamsById[String(t.id || '')] = String(t.name || '—');
+  });
+
+  var source = [];
+  if (Array.isArray(data.filterAmbassadors) && data.filterAmbassadors.length) {
+    source = data.filterAmbassadors.map(function(a) {
+      return {
+        id: String(a.id || ''),
+        name: String(a.name || a.full_name || a.id || '—'),
+        team_id: String(a.team_id || ''),
+        team_name: teamsById[String(a.team_id || '')] || '—'
+      };
+    });
+  } else {
+    var byId = {};
+    (data.treatmentEvents || []).forEach(function(e) {
+      var id = String(e.agent_id || '').trim();
+      if (!id) return;
+      if (!byId[id]) {
+        byId[id] = {
+          id: id,
+          name: String(e.agent_name || id || '—'),
+          team_id: String(e.team_id || ''),
+          team_name: String(e.team_name || '—')
+        };
+      }
+    });
+    source = Object.keys(byId).map(function(id) { return byId[id]; });
+  }
+
+  source = source.filter(function(a) { return !!a.id; });
+
+  if (_dashFilterTeam) {
+    source = source.filter(function(a) { return String(a.team_id || '') === String(_dashFilterTeam); });
+  }
+  if (_dashFilterAmbass) {
+    source = source.filter(function(a) { return String(a.id || '') === String(_dashFilterAmbass); });
+  }
+
+  source.sort(function(a, b) {
+    return String(a.name || '').localeCompare(String(b.name || ''), 'fr', { sensitivity: 'base' });
+  });
+  return source;
+}
+
 /* ── Construction des lignes agent ─────────────────────────── */
 function _buildAgentRows(events) {
+  var ambassadors = _getDashboardAmbassadorBase();
   var byAgent = {};
-  events.forEach(function(e) {
-    if (!byAgent[e.agent_id]) {
-      byAgent[e.agent_id] = {
-        name: e.agent_name || e.agent_id || '—',
-        team: e.team_name  || '—',
-        agrement: 0, sinistre: 0, facture: 0, resiliation: 0, total: 0
+
+  ambassadors.forEach(function(a) {
+    byAgent[a.id] = {
+      agent_id: a.id,
+      name: a.name || a.id || '—',
+      team: a.team_name || '—',
+      team_id: a.team_id || '',
+      agrement: 0,
+      sinistre: 0,
+      facture: 0,
+      resiliation: 0,
+      total: 0
+    };
+  });
+
+  (events || []).forEach(function(e) {
+    var agentId = String(e.agent_id || '').trim();
+    if (!agentId) return;
+
+    if (!byAgent[agentId]) {
+      byAgent[agentId] = {
+        agent_id: agentId,
+        name: e.agent_name || agentId || '—',
+        team: e.team_name || '—',
+        team_id: e.team_id || '',
+        agrement: 0,
+        sinistre: 0,
+        facture: 0,
+        resiliation: 0,
+        total: 0
       };
     }
-    var a = byAgent[e.agent_id];
-    if (a[e.module] !== undefined) a[e.module]++;
-    a.total++;
+
+    var a = byAgent[agentId];
+    if (a[e.module] !== undefined) a[e.module] += 1;
+    a.total += 1;
   });
+
   return Object.keys(byAgent)
     .map(function(k) { return byAgent[k]; })
-    .sort(function(a, b) { return b.total - a.total; });
+    .sort(function(a, b) {
+      if (b.total !== a.total) return b.total - a.total;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'fr', { sensitivity: 'base' });
+    });
 }
+
 
 function _avg(rows) {
   if (!rows.length) return 0;
   return (rows.reduce(function(s, r) { return s + r.total; }, 0) / rows.length).toFixed(1);
+}
+
+function _moduleLabelDash(moduleKey) {
+  return {
+    agrement: 'Agrément',
+    sinistre: 'Sinistre',
+    facture: 'Facture',
+    resiliation: 'Résiliation'
+  }[String(moduleKey || '').toLowerCase()] || String(moduleKey || '—');
+}
+
+function _fmtAvgDuration(totalSeconds, count) {
+  if (!count) return '—';
+  return fmtDuration(Math.round(Number(totalSeconds || 0) / count));
+}
+
+function _buildTreatmentBreakdownRows(events) {
+  var ambassadors = _getDashboardAmbassadorBase();
+  var modules = _moduleKeysDash();
+  var byKey = {};
+
+  ambassadors.forEach(function(a) {
+    modules.forEach(function(moduleKey) {
+      var key = a.id + '||' + moduleKey;
+      byKey[key] = {
+        agent_id: a.id,
+        agent_name: a.name || a.id || '—',
+        team_id: a.team_id || '',
+        team_name: a.team_name || '—',
+        module: moduleKey,
+        create_count: 0,
+        create_delay_total: 0,
+        update_count: 0,
+        update_delay_total: 0,
+        total_count: 0,
+        total_delay_total: 0
+      };
+    });
+  });
+
+  (events || []).forEach(function(e) {
+    var agentId = String(e.agent_id || '').trim();
+    var moduleKey = String(e.module || '').toLowerCase() || '—';
+    if (!agentId || !moduleKey) return;
+
+    var key = agentId + '||' + moduleKey;
+    if (!byKey[key]) {
+      byKey[key] = {
+        agent_id: agentId,
+        agent_name: e.agent_name || agentId || '—',
+        team_id: e.team_id || '',
+        team_name: e.team_name || '—',
+        module: moduleKey,
+        create_count: 0,
+        create_delay_total: 0,
+        update_count: 0,
+        update_delay_total: 0,
+        total_count: 0,
+        total_delay_total: 0
+      };
+    }
+
+    var row = byKey[key];
+    var mode = String(e.session_type || 'UPDATE').toUpperCase();
+    var delay = Number(e.delay_seconds || 0);
+
+    if (mode === 'CREATE') {
+      row.create_count += 1;
+      row.create_delay_total += delay;
+    } else {
+      row.update_count += 1;
+      row.update_delay_total += delay;
+    }
+    row.total_count += 1;
+    row.total_delay_total += delay;
+  });
+
+  return Object.keys(byKey).map(function(k) { return byKey[k]; })
+    .sort(function(a, b) {
+      if (b.total_count !== a.total_count) return b.total_count - a.total_count;
+      if (a.agent_name !== b.agent_name) return String(a.agent_name).localeCompare(String(b.agent_name), 'fr', { sensitivity: 'base' });
+      return String(a.module).localeCompare(String(b.module));
+    });
+}
+
+function paintTreatmentBreakdownTable() {
+  var data = S.dashboard;
+  var wrap = el('dash-treatment-breakdown');
+  if (!wrap || !data) return;
+
+  var events = _filterEvents(data.treatmentEvents || []);
+  var rows = _buildTreatmentBreakdownRows(events);
+  var totalAvg = events.length
+    ? fmtDuration(Math.round(events.reduce(function(sum, e) { return sum + Number(e.delay_seconds || 0); }, 0) / events.length))
+    : '—';
+
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="empty" style="padding:16px;">Aucun ambassadeur à afficher.</div>';
+    return;
+  }
+
+  var html = '';
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px;">';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+  html += '<span class="chip cg">' + events.length + ' clôture(s)</span>';
+  html += '<span class="chip cp">' + rows.filter(function(r) { return r.total_count > 0; }).length + ' couple(s) avec activité</span>';
+  html += '<span class="chip">Délai moy. global : ' + escHtml(totalAvg) + '</span>';
+  html += '</div>';
+  html += '<span class="fs-xs t-muted">Création = clic sur “Nouveau” → clôture · Mise à jour = ouverture du dossier → clôture</span>';
+  html += '</div>';
+
+  html += buildTable(
+    ['Ambassadeur', 'Équipe', 'Module', 'Créations', 'Délai moy. créa', 'Màj', 'Délai moy. màj', 'Total', 'Délai moy. global'],
+    rows,
+    function(r) {
+      var totalPct = rows[0] && rows[0].total_count ? Math.round((r.total_count / rows[0].total_count) * 100) : 0;
+      return '<tr>' +
+        '<td class="fw7">' + escHtml(r.agent_name) + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.team_name || '—') + '</td>' +
+        '<td><span class="chip cg">' + escHtml(_moduleLabelDash(r.module)) + '</span></td>' +
+        '<td class="t-center">' + (r.create_count ? '<span class="fw7">' + r.create_count + '</span>' : '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(_fmtAvgDuration(r.create_delay_total, r.create_count)) + '</td>' +
+        '<td class="t-center">' + (r.update_count ? '<span class="fw7">' + r.update_count + '</span>' : '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(_fmtAvgDuration(r.update_delay_total, r.update_count)) + '</td>' +
+        '<td class="fw7 t-gold">' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+          r.total_count +
+          '<div style="flex:1;height:4px;background:var(--line);border-radius:2px;min-width:40px;"><div style="width:' + totalPct + '%;height:100%;background:var(--gold);border-radius:2px;"></div></div>' +
+          '</div>' +
+        '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(_fmtAvgDuration(r.total_delay_total, r.total_count)) + '</td>' +
+      '</tr>';
+    }
+  );
+
+  wrap.innerHTML = html;
+}
+
+function repaintDashboardFilteredTables() {
+  paintAgentTable();
+  paintTreatmentBreakdownTable();
+  paintDashboardModuleSummary();
+  paintDashboardModuleStateBoard();
+  paintDashboardAgrementStatusBreakdown();
 }
 
 /* ── Sparkline ─────────────────────────────────────────────── */
@@ -2637,12 +3378,12 @@ function paintAgentTable() {
   var avg    = _avg(rows);
 
   if (!rows.length) {
-    wrap.innerHTML = '<div class="empty" style="padding:16px;">Aucun traitement sur cette période.</div>';
+    wrap.innerHTML = '<div class="empty" style="padding:16px;">Aucun ambassadeur à afficher.</div>';
     return;
   }
 
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
-  html += '<span class="fs-sm t-muted">' + events.length + ' traitements · <strong>' + rows.length + '</strong> agents · moy. <strong>' + avg + '</strong> / agent</span>';
+  html += '<span class="fs-sm t-muted">' + events.length + ' traitements · <strong>' + rows.length + '</strong> ambassadeur(s) affiché(s) · <strong>' + rows.filter(function(r) { return r.total > 0; }).length + '</strong> avec activité · moy. <strong>' + avg + '</strong> / ambassadeur</span>';
   html += '</div>';
 
   html += buildTable(
@@ -2687,7 +3428,7 @@ function onDashPeriodChange(days, btn) {
     b.classList.remove('b1'); b.classList.add('b3');
   });
   if (btn) { btn.classList.remove('b3'); btn.classList.add('b1'); }
-  paintAgentTable();
+  repaintDashboardFilteredTables();
 }
 
 /* ── Période personnalisée (date inputs) ────────────────────── */
@@ -2702,7 +3443,7 @@ function onDashCustomPeriod() {
       b.classList.remove('b1'); b.classList.add('b3');
     });
   }
-  paintAgentTable();
+  repaintDashboardFilteredTables();
 }
 
 /* ── Filtres équipe / ambassadeur ───────────────────────────── */
@@ -2712,13 +3453,13 @@ function onDashFilterTeam() {
   _dashFilterAmbass = ''; // reset ambassadeur quand on change d'équipe
   /* Re-filtrer la liste ambassadeurs */
   _updateAmbassFilterOptions();
-  paintAgentTable();
+  repaintDashboardFilteredTables();
 }
 
 function onDashFilterAmbass() {
   var sel = el('dash-filter-ambass');
   _dashFilterAmbass = sel ? sel.value : '';
-  paintAgentTable();
+  repaintDashboardFilteredTables();
 }
 
 function _updateAmbassFilterOptions() {
@@ -2830,6 +3571,14 @@ function paintDashboard(data) {
   html += '<div id="dash-agent-table"></div>';
   html += '</div>';
 
+  /* ── Traitements détaillés ── */
+  html += '<div class="card">';
+  html += '<div class="card-head">';
+  html += '<div><span class="fw8">Traitements détaillés</span><div class="fs-sm t-muted" style="margin-top:4px;">Par ambassadeur, module et type d\'intervention.</div></div>';
+  html += '</div>';
+  html += '<div id="dash-treatment-breakdown"></div>';
+  html += '</div>';
+
   /* ── Solvabilité ── */
   if (data.solvabilite) {
     html += '<div class="card">';
@@ -2839,65 +3588,26 @@ function paintDashboard(data) {
   }
 
   /* ── Stats modules ── */
-  if (data.moduleStats) {
-    html += '<div class="card">';
-    html += '<div class="card-head"><span class="fw8">Modules</span></div>';
-    html += '<div class="module-cards">';
+html += '<div class="card">';
+html += '<div class="card-head"><div><span class="fw8">Modules</span><div class="fs-sm t-muted" style="margin-top:4px;">Synthèse filtrée des dossiers par module.</div></div></div>';
+html += '<div id="dash-module-summary"></div>';
+html += '</div>';
 
-    var ms = data.moduleStats.sinistre;
-    html += '<div class="module-card" onclick="navigate(\'sinistres\')">';
-    html += '<h4>Sinistres</h4>';
-    html += '<div class="stat-row"><span>Total</span><strong>' + (ms.total||0) + '</strong></div>';
-    html += '<div class="stat-row"><span>Complets</span><strong>' + (ms.complets||0) + '</strong></div>';
-    html += '<div class="stat-row"><span>Relances</span><strong>' + (ms.relances||0) + '</strong></div>';
-    html += '<div class="stat-row"><span>Traités</span><strong class="t-gold">' + (ms.traites||0) + '</strong></div>';
-    html += '</div>';
+/* ── Statuts & états par module ── */
+html += '<div class="card">';
+html += '<div class="card-head"><div><span class="fw8">Statuts & états des dossiers</span><div class="fs-sm t-muted" style="margin-top:4px;">Toutes les valeurs courantes remontées par module, sans impacter les modules existants.</div></div></div>';
+html += '<div id="dash-module-state-board"></div>';
+html += '</div>';
 
-    var mf = data.moduleStats.facture;
-    html += '<div class="module-card" onclick="navigate(\'factures\')">';
-    html += '<h4>Factures</h4>';
-    html += '<div class="stat-row"><span>Total</span><strong>' + (mf.total||0) + '</strong></div>';
-    html += '<div class="stat-row"><span>En cours</span><strong>' + (mf.en_cours||0) + '</strong></div>';
-    html += '<div class="stat-row"><span>Remontées</span><strong class="t-danger">' + (mf.remontees||0) + '</strong></div>';
-    html += '<div class="stat-row"><span>Vérifiées</span><strong>' + (mf.verifiees||0) + '</strong></div>';
-    html += '<div class="stat-row"><span>Traitées</span><strong class="t-gold">' + (mf.traites||0) + '</strong></div>';
-    html += '</div>';
-
-    var mr = data.moduleStats.resiliation;
-    html += '<div class="module-card" onclick="navigate(\'resiliations\')">';
-    html += '<h4>Résiliations</h4>';
-    html += '<div class="stat-row"><span>Total</span><strong>' + (mr.total||0) + '</strong></div>';
-    html += '<div class="stat-row"><span>En cours</span><strong>' + (mr.en_cours||0) + '</strong></div>';
-    html += '<div class="stat-row"><span>Relances</span><strong>' + (mr.relances||0) + '</strong></div>';
-    html += '<div class="stat-row"><span>Traités</span><strong class="t-gold">' + (mr.traites||0) + '</strong></div>';
-    html += '</div>';
-
-    html += '</div></div>';
-  }
-
-  /* ── Répartition + performance ── */
+/* ── Répartition + performance ── */
   html += '<div class="split">';
 
-  if (data.statusBreakdown && data.statusBreakdown.length) {
-    html += '<div class="card">';
-    html += '<div class="card-head"><span class="fw8">Répartition agréments</span></div>';
-    var maxVal  = Math.max.apply(null, data.statusBreakdown.map(function(r){ return r.value; }));
-    var totalSB = data.statusBreakdown.reduce(function(s, r){ return s + r.value; }, 0);
-    data.statusBreakdown.forEach(function(r) {
-      var pct      = maxVal   > 0 ? Math.round(r.value / maxVal   * 100) : 0;
-      var pctTotal = totalSB  > 0 ? Math.round(r.value / totalSB  * 100) : 0;
-      html += '<div style="margin-bottom:10px;">';
-      html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
-      html += '<span class="fs-sm">' + escHtml(r.label) + '</span>';
-      html += '<span class="fs-sm fw7">' + r.value + ' <span class="t-muted">(' + pctTotal + ' %)</span></span>';
-      html += '</div>';
-      html += '<div class="stat-bar"><div class="stat-bar-fill" style="width:' + pct + '%"></div></div>';
-      html += '</div>';
-    });
-    html += '</div>';
-  }
+html += '<div class="card">';
+html += '<div class="card-head"><div><span class="fw8">Répartition agréments</span><div class="fs-sm t-muted" style="margin-top:4px;">Lecture filtrée par période / équipe / ambassadeur.</div></div></div>';
+html += '<div id="dash-agrement-status-breakdown"></div>';
+html += '</div>';
 
-  if (data.performance && data.performance.length) {
+if (data.performance && data.performance.length) {
     html += '<div class="card">';
     html += '<div class="card-head"><span class="fw8">Performance équipes / agents</span></div>';
     html += buildTable(
@@ -2946,8 +3656,8 @@ function paintDashboard(data) {
     animateCountUp(el(t.id), t.val, 800);
   });
 
-  /* Peupler le tableau agent */
-  paintAgentTable();
+  /* Peupler les tableaux filtrables */
+  repaintDashboardFilteredTables();
 }
 </script>
 <script>
@@ -3349,6 +4059,7 @@ var _magCurrent      = null;
 var _magProfils      = [];
 var _magActiveProfil = 0;
 var _magReassignId   = null;
+var _magTraitementStartAt = '';
 
 /* ── Helpers ────────────────────────────────────────────────── */
 function parseProfils(r) {
@@ -3422,7 +4133,7 @@ function paintAgrementsTable(rows) {
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucun agrément.</div>'; return; }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° dossier', 'Compagnie', 'Type', 'Loyer', 'Plafond', 'Solvabilité', 'Statut', 'Ambassadeur', 'Gestionnaire', 'Actions'],
+    ['Référence', 'N° dossier', 'Compagnie', 'Type', 'Loyer', 'Plafond', 'Solvabilité', 'Statut', 'Ambassadeur', 'Créé le', 'Der. màj', 'Gestionnaire', 'Actions'],
     rows,
     function(r) {
       var plafond  = r.plafond_final ? fmtEuro(r.plafond_final) : '—';
@@ -3439,19 +4150,22 @@ function paintAgrementsTable(rows) {
       if (perms.canReassigner) {
         actions += ' <button class="b2 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openReassignModal(\'' + r.id + '\')">↻</button>';
       }
+      actions += buildClotureTraitementBtn('AGREMENT', r);
       actions += ' <button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'AGREMENT\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>';
 
       return '<tr>' +
-        '<td class="fw7 t-gold">'    + escHtml(r.reference    || '—') + '</td>' +
-        '<td class="fs-sm">'         + escHtml(r.no_dossier   || '—') + '</td>' +
-        '<td>'                       + escHtml(r.compagnie    || '—') + '</td>' +
-        '<td class="fs-sm">'         + escHtml(r.type_dossier || '—') + '</td>' +
-        '<td class="fw7">'           + (r.loyer ? fmtEuro(r.loyer) : '—') + '</td>' +
-        '<td class="fw7 t-gold">'    + plafond                        + '</td>' +
-        '<td>'                       + solvChip                       + '</td>' +
-        '<td>'                       + statusChip(r.statut)           + '</td>' +
-        '<td class="fs-sm t-muted">' + escHtml(r.ambassadeur_assigne_name || r.ambassadeur_assigne || '—') + '</td>' +
-        '<td class="fs-sm t-muted">' + escHtml(r.gestionnaire_plus_name  || r.gestionnaire_plus  || '—') + '</td>' +
+        '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
+        '<td class="fs-sm">' + escHtml(r.no_dossier || '—') + '</td>' +
+        '<td>' + escHtml(r.compagnie || '—') + '</td>' +
+        '<td class="fs-sm">' + escHtml(r.type_dossier || '—') + '</td>' +
+        '<td class="fw7">' + (r.loyer ? fmtEuro(r.loyer) : '—') + '</td>' +
+        '<td class="fw7 t-gold">' + plafond + '</td>' +
+        '<td>' + solvChip + '</td>' +
+        '<td>' + statusChip(r.statut) + '</td>' +
+        '<td class="fs-sm">' + (r.ambassadeur_assigne_name || r.ambassadeur_assigne ? '<div class="fw7">' + escHtml(r.ambassadeur_assigne_name || lookupUserLabel(r.ambassadeur_assigne) || r.ambassadeur_assigne) + '</div>' : '<span class="t-muted">—</span>') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDateTime(r.created_at)) + '</td>' +
+        '<td class="fs-sm"><span class="chip cg">der. màj ' + escHtml(fmtRelative(r.updated_at)) + '</span></td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.gestionnaire_plus_name || r.gestionnaire_plus || '—') + '</td>' +
         '<td><div style="display:flex;gap:4px;">' + actions + '</div></td>' +
         '</tr>';
     }
@@ -3460,6 +4174,7 @@ function paintAgrementsTable(rows) {
 
 /* ── Open modal ─────────────────────────────────────────────── */
 function openAgrementModal(agrId) {
+  _magTraitementStartAt = currentTraitementStartIso();
   _magCurrent      = agrId ? (_agrements.find(function(x){ return x.id === agrId; }) || null) : null;
   _magProfils      = _magCurrent ? (parseProfils(_magCurrent) || []) : [];
   _magActiveProfil = 0;
@@ -3470,6 +4185,8 @@ function openAgrementModal(agrId) {
 
   el('mag-title').textContent = agrId ? 'Modifier agrément' : 'Nouveau dossier agrément';
   el('mag-ref').textContent   = r.reference || '';
+  var magMeta = el('mag-meta');
+  if (magMeta) magMeta.innerHTML = agrId ? buildAgrementMetaChips(r) : '';
   /* Effacer l'erreur précédente */
   var _errEl = el('mag-save-error');
   if (_errEl) { _errEl.textContent = ''; _errEl.classList.add('hidden'); }
@@ -3849,7 +4566,9 @@ function saveMagAgrement() {
     loyer:               Number(el('mag-loyer').value) || 0,
     nombre_profils:      _magProfils.length,
     profils_json:        JSON.stringify(_magProfils),
-    commentaire_mise_a_jour: el('mag-commentaire').value.trim()
+    commentaire_mise_a_jour: el('mag-commentaire').value.trim(),
+    traitement_session_started_at: _magTraitementStartAt,
+    traitement_session_type: _magCurrent ? 'UPDATE' : 'CREATE'
   };
   /* Statut toujours inclus (champ visible pour tous les rôles) */
   payload.statut_fin_traitement = el('mag-statut-fin') ? el('mag-statut-fin').value : '';
@@ -3947,23 +4666,165 @@ function doReassign() {
 
 var _sinistres  = [];
 var _msiCurrent = null;
+var _sinistreRail = 'all';
+var _sinistreWorkflowCtx = null;
 
-/* ── List ─────────────────────────────────────────────────── */
 function renderSinistres() {
-  el('content').innerHTML = buildSkeletonTable(6);
+  el('content').innerHTML = buildSkeletonTable(7);
   google.script.run
     .withSuccessHandler(paintSinistres)
     .withFailureHandler(function(e) { gasFailureHandler(e); })
     .listSinistres(S.token, {});
 }
 
+function isSinistreAdmin() {
+  return !!(S.session && S.session.user && S.session.user.role === 'super_admin');
+}
+
+function getSinistreRailDefs() {
+  return [
+    { key: 'all',         label: 'Tous les sinistres', situation: '' },
+    { key: 'new',         label: 'Nouvelle déclaration', situation: 'Nouvelle déclaration' },
+    { key: 'complement',  label: 'Complément', situation: 'Complément' },
+    { key: 'waiting',     label: 'En attente', situation: 'En attente' }
+  ];
+}
+
+function getSinistreRailSituation() {
+  var found = getSinistreRailDefs().find(function(x) { return x.key === _sinistreRail; });
+  return found ? found.situation : '';
+}
+
+function getSinistreRailLabel() {
+  var found = getSinistreRailDefs().find(function(x) { return x.key === _sinistreRail; });
+  return found ? found.label : 'Tous les sinistres';
+}
+
+function setSinistreRail(key) {
+  _sinistreRail = key || 'all';
+  paintSinistresTable(getFilteredSinistres());
+  updateSinistreRailUi();
+}
+
+function updateSinistreRailUi() {
+  var box = el('si-rail-tabs');
+  if (!box) return;
+  [].slice.call(box.querySelectorAll('[data-si-rail]')).forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-si-rail') === _sinistreRail);
+  });
+  var info = el('si-rail-caption');
+  if (info) {
+    var label = getSinistreRailLabel();
+    info.textContent = _sinistreRail === 'all'
+      ? 'Vue globale des sinistres avec leur dernier statut à jour.'
+      : 'Vue filtrée : ' + label + '.';
+  }
+}
+
+function buildSinistreMetaChips(r) {
+  var chips = [];
+  if (r.created_by_name) chips.push('<span class="chip cp">Amb. : ' + escHtml(r.created_by_name) + '</span>');
+  if (r.created_at)      chips.push('<span class="chip">Créé : ' + escHtml(fmtDateTime(r.created_at)) + '</span>');
+  if (r.updated_at)      chips.push('<span class="chip cg">der. màj ' + escHtml(fmtRelative(r.updated_at)) + '</span>');
+  if (r.transfer_origin) chips.push('<span class="chip cw">Origine : ' + escHtml(r.transfer_origin) + '</span>');
+  return chips.join('');
+}
+
+function updateSinistreStatutPreview() {
+  var statusEl     = el('msi-statut');
+  var completudeEl = el('msi-completude');
+  var situationEl  = el('msi-situation');
+  if (!statusEl || !completudeEl || !situationEl) return;
+
+  var completude = completudeEl.value || '';
+  var situation  = situationEl.value || '';
+
+  if (completude === 'KO' || situation === 'En attente') {
+    statusEl.value = 'Relance';
+  } else if (_msiCurrent && _msiCurrent.statut === 'Traité') {
+    statusEl.value = 'Complet';
+  } else if (completude === 'OK' || situation === 'Complément' || situation === 'Nouvelle déclaration') {
+    statusEl.value = 'Complet';
+  } else {
+    statusEl.value = _msiCurrent && _msiCurrent.statut ? _msiCurrent.statut : 'Relance';
+  }
+}
+
+function syncSinistreSituationUi() {
+  var situationEl  = el('msi-situation');
+  var completudeEl = el('msi-completude');
+  var hintEl       = el('msi-situation-hint');
+  var badgeEl      = el('msi-origin-badge');
+  if (!situationEl || !completudeEl || !hintEl || !badgeEl) return;
+
+  var isEdit        = !!(_msiCurrent && _msiCurrent.id);
+  var isAdmin       = isSinistreAdmin();
+  var completude    = completudeEl.value || '';
+  var transferFrom  = (_msiCurrent && _msiCurrent.transfer_origin) ? _msiCurrent.transfer_origin : 'Nouvelle déclaration';
+
+  if (isEdit) {
+    populateSelect(situationEl, ['Complément', 'En attente'], (situationEl.value === 'En attente' ? 'En attente' : 'Complément'));
+    badgeEl.classList.remove('hidden');
+    badgeEl.textContent = 'Origine';
+    hintEl.textContent = 'Origine actuelle : ' + transferFrom;
+    if (completude === 'KO') {
+      situationEl.value = 'En attente';
+      situationEl.disabled = true;
+      hintEl.textContent = 'Origine actuelle : ' + transferFrom + ' • Complétude KO : situation automatiquement mise en attente.';
+    } else {
+      situationEl.disabled = false;
+    }
+  } else {
+    var items = isAdmin ? ['Nouvelle déclaration', 'Complément', 'En attente'] : ['Nouvelle déclaration'];
+    populateSelect(situationEl, items, situationEl.value || 'Nouvelle déclaration');
+    badgeEl.classList.toggle('hidden', !isAdmin);
+    badgeEl.textContent = 'Origine';
+    situationEl.disabled = !isAdmin;
+    hintEl.textContent = isAdmin
+      ? 'Création : par défaut “Nouvelle déclaration”, modifiable par l’admin.'
+      : 'Création : situation verrouillée sur “Nouvelle déclaration”.';
+    if (!isAdmin) situationEl.value = 'Nouvelle déclaration';
+  }
+
+  updateSinistreStatutPreview();
+}
+
+function getFilteredSinistres() {
+  var search = el('si-search') ? el('si-search').value.toLowerCase() : '';
+  var statut = el('si-filter-statut') ? el('si-filter-statut').value : '';
+  var railSituation = getSinistreRailSituation();
+  return (_sinistres || []).filter(function(r) {
+    return (!statut || r.statut === statut) &&
+           (!railSituation || r.situation === railSituation) &&
+           (!search || JSON.stringify(r).toLowerCase().indexOf(search) > -1);
+  });
+}
+
+function countSinistresForRail(key) {
+  var meta = getSinistreRailDefs().find(function(x) { return x.key === key; });
+  if (!meta) return 0;
+  return (_sinistres || []).filter(function(r) {
+    return !meta.situation || r.situation === meta.situation;
+  }).length;
+}
+
 function paintSinistres(rows) {
   _sinistres = rows || [];
 
+  var railTabs = getSinistreRailDefs().map(function(tab) {
+    var count = countSinistresForRail(tab.key);
+    return '<button class="profil-tab ' + (tab.key === _sinistreRail ? 'active' : '') + '" data-si-rail="' + tab.key + '" onclick="setSinistreRail(\'' + tab.key + '\')">' +
+      escHtml(tab.label) + ' <span class="chip" style="margin-left:6px;padding:2px 8px;">' + count + '</span></button>';
+  }).join('');
+
   var html = '<div class="card">';
-  html += '<div class="card-head">';
-  html += '<span class="fw8">Sinistres</span>';
-  html += '<div style="display:flex;gap:8px;align-items:center;">';
+  html += '<div class="card-head" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">';
+  html += '<div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;min-width:0;">';
+  html += '<span class="fw8" style="padding-top:8px;">Sinistres</span>';
+  html += '<div><div class="profil-tabs" id="si-rail-tabs" style="margin:0;gap:8px;">' + railTabs + '</div>';
+  html += '<div id="si-rail-caption" class="sub" style="margin-top:8px;font-size:.82rem;">Vue globale des sinistres avec leur dernier statut à jour.</div></div>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
   html += '<input type="text" id="si-search" placeholder="Recherche…" class="filter-input" oninput="filterSinistres()">';
   html += '<select id="si-filter-statut" class="filter-select" onchange="filterSinistres()"><option value="">Tous statuts</option>';
   ['Complet','Relance','Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
@@ -3973,61 +4834,151 @@ function paintSinistres(rows) {
   html += '<div id="si-table-wrap"></div>';
   html += '</div>';
   el('content').innerHTML = html;
-  paintSinistresTable(_sinistres);
+  updateSinistreRailUi();
+  paintSinistresTable(getFilteredSinistres());
 }
 
 function filterSinistres() {
-  var search = el('si-search') ? el('si-search').value.toLowerCase() : '';
-  var statut = el('si-filter-statut') ? el('si-filter-statut').value : '';
-  paintSinistresTable(_sinistres.filter(function(r) {
-    return (!statut || r.statut === statut) &&
-           (!search || JSON.stringify(r).toLowerCase().indexOf(search) > -1);
-  }));
+  paintSinistresTable(getFilteredSinistres());
+}
+
+function buildSinistreWorkflowButtons(r) {
+  if (!r || !isTrueFlag(r.workflow_pending)) return '';
+  var actions = Array.isArray(r.pending_actions) ? r.pending_actions : [];
+  var map = {
+    TO_ATTENTE:   { label: '↗ Attente',    cls: 'b2' },
+    TO_COMPLEMENT:{ label: '↗ Complément', cls: 'b2' },
+    COMPLETE:     { label: '✓ Complet',    cls: 'bs' },
+    RELANCE:      { label: '⚑ Relance',    cls: 'bd' }
+  };
+  return actions.map(function(code) {
+    var m = map[code];
+    if (!m) return '';
+    return '<button class="' + m.cls + ' fs-xs" style="min-height:30px;padding:0 10px;" onclick="handleSinistreWorkflowAction(\'' + r.id + '\',\'' + code + '\')">' + m.label + '</button>';
+  }).join('');
+}
+
+function getSinistreRelanceComments(r) {
+  var hist = (r && Array.isArray(r.historique)) ? r.historique : parseHistorique(r || {});
+  return hist.filter(function(h) {
+    return String(h.action || '').trim() === 'WORKFLOW_RELANCE' && String(h.commentaire || '').trim();
+  });
+}
+
+function buildSinistreRelanceBtn(r) {
+  var comments = getSinistreRelanceComments(r);
+  if (!comments.length) return '';
+  return '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Voir les commentaires de relance" onclick="openSinistreRelanceComments(\'' + r.id + '\')">💬 <span style="margin-left:4px;">' + comments.length + '</span></button>';
+}
+
+function openSinistreRelanceComments(id) {
+  var r = (_sinistres || []).find(function(x){ return x.id === id; }) || null;
+  if (!r) { toast('Sinistre introuvable.', 'error'); return; }
+  var comments = getSinistreRelanceComments(r);
+  var titleEl = el('msrc-title');
+  var listEl  = el('msrc-list');
+  if (titleEl) titleEl.textContent = 'Commentaires de relance — ' + (r.reference || 'Sinistre');
+  if (listEl) {
+    if (!comments.length) {
+      listEl.innerHTML = '<div class="empty">Aucun commentaire de relance.</div>';
+    } else {
+      listEl.innerHTML = comments.map(function(h, idx) {
+        return '<div class="ver-item" style="padding-left:18px;margin-bottom:12px;">' +
+          '<div class="ver-head"><span class="ver-action">💬 Relance ' + (idx + 1) + '</span><span class="ver-num">' + escHtml(fmtDateTime(h.timestamp || h.at || '')) + '</span></div>' +
+          '<div class="ver-meta">' + escHtml(h.user_name || h.by || '—') + '</div>' +
+          '<div class="ver-comment" style="border-top:0;margin-top:2px;padding-top:0;">' + escHtml(h.commentaire || '') + '</div>' +
+        '</div>';
+      }).join('');
+    }
+  }
+  openModal('modal-sinistre-relance-comments');
+}
+
+function buildSinistreOriginCell(r) {
+  if (!r || !r.transfer_origin) return '<span class="t-muted">—</span>';
+  return '<span class="chip cw">Depuis ' + escHtml(r.transfer_origin) + '</span>';
+}
+
+function refreshSinistreRow(id) {
+  toast('Actualisation du sinistre…', 'info');
+  renderSinistres();
 }
 
 function paintSinistresTable(rows) {
   var wrap = el('si-table-wrap');
   if (!wrap) return;
-  if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucun sinistre.</div>'; return; }
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="empty">Aucun sinistre dans l’onglet “' + escHtml(getSinistreRailLabel()) + '”.</div>';
+    return;
+  }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° sinistre', 'N° contrat', 'Gestionnaire', 'Complétude', 'Statut', 'Délai', 'Modifié', 'Actions'],
+    ['Référence', 'N° sinistre', 'N° contrat', 'Situation', 'Origine transfert', 'Gestionnaire', 'Ambassadeur', 'Créé le', 'Complétude', 'Statut', 'Der. màj', 'Actions'],
     rows,
     function(r) {
       return '<tr>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
         '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
         '<td class="fs-sm">' + escHtml(r.no_contrat || '—') + '</td>' +
+        '<td>' + statusChip(r.situation || '—') + '</td>' +
+        '<td>' + buildSinistreOriginCell(r) + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.gestionnaire || '—') + '</td>' +
+        '<td class="fs-sm">' + (r.created_by_name ? '<div class="fw7">' + escHtml(r.created_by_name) + '</div>' : '<span class="t-muted">—</span>') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDateTime(r.created_at)) + '</td>' +
         '<td>' + (r.completude ? statusChip(r.completude) : '—') + '</td>' +
         '<td>' + statusChip(r.statut) + '</td>' +
-        '<td class="fs-sm t-muted">' + escHtml(r.delai_formate || '—') + '</td>' +
-        '<td class="fs-sm t-muted">' + fmtDate(r.updated_at) + '</td>' +
-        '<td><div style="display:flex;gap:4px;">' +
-          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openSinistreModal(\'' + r.id + '\')">✎</button>' +
+        '<td class="fs-sm"><span class="chip cg">der. màj ' + escHtml(fmtRelative(r.updated_at)) + '</span></td>' +
+        '<td><div style="display:flex;gap:4px;flex-wrap:wrap;">' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Mettre à jour" onclick="openSinistreModal(\'' + r.id + '\')">✎</button>' +
+          buildClotureTraitementBtn('SINISTRE', r) +
+          buildSinistreWorkflowButtons(r) +
+          buildSinistreRelanceBtn(r) +
           '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'SINISTRE\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Actualiser le sinistre" onclick="refreshSinistreRow(\'' + r.id + '\')">↻</button>' +
         '</div></td>' +
         '</tr>';
     }
   );
 }
 
-/* ── Open modal ──────────────────────────────────────────── */
 function openSinistreModal(sinId) {
+  _msiTraitementStartAt = currentTraitementStartIso();
   _msiCurrent = sinId ? (_sinistres.find(function(x){ return x.id === sinId; }) || null) : null;
   var r = _msiCurrent || {};
+  var isEdit  = !!sinId;
+  var isAdmin = isSinistreAdmin();
 
   el('msi-title').textContent     = sinId ? 'Modifier sinistre' : 'Nouveau sinistre';
   el('msi-ref').textContent       = r.reference || '';
   el('msi-no-sinistre').value     = r.no_sinistre  || '';
   el('msi-no-contrat').value      = r.no_contrat   || '';
-  el('msi-gestionnaire').value    = r.gestionnaire  || '';
-  el('msi-commentaire').value     = r.commentaire   || '';
+  el('msi-gestionnaire').value    = r.gestionnaire || '';
+  el('msi-commentaire').value     = r.commentaire  || '';
 
   var completudeEl = el('msi-completude');
   if (completudeEl) completudeEl.value = r.completude || '';
 
-  /* Zone traitement */
+  var situationEl = el('msi-situation');
+  if (situationEl) {
+    if (isEdit) {
+      populateSelect(situationEl, ['Complément', 'En attente'], r.situation === 'En attente' ? 'En attente' : 'Complément');
+    } else {
+      populateSelect(situationEl, isAdmin ? ['Nouvelle déclaration', 'Complément', 'En attente'] : ['Nouvelle déclaration'], r.situation || 'Nouvelle déclaration');
+    }
+  }
+
+  var statusEl = el('msi-statut');
+  if (statusEl) {
+    statusEl.value = r.statut || (r.completude === 'KO' ? 'Relance' : 'Complet');
+    statusEl.disabled = true;
+  }
+
+  var metaEl = el('msi-meta');
+  if (metaEl) metaEl.innerHTML = isEdit ? buildSinistreMetaChips(r) : '';
+
+  if (completudeEl) completudeEl.onchange = syncSinistreSituationUi;
+  if (situationEl)  situationEl.onchange  = syncSinistreSituationUi;
+
   var traiterZone  = el('msi-traiter-zone');
   var timelineZone = el('msi-timeline-zone');
 
@@ -4049,6 +5000,7 @@ function openSinistreModal(sinId) {
     timelineZone.classList.add('hidden');
   }
 
+  syncSinistreSituationUi();
   el('btn-msi-save').onclick = saveSinistreModal;
   openModal('modal-sinistre');
 }
@@ -4058,7 +5010,7 @@ function paintSinistreTimeline(hist) {
   if (!tl) return;
   tl.innerHTML = hist.map(function(h) {
     var dotType = { CREATE:'create', TRAITE:'traite' }[h.action] || 'update';
-    var icon    = { CREATE:'+', TRAITE:'✔', MISE_A_JOUR:'✎', MISE_A_JOUR_APRES_TRAITEMENT:'⚑' }[h.action] || '•';
+    var icon    = { CREATE:'+', TRAITE:'✔', MISE_A_JOUR:'✎', MISE_A_JOUR_APRES_TRAITEMENT:'⚑', WORKFLOW_TO_ATTENTE:'↗', WORKFLOW_TO_COMPLEMENT:'↗', WORKFLOW_COMPLETE:'✓', WORKFLOW_RELANCE:'⚑' }[h.action] || '•';
     return '<div class="timeline-item">' +
       '<div class="tl-dot ' + dotType + '">' + icon + '</div>' +
       '<div class="tl-content">' +
@@ -4069,24 +5021,25 @@ function paintSinistreTimeline(hist) {
   }).join('');
 }
 
-/* ── Save ─────────────────────────────────────────────────── */
 function saveSinistreModal() {
-  var btn = el('btn-msi-save');
+  var btn   = el('btn-msi-save');
   var noSin = el('msi-no-sinistre').value.trim();
   var noCon = el('msi-no-contrat').value.trim();
 
-  // Validation visuelle
   markRequired('msi-no-sinistre', !noSin);
   markRequired('msi-no-contrat',  !noCon);
   if (!noSin || !noCon) { toast('Les champs marqués * sont obligatoires.', 'error'); return; }
 
   var payload = {
-    id:          _msiCurrent ? _msiCurrent.id : '',
-    no_sinistre: noSin,
-    no_contrat:  noCon,
+    id:           _msiCurrent ? _msiCurrent.id : '',
+    no_sinistre:  noSin,
+    no_contrat:   noCon,
     gestionnaire: el('msi-gestionnaire').value.trim(),
-    completude:  el('msi-completude') ? el('msi-completude').value : '',
-    commentaire: el('msi-commentaire').value.trim()
+    completude:   el('msi-completude') ? el('msi-completude').value : '',
+    situation:    el('msi-situation') ? el('msi-situation').value : '',
+    commentaire:  el('msi-commentaire').value.trim(),
+    traitement_session_started_at: _msiTraitementStartAt,
+    traitement_session_type: _msiCurrent ? 'UPDATE' : 'CREATE'
   };
 
   setBtnLoading(btn, true);
@@ -4101,7 +5054,6 @@ function saveSinistreModal() {
     .saveSinistre(S.token, payload);
 }
 
-/* ── Traiter ──────────────────────────────────────────────── */
 function doTraiterSinistre(sinId) {
   var btn = el('btn-msi-traiter');
   setBtnLoading(btn, true);
@@ -4115,6 +5067,49 @@ function doTraiterSinistre(sinId) {
     .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
     .traiterSinistre(S.token, sinId);
 }
+
+function handleSinistreWorkflowAction(id, action) {
+  if (action === 'RELANCE') {
+    _sinistreWorkflowCtx = { id: id, action: action };
+    if (el('msr-commentaire')) el('msr-commentaire').value = '';
+    openModal('modal-sinistre-relance');
+    setTimeout(function(){ if (el('msr-commentaire')) el('msr-commentaire').focus(); }, 60);
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function() {
+      toast('Sinistre mis à jour.', 'success');
+      renderSinistres();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .applySinistreWorkflowAction(S.token, id, action, '');
+}
+
+function submitSinistreRelanceAction() {
+  if (!_sinistreWorkflowCtx || !_sinistreWorkflowCtx.id) return;
+  var btn = el('btn-msr-save');
+  var commentaire = el('msr-commentaire') ? el('msr-commentaire').value.trim() : '';
+  markRequired('msr-commentaire', !commentaire);
+  if (!commentaire) { toast('Le commentaire de relance est obligatoire.', 'error'); return; }
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-sinistre-relance');
+      toast('Relance enregistrée.', 'success');
+      _sinistreWorkflowCtx = null;
+      renderSinistres();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .applySinistreWorkflowAction(S.token, _sinistreWorkflowCtx.id, 'RELANCE', commentaire);
+}
+
+(function wireRelanceModal(){
+  setTimeout(function(){
+    if (el('btn-msr-save')) el('btn-msr-save').onclick = submitSinistreRelanceAction;
+  }, 0);
+})();
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
@@ -4123,6 +5118,7 @@ function doTraiterSinistre(sinId) {
 
 var _factures   = [];
 var _mfaCurrent = null;
+var _mfaTraitementStartAt = '';
 
 /* Étapes — alignées sur le schéma backend */
 var FACTURE_STEPS = [
@@ -4173,7 +5169,7 @@ function paintFacturesTable(rows) {
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucune facture.</div>'; return; }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° sinistre', 'Étapes', 'Statut', 'Vérifié TL', 'Modifié', 'Actions'],
+    ['Référence', 'N° sinistre', 'Étapes', 'Statut', 'Vérifié TL', 'Ambassadeur', 'Créé le', 'Der. màj', 'Actions'],
     rows,
     function(r) {
       var done  = FACTURE_STEPS.filter(function(s){ return String(r[s.key]) === 'TRUE'; }).length;
@@ -4195,9 +5191,12 @@ function paintFacturesTable(rows) {
         '<td>' + progressHtml + '</td>' +
         '<td>' + statutCell + '</td>' +
         '<td>' + verifCell + '</td>' +
-        '<td class="fs-sm t-muted">' + fmtDate(r.updated_at) + '</td>' +
+        '<td class="fs-sm">' + (r.created_by_name ? '<div class="fw7">' + escHtml(r.created_by_name) + '</div>' : '<span class="t-muted">—</span>') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDateTime(r.created_at)) + '</td>' +
+        '<td class="fs-sm"><span class="chip cg">der. màj ' + escHtml(fmtRelative(r.updated_at)) + '</span></td>' +
         '<td><div style="display:flex;gap:4px;">' +
           '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openFactureModal(\'' + r.id + '\')">✎</button>' +
+          buildClotureTraitementBtn('FACTURE', r) +
           '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'FACTURE\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
         '</div></td>' +
         '</tr>';
@@ -4207,12 +5206,15 @@ function paintFacturesTable(rows) {
 
 /* ── Open modal ──────────────────────────────────────────── */
 function openFactureModal(facId) {
+  _mfaTraitementStartAt = currentTraitementStartIso();
   _mfaCurrent = facId ? (_factures.find(function(x){ return x.id === facId; }) || null) : null;
   var r     = _mfaCurrent || {};
   var perms = S.permissions || {};
 
   el('mfa-title').textContent    = facId ? 'Modifier facture' : 'Nouvelle facture';
   el('mfa-ref').textContent      = r.reference || '';
+  var mfaMeta = el('mfa-meta');
+  if (mfaMeta) mfaMeta.innerHTML = facId ? buildFactureMetaChips(r) : '';
   el('mfa-no-sinistre').value    = r.no_sinistre || '';
   el('mfa-commentaire').value    = r.commentaire_traitement || '';
 
@@ -4312,7 +5314,9 @@ function saveFactureModal() {
   var payload = Object.assign({
     id:                     _mfaCurrent ? _mfaCurrent.id : '',
     no_sinistre:            noSin,
-    commentaire_traitement: el('mfa-commentaire').value.trim()
+    commentaire_traitement: el('mfa-commentaire').value.trim(),
+    traitement_session_started_at: _mfaTraitementStartAt,
+    traitement_session_type: _mfaCurrent ? 'UPDATE' : 'CREATE'
   }, steps);
 
   setBtnLoading(btn, true);
@@ -4387,16 +5391,19 @@ function paintFacturesRemontees(rows) {
   }
 
   html += buildTable(
-    ['Référence', 'N° sinistre', 'Créé par', 'Date remontée', 'Actions'],
+    ['Référence', 'N° sinistre', 'Ambassadeur', 'Créé le', 'Date remontée', 'Der. màj', 'Actions'],
     rows,
     function(r) {
       return '<tr>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
         '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
-        '<td class="fs-sm t-muted">' + escHtml(r.created_by_name || '—') + '</td>' +
-        '<td class="fs-sm t-muted">' + fmtDateTime(r.remonte_at || r.updated_at) + '</td>' +
+        '<td class="fs-sm">' + (r.created_by_name ? '<div class="fw7">' + escHtml(r.created_by_name) + '</div>' : '<span class="t-muted">—</span>') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDateTime(r.created_at)) + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDateTime(r.remonte_at || r.updated_at)) + '</td>' +
+        '<td class="fs-sm"><span class="chip cg">der. màj ' + escHtml(fmtRelative(r.updated_at)) + '</span></td>' +
         '<td><div style="display:flex;gap:4px;">' +
           '<button class="verifier-btn fs-xs" style="min-height:32px;padding:0 12px;" onclick="openVerifModal(\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\',\'' + escHtml(r.created_by_name||'') + '\')">✦ Vérifier</button>' +
+          buildClotureTraitementBtn('FACTURE', r) +
           '<button class="b3 fs-xs" style="min-height:32px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'FACTURE\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
         '</div></td>' +
         '</tr>';
@@ -4460,6 +5467,7 @@ function doVerifModalConfirm() {
 
 var _resiliations = [];
 var _mreCurrent   = null;
+var _mreTraitementStartAt = '';
 
 /* ── List ─────────────────────────────────────────────────── */
 function renderResiliations() {
@@ -4505,7 +5513,7 @@ function paintResiliationsTable(rows) {
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucune résiliation.</div>'; return; }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° contrat', 'Origine', 'Mail', 'Complétude', 'Résil', 'Statut', 'Délai', 'Créé par', 'Actions'],
+    ['Référence', 'N° contrat', 'Origine', 'Mail', 'Complétude', 'Résil', 'Statut', 'Délai', 'Ambassadeur', 'Créé le', 'Der. màj', 'Actions'],
     rows,
     function(r) {
       var origClass = { 'Mail': 'email', 'Courrier': 'courrier' }[r.origine] || 'autre';
@@ -4518,9 +5526,12 @@ function paintResiliationsTable(rows) {
         '<td class="fs-sm">' + escHtml(r.resil || '—') + '</td>' +
         '<td>' + statusChip(r.statut) + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.delai_formate || '—') + '</td>' +
-        '<td class="fs-sm t-muted">' + escHtml(r.created_by_name || '—') + '</td>' +
+        '<td class="fs-sm">' + (r.created_by_name ? '<div class="fw7">' + escHtml(r.created_by_name) + '</div>' : '<span class="t-muted">—</span>') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDateTime(r.created_at)) + '</td>' +
+        '<td class="fs-sm"><span class="chip cg">der. màj ' + escHtml(fmtRelative(r.updated_at)) + '</span></td>' +
         '<td><div style="display:flex;gap:4px;">' +
           '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openResiliationModal(\'' + r.id + '\')">✎</button>' +
+          buildClotureTraitementBtn('RESILIATION', r) +
           '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'RESILIATION\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
         '</div></td>' +
         '</tr>';
@@ -4530,11 +5541,14 @@ function paintResiliationsTable(rows) {
 
 /* ── Open modal ──────────────────────────────────────────── */
 function openResiliationModal(resId) {
+  _mreTraitementStartAt = currentTraitementStartIso();
   _mreCurrent = resId ? (_resiliations.find(function(x){ return x.id === resId; }) || null) : null;
   var r = _mreCurrent || {};
 
   el('mre-title').textContent  = resId ? 'Modifier résiliation' : 'Nouvelle résiliation';
   el('mre-ref').textContent    = r.reference || '';
+  var mreMeta = el('mre-meta');
+  if (mreMeta) mreMeta.innerHTML = resId ? buildResiliationMetaChips(r) : '';
   el('mre-no-contrat').value   = r.no_contrat || '';
   el('mre-origine').value      = r.origine || '';
   el('mre-mail').value         = r.mail || '';
@@ -4581,7 +5595,9 @@ function saveResiliationModal() {
     no_contrat:  el('mre-no-contrat').value.trim(),
     origine:     el('mre-origine').value,
     mail:        el('mre-mail').value.trim(),
-    commentaire: el('mre-commentaire').value.trim()
+    commentaire: el('mre-commentaire').value.trim(),
+    traitement_session_started_at: _mreTraitementStartAt,
+    traitement_session_type: _mreCurrent ? 'UPDATE' : 'CREATE'
   };
   if (!payload.no_contrat) { toast('Le N° de contrat est obligatoire.', 'error'); return; }
 
@@ -5212,20 +6228,21 @@ function paintEntityHistory(rows) {
     SOUMIS:  'ver-traite'
   };
 
-  body.innerHTML = rows.map(function(v) {
+  body.innerHTML = rows.map(function(v, idx) {
     var cls   = actionClass[v.action_type] || '';
     var label = actionLabels[v.action_type] || v.action_type || 'Mise à jour';
     var when  = fmtDateTime(v.created_at);
     var who   = v.user_name || v.user_id || '—';
+    var older = rows[idx + 1] || null;
+    var diffHtml = buildVersionDiffHtml(v, older);
     return '<div class="ver-item ' + cls + '">' +
       '<div class="ver-head">' +
         '<span class="ver-action">' + escHtml(label) + '</span>' +
         '<span class="ver-num">v' + escHtml(String(v.version_num || '—')) + '</span>' +
       '</div>' +
       '<div class="ver-meta">' + escHtml(who) + ' · ' + escHtml(when) + '</div>' +
-      (v.commentaire
-        ? '<div class="ver-comment">' + escHtml(v.commentaire) + '</div>'
-        : '') +
+      (v.commentaire ? '<div class="ver-comment">' + escHtml(v.commentaire) + '</div>' : '') +
+      diffHtml +
     '</div>';
   }).join('');
 }
