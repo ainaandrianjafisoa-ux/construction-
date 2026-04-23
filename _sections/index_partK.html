@@ -1,0 +1,337 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PART K — Module Facture (Vérification / Calcul / Règlement)
+═══════════════════════════════════════════════════════════════ */
+
+var _factures   = [];
+var _mfaCurrent = null;
+
+/* Étapes — alignées sur le schéma backend */
+var FACTURE_STEPS = [
+  { key: 'etape_verification', label: 'Vérification' },
+  { key: 'etape_calcul',       label: 'Calcul'       },
+  { key: 'etape_reglement',    label: 'Règlement'    }
+];
+
+/* ── List ─────────────────────────────────────────────────── */
+function renderFactures() {
+  el('content').innerHTML = buildSkeletonTable(5);
+  google.script.run
+    .withSuccessHandler(paintFactures)
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .listFactures(S.token, {});
+}
+
+function paintFactures(rows) {
+  _factures = rows || [];
+  var perms = S.permissions || {};
+
+  var html = '<div class="card">';
+  html += '<div class="card-head"><span class="fw8">Factures</span>';
+  html += '<div style="display:flex;gap:8px;align-items:center;">';
+  html += '<input type="text" id="fa-search" placeholder="Recherche…" class="filter-input" oninput="filterFactures()">';
+  html += '<select id="fa-filter-statut" class="filter-select" onchange="filterFactures()"><option value="">Tous statuts</option>';
+  ['En cours','Remonté','Vérifié','Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
+  html += '</select>';
+  html += '<button class="b1" onclick="openFactureModal(null)">+ Nouvelle</button>';
+  html += '</div></div>';
+  html += '<div id="fa-table-wrap"></div></div>';
+  el('content').innerHTML = html;
+  paintFacturesTable(_factures);
+}
+
+function filterFactures() {
+  var search = el('fa-search') ? el('fa-search').value.toLowerCase() : '';
+  var statut = el('fa-filter-statut') ? el('fa-filter-statut').value : '';
+  paintFacturesTable(_factures.filter(function(r) {
+    return (!statut || r.statut === statut) &&
+           (!search || JSON.stringify(r).toLowerCase().indexOf(search) > -1);
+  }));
+}
+
+function paintFacturesTable(rows) {
+  var wrap = el('fa-table-wrap');
+  if (!wrap) return;
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucune facture.</div>'; return; }
+
+  wrap.innerHTML = buildTable(
+    ['Référence', 'N° sinistre', 'Étapes', 'Statut', 'Vérifié TL', 'Modifié', 'Actions'],
+    rows,
+    function(r) {
+      var done  = FACTURE_STEPS.filter(function(s){ return String(r[s.key]) === 'TRUE'; }).length;
+      var total = FACTURE_STEPS.length;
+      var progressHtml =
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+          '<div class="stat-bar" style="width:70px;"><div class="stat-bar-fill" style="width:' + Math.round(done/total*100) + '%"></div></div>' +
+          '<span class="fs-xs t-muted">' + done + '/' + total + '</span>' +
+        '</div>';
+
+      var statutCell = statusChip(r.statut);
+      var verifCell  = r.verifie_badge === true || String(r.verifie_badge).toUpperCase() === 'TRUE'
+        ? '<span class="badge-verified">✔ TL</span>'
+        : '<span class="t-muted fs-xs">—</span>';
+
+      return '<tr' + (r.statut === 'Vérifié' ? ' style="background:rgba(201,168,76,.04);"' : '') + '>' +
+        '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
+        '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
+        '<td>' + progressHtml + '</td>' +
+        '<td>' + statutCell + '</td>' +
+        '<td>' + verifCell + '</td>' +
+        '<td class="fs-sm t-muted">' + fmtDate(r.updated_at) + '</td>' +
+        '<td><div style="display:flex;gap:4px;">' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openFactureModal(\'' + r.id + '\')">✎</button>' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'FACTURE\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
+        '</div></td>' +
+        '</tr>';
+    }
+  );
+}
+
+/* ── Open modal ──────────────────────────────────────────── */
+function openFactureModal(facId) {
+  _mfaCurrent = facId ? (_factures.find(function(x){ return x.id === facId; }) || null) : null;
+  var r     = _mfaCurrent || {};
+  var perms = S.permissions || {};
+
+  el('mfa-title').textContent    = facId ? 'Modifier facture' : 'Nouvelle facture';
+  el('mfa-ref').textContent      = r.reference || '';
+  el('mfa-no-sinistre').value    = r.no_sinistre || '';
+  el('mfa-commentaire').value    = r.commentaire_traitement || '';
+
+  var traiterZone = el('mfa-traiter-zone');
+
+  if (facId) {
+    traiterZone.classList.remove('hidden');
+
+    /* Badge vérifié */
+    var vStrip = el('mfa-verified-strip');
+    var isVerif = r.verifie_badge === true || String(r.verifie_badge).toUpperCase() === 'TRUE';
+    if (vStrip) {
+      vStrip.classList.toggle('hidden', !isVerif);
+      var vPar = el('mfa-verifie-par');
+      if (vPar) vPar.textContent = r.verifie_par ? 'par ' + r.verifie_par : '';
+    }
+
+    /* Remontée strip */
+    var rStrip = el('mfa-remonte-strip');
+    if (rStrip) rStrip.classList.toggle('hidden', r.statut !== 'Remonté');
+
+    /* Steps */
+    buildFactureSteps(r);
+
+    /* Bouton Vérifier TL */
+    var btnVer = el('btn-mfa-verifier');
+    if (btnVer) {
+      if (perms.canVerifierFactures && r.statut === 'Remonté') {
+        btnVer.style.display = '';
+        btnVer.onclick = function() { doVerifierFacture(facId); };
+      } else {
+        btnVer.style.display = 'none';
+      }
+    }
+
+    el('btn-mfa-traiter').onclick = function() { doTraiterFacture(facId); };
+  } else {
+    traiterZone.classList.add('hidden');
+  }
+
+  el('btn-mfa-save').onclick = saveFactureModal;
+  openModal('modal-facture');
+}
+
+function buildFactureSteps(r) {
+  var stepsEl = el('mfa-steps');
+  if (!stepsEl) return;
+  stepsEl.innerHTML = '';
+  FACTURE_STEPS.forEach(function(step) {
+    var v = r[step.key];
+    var done = v === true || String(v).toUpperCase() === 'TRUE';
+    var row  = document.createElement('div');
+    row.className = 'step-row' + (done ? ' done' : '');
+
+    var cb = document.createElement('input');
+    cb.type    = 'checkbox';
+    cb.checked = done;
+    cb.id      = 'fa-step-' + step.key;
+    cb.addEventListener('change', function() {
+      row.classList.toggle('done', cb.checked);
+      var icon = row.querySelector('.step-icon');
+      if (icon) icon.textContent = cb.checked ? '✔' : '○';
+    });
+
+    var lbl = document.createElement('span');
+    lbl.className   = 'step-label';
+    lbl.textContent = step.label;
+
+    var icon = document.createElement('span');
+    icon.className   = 'step-icon';
+    icon.textContent = done ? '✔' : '○';
+
+    row.appendChild(cb);
+    row.appendChild(lbl);
+    row.appendChild(icon);
+    stepsEl.appendChild(row);
+  });
+}
+
+function getStepsPayload() {
+  var steps = {};
+  FACTURE_STEPS.forEach(function(step) {
+    var cb = el('fa-step-' + step.key);
+    steps[step.key] = cb ? cb.checked : false;
+  });
+  return steps;
+}
+
+/* ── Save ─────────────────────────────────────────────────── */
+function saveFactureModal() {
+  var btn = el('btn-mfa-save');
+  var noSin = el('mfa-no-sinistre').value.trim();
+  markRequired('mfa-no-sinistre', !noSin);
+  if (!noSin) { toast('Le N° de sinistre est obligatoire.', 'error'); return; }
+
+  var steps = _mfaCurrent ? getStepsPayload() : {};
+  var payload = Object.assign({
+    id:                     _mfaCurrent ? _mfaCurrent.id : '',
+    no_sinistre:            noSin,
+    commentaire_traitement: el('mfa-commentaire').value.trim()
+  }, steps);
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-facture');
+      toast('Facture enregistrée.', 'success');
+      renderFactures();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .saveFacture(S.token, payload);
+}
+
+/* ── Traiter (3 chemins) ─────────────────────────────────── */
+function doTraiterFacture(facId) {
+  var btn     = el('btn-mfa-traiter');
+  var steps   = getStepsPayload();
+  var comment = el('mfa-commentaire').value.trim();
+  var options = Object.assign({ commentaire: comment }, steps);
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function(result) {
+      setBtnLoading(btn, false);
+      closeModal('modal-facture');
+      var st  = result && result.statut;
+      var msg = st === 'Remonté' ? 'Dossier remonté — en attente de vérification TL.'
+              : st === 'Traité'  ? 'Facture traitée avec succès.'
+              : 'Enregistré.';
+      toast(msg, st === 'Traité' ? 'success' : 'info');
+      renderFactures();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .traiterFacture(S.token, facId, options);
+}
+
+/* ── Vérifier (TL) ───────────────────────────────────────── */
+function doVerifierFacture(facId) {
+  var btn = el('btn-mfa-verifier');
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-facture');
+      toast('Facture vérifiée — retournée en liste prioritaire.', 'success');
+      renderFactures();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .verifierFacture(S.token, facId, {});
+}
+
+/* ═══ FACTURES REMONTÉES (vue TL) ════════════════════════════ */
+function renderFacturesRemontees() {
+  el('content').innerHTML = buildSkeletonTable(4);
+  google.script.run
+    .withSuccessHandler(paintFacturesRemontees)
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .listFacturesRemontees(S.token);
+}
+
+function paintFacturesRemontees(rows) {
+  rows = rows || [];
+  var html = '<div class="card">';
+  html += '<div class="card-head"><span class="fw8">Factures remontées — En attente de vérification</span>';
+  html += '<span class="chip cw">' + rows.length + ' en attente</span></div>';
+
+  if (!rows.length) {
+    html += '<div class="empty">Aucune facture remontée.</div></div>';
+    el('content').innerHTML = html;
+    return;
+  }
+
+  html += buildTable(
+    ['Référence', 'N° sinistre', 'Créé par', 'Date remontée', 'Actions'],
+    rows,
+    function(r) {
+      return '<tr>' +
+        '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
+        '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.created_by_name || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + fmtDateTime(r.remonte_at || r.updated_at) + '</td>' +
+        '<td><div style="display:flex;gap:4px;">' +
+          '<button class="verifier-btn fs-xs" style="min-height:32px;padding:0 12px;" onclick="openVerifModal(\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\',\'' + escHtml(r.created_by_name||'') + '\')">✦ Vérifier</button>' +
+          '<button class="b3 fs-xs" style="min-height:32px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'FACTURE\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
+        '</div></td>' +
+        '</tr>';
+    }
+  );
+
+  html += '</div>';
+  el('content').innerHTML = html;
+}
+
+var _verifFacId = null;
+
+function openVerifModal(facId, facRef, createdBy) {
+  _verifFacId = facId;
+
+  var prev = el('modal-verif-fac');
+  if (prev) prev.remove();
+
+  var html = '<div class="overlay" id="modal-verif-fac" onclick="if(event.target===this)closeModal(\'modal-verif-fac\')">';
+  html += '<div class="modal modal-narrow"><div class="modal-head">';
+  html += '<h2>Vérifier la facture</h2>';
+  html += '<button class="modal-close" onclick="closeModal(\'modal-verif-fac\')">✕</button>';
+  html += '</div><div class="modal-body">';
+  html += '<div class="fs-sm" style="margin-bottom:14px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--glass);border:1px solid var(--line);">';
+  html += '<strong>' + escHtml(facRef) + '</strong>';
+  if (createdBy) html += ' <span class="t-muted">— par ' + escHtml(createdBy) + '</span>';
+  html += '</div>';
+  html += '<div class="field"><label>Commentaire de vérification <span class="t-muted fs-xs">(facultatif)</span></label>';
+  html += '<textarea id="verif-comment" rows="3" placeholder="Ex : Documents conformes, procédure validée…" style="width:100%;resize:vertical;"></textarea></div>';
+  html += '</div><div class="modal-foot">';
+  html += '<button class="b3" onclick="closeModal(\'modal-verif-fac\')">Annuler</button>';
+  html += '<button class="verifier-btn save-btn" id="btn-verif-confirm" onclick="doVerifModalConfirm()">';
+  html += '<span class="label">✦ Confirmer la vérification</span><span class="spinner hidden"><i></i></span>';
+  html += '</button></div></div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+  openModal('modal-verif-fac');
+}
+
+function doVerifModalConfirm() {
+  var btn       = el('btn-verif-confirm');
+  var commentaire = el('verif-comment') ? el('verif-comment').value.trim() : '';
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-verif-fac');
+      var m = el('modal-verif-fac');
+      if (m) setTimeout(function() { m.remove(); }, 250);
+      toast('Facture vérifiée — retournée dans la liste.', 'success');
+      renderFacturesRemontees();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .verifierFacture(S.token, _verifFacId, { commentaire: commentaire });
+}
+</script>

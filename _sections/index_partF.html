@@ -1,0 +1,309 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PART F — Navigation, routing, top bar, shared helpers
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Menu definitions ────────────────────────────────────────── */
+/* Rôles en minuscules — correspondent aux valeurs réelles de la BDD */
+var R_ALL  = ['super_admin', 'team_leader', 'ambassador'];
+var R_MGMT = ['super_admin', 'team_leader'];
+var R_ADM  = ['super_admin'];
+
+var VIEWS = {
+  dashboard: {
+    label: 'Tableau de bord',
+    icon:  '◉',
+    roles: R_ALL
+  },
+  agrements: {
+    label: 'Agréments',
+    icon:  '✦',
+    roles: R_ALL
+  },
+  sinistres: {
+    label: 'Sinistres',
+    icon:  '⚡',
+    roles: R_ALL
+  },
+  factures: {
+    label: 'Factures',
+    icon:  '◈',
+    roles: R_ALL
+  },
+  resiliations: {
+    label: 'Résiliations',
+    icon:  '✂',
+    roles: R_ALL
+  },
+  'factures-remontees': {
+    label: 'Factures remontées',
+    icon:  '⚑',
+    roles: R_MGMT,
+    perm:  'canVerifierFactures',
+    sep:   true
+  },
+  presence: {
+    label: 'Présence',
+    icon:  '⊛',
+    roles: R_MGMT,
+    sep:   true
+  },
+  historique: {
+    label: 'Historique',
+    icon:  '⊙',
+    roles: R_MGMT
+  },
+  connexions: {
+    label: 'Connexions',
+    icon:  '↗',
+    roles: R_MGMT
+  },
+  users: {
+    label: 'Utilisateurs',
+    icon:  '◎',
+    roles: R_ADM,
+    sep:   true
+  },
+  teams: {
+    label: 'Équipes',
+    icon:  '⬡',
+    roles: R_MGMT
+  },
+  parametres: {
+    label: 'Paramètres',
+    icon:  '⚙',
+    roles: R_MGMT,
+    perm:  'canManageSettings',
+    sep:   true
+  }
+};
+
+/* Order array for directional transitions */
+var _navViewKeys  = Object.keys(VIEWS);
+var _navPrevIndex = -1;
+
+/* ── Build nav ───────────────────────────────────────────────── */
+function buildNav() {
+  const role  = S.session && S.session.user ? S.session.user.role : '';
+  const perms = S.permissions || {};
+  const nav   = el('main-nav');
+  nav.innerHTML = '';
+
+  Object.keys(VIEWS).forEach(function(key) {
+    const v = VIEWS[key];
+    if (v.roles.indexOf(role) === -1) return;
+    if (v.perm && !perms[v.perm]) return;
+
+    if (v.sep) {
+      const sep = document.createElement('div');
+      sep.className = 'nav-sep';
+      nav.appendChild(sep);
+    }
+
+    const btn = document.createElement('button');
+    btn.setAttribute('data-view', key);
+    btn.innerHTML =
+      '<span style="font-size:.95rem;flex-shrink:0;width:20px;text-align:center;">' + v.icon + '</span>' +
+      '<span>' + v.label + '</span>';
+    btn.addEventListener('click', function() { navigate(key); });
+    nav.appendChild(btn);
+  });
+}
+
+/* ── Navigate (with directional transitions) ─────────────────── */
+function navigate(view) {
+  var newIdx  = _navViewKeys.indexOf(view);
+  var isBack  = _navPrevIndex > -1 && newIdx > -1 && newIdx < _navPrevIndex;
+  if (newIdx > -1) _navPrevIndex = newIdx;
+
+  S.activeView = view;
+
+  // Highlight active button
+  var btns = document.querySelectorAll('#main-nav button[data-view]');
+  btns.forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-view') === view);
+  });
+
+  // Update top bar
+  var vDef = VIEWS[view] || {};
+  el('top-title').textContent = vDef.label || view;
+  el('top-sub').textContent   = S.dashboard ? S.dashboard.scopeLabel : '';
+
+  // Directional animation
+  var content = el('content');
+  content.innerHTML = '';
+  content.className = 'content ' + (isBack ? 'animate-back' : 'animate');
+  void content.offsetWidth; // reflow — force animation restart
+
+  switch (view) {
+    case 'dashboard':          renderDashboard();         break;
+    case 'agrements':          renderAgrements();         break;
+    case 'sinistres':          renderSinistres();         break;
+    case 'factures':           renderFactures();          break;
+    case 'resiliations':       renderResiliations();      break;
+    case 'factures-remontees': renderFacturesRemontees(); break;
+    case 'presence':           renderPresence();          break;
+    case 'historique':         renderHistorique();        break;
+    case 'connexions':         renderConnexions();        break;
+    case 'users':              renderUsers();             break;
+    case 'teams':              renderTeams();             break;
+    case 'parametres':         renderParametres();        break;
+    default:
+      content.innerHTML = '<div class="empty">Vue inconnue : ' + escHtml(view) + '</div>';
+  }
+}
+
+/* ── Modal helpers ───────────────────────────────────────────── */
+function _animatedCloseOverlay(overlay) {
+  if (!overlay || overlay.classList.contains('closing')) return;
+  var modal = overlay.querySelector('.modal');
+  overlay.classList.add('closing');
+  if (modal) modal.classList.add('closing');
+  setTimeout(function() {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('closing');
+    if (modal) modal.classList.remove('closing');
+    document.body.style.overflow = '';
+  }, 220);
+}
+
+function openModal(id) {
+  var overlay = el(id);
+  if (!overlay) return;
+  overlay.classList.remove('hidden', 'closing');
+  var modal = overlay.querySelector('.modal');
+  if (modal) modal.classList.remove('closing');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(id) {
+  var overlay = el(id);
+  if (!overlay) return;
+  _animatedCloseOverlay(overlay);
+}
+
+/* Close overlay on backdrop click */
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('overlay')) {
+    _animatedCloseOverlay(e.target);
+  }
+});
+
+/* Close on Escape */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var open = document.querySelector('.overlay:not(.hidden):not(.closing)');
+    if (open) _animatedCloseOverlay(open);
+  }
+});
+
+/* ── Field validation helper ─────────────────────────────────── */
+function markRequired(fieldId, isInvalid) {
+  var inp = el(fieldId);
+  if (!inp) return;
+  inp.classList.toggle('invalid', !!isInvalid);
+}
+
+/* ── Skeleton loading table ──────────────────────────────────── */
+function buildSkeletonTable(rowCount) {
+  var html = '<div class="card">';
+  html += '<div class="card-head"><div class="skeleton" style="width:140px;height:18px;border-radius:4px;"></div></div>';
+  html += '<div class="skeleton-table">';
+  for (var i = 0; i < (rowCount || 5); i++) {
+    html += '<div class="skeleton-row">';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:0 0 70px;max-width:70px;"></div>';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:2;"></div>';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:1;"></div>';
+    html += '<div class="skeleton" style="height:13px;border-radius:4px;flex:0 0 50px;max-width:50px;"></div>';
+    html += '</div>';
+  }
+  html += '</div></div>';
+  return html;
+}
+
+/* ── Generic table builder ───────────────────────────────────── */
+function buildTable(headers, rows, rowFn) {
+  if (!rows || rows.length === 0) {
+    return '<div class="empty">Aucun enregistrement.</div>';
+  }
+  var html = '<div class="table-wrap"><table><thead><tr>';
+  headers.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+  html += '</tr></thead><tbody>';
+  rows.forEach(function(r) { html += rowFn(r); });
+  html += '</tbody></table></div>';
+  return html;
+}
+
+/* ── Status chip helper ──────────────────────────────────────── */
+var STATUS_TONE = {
+  'En attente de traitement': 'cw',
+  'En cours de traitement':   'cw',
+  'Validé':                   'cs',
+  'Clos':                     '',
+  'En cours':                 'cw',
+  'Complet':                  'cp',
+  'Relance':                  'cw',
+  'Traité':                   'cs',
+  'Remonté':                  'cw',
+  'Vérifié':                  'chip-verified',
+  'Actif':                    'cs',
+  'Inactif':                  'cd',
+  'Accepté':                  'cs',
+  'Refus':                    'cd',
+  'Attente de document':      'cw',
+  'Sans suite':                '',
+  'Faux dossier':             'cd',
+  'PS':                       'cp'
+};
+
+function statusChip(s) {
+  var tone = STATUS_TONE[s] || '';
+  var cls  = 'chip' + (tone ? ' ' + tone : '');
+  return '<span class="' + cls + '">' + escHtml(s || '—') + '</span>';
+}
+
+/* ── Priority chip ───────────────────────────────────────────── */
+var PRIO_TONE = {
+  'Haute':   'cd',
+  'Normale': 'cp',
+  'Basse':   ''
+};
+function prioChip(p) {
+  var tone = PRIO_TONE[p] || '';
+  var cls  = 'chip' + (tone ? ' ' + tone : '');
+  return '<span class="' + cls + '">' + escHtml(p || '—') + '</span>';
+}
+
+/* ── Populate <select> helper ────────────────────────────────── */
+function populateSelect(sel, items, selectedVal, placeholder) {
+  if (!sel) return;
+  sel.innerHTML = '';
+  if (placeholder !== undefined) {
+    var opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = placeholder;
+    sel.appendChild(opt);
+  }
+  (items || []).forEach(function(item) {
+    var opt = document.createElement('option');
+    var val, label;
+    if (typeof item === 'object') {
+      val   = item.id || item.value;
+      label = item.full_name || item.name || item.label || val;
+    } else {
+      val = label = item;
+    }
+    opt.value       = val;
+    opt.textContent = label;
+    if (selectedVal !== undefined && String(val) === String(selectedVal)) {
+      opt.selected = true;
+    }
+    sel.appendChild(opt);
+  });
+}
+
+/* ── Reload current view ─────────────────────────────────────── */
+function reload() {
+  if (S.activeView) navigate(S.activeView);
+}
+</script>

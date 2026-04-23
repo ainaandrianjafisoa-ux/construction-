@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html data-theme="light">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Syndic Ledger High-End</title>
+  <style>
+/* ═══════════════════════════════════════════════════════════════
+   AETHER GLASS MORPHISM — Variables & base
+   Thème clair (défaut) + thème sombre via [data-theme="dark"]
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Mode clair ─────────────────────────────────────────────── */
+:root {
+  /* Palette */
+  --gold:          #c9a84c;
+  --gold-light:    #e6c96a;
+  --gold-subtle:   rgba(201,168,76,.12);
+  --navy:          #16324f;
+  --navy-deep:     #0d1f30;
+
+  /* Surfaces */
+  --bg:            #f0f3f8;
+  --bg-alt:        #e8ecf3;
+  --panel:         rgba(255,255,255,.82);
+  --panel-solid:   #ffffff;
+  --glass:         rgba(255,255,255,.62);
+  --glass-border:  rgba(255,255,255,.75);
+  --line:          rgba(200,210,225,.65);
+
+  /* Texte */
+  --text:          #1a1f2e;
+  --text-soft:     #3d4655;
+  --muted:         #6b7585;
+
+  /* Couleurs fonctionnelles */
+  --primary:       #1e5eff;
+  --primary-dark:  #16324f;
+  --primary-glow:  rgba(30,94,255,.18);
+  --success:       #1a8a5a;
+  --success-bg:    rgba(26,138,90,.10);
+  --warning:       #c98000;
+  --warning-bg:    rgba(201,128,0,.10);
+  --danger:        #c43d3d;
+  --danger-bg:     rgba(196,61,61,.10);
+  --gold-accent:   var(--gold);
+
+  /* Ombres */
+  --shadow-xs:     0 2px 8px rgba(22,50,79,.06);
+  --shadow:        0 8px 28px rgba(22,50,79,.10);
+  --shadow-md:     0 16px 44px rgba(22,50,79,.13);
+  --shadow-lg:     0 28px 72px rgba(22,50,79,.18);
+  --glow-gold:     0 0 24px rgba(201,168,76,.22);
+
+  /* Glass blur */
+  --blur:          blur(20px) saturate(160%);
+  --blur-sm:       blur(10px) saturate(140%);
+
+  /* Formes */
+  --radius:        22px;
+  --radius-md:     16px;
+  --radius-sm:     12px;
+  --radius-xs:     8px;
+
+  /* Transitions */
+  --ease:          cubic-bezier(.22,1,.36,1);
+  --t-fast:        .18s var(--ease);
+  --t-med:         .28s var(--ease);
+  --t-slow:        .42s var(--ease);
+}
+
+/* ── Mode sombre ─────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:            #0c1018;
+  --bg-alt:        #111620;
+  --panel:         rgba(18,24,36,.88);
+  --panel-solid:   #131b28;
+  --glass:         rgba(18,24,36,.65);
+  --glass-border:  rgba(255,255,255,.07);
+  --line:          rgba(255,255,255,.09);
+
+  --text:          #e2e8f4;
+  --text-soft:     #b0bccf;
+  --muted:         #7a8799;
+
+  --primary:       #4d7cff;
+  --primary-dark:  var(--gold-light);
+  --primary-glow:  rgba(77,124,255,.20);
+  --success:       #2ecc8a;
+  --success-bg:    rgba(46,204,138,.12);
+  --warning:       #f0a830;
+  --warning-bg:    rgba(240,168,48,.12);
+  --danger:        #e05555;
+  --danger-bg:     rgba(224,85,85,.12);
+
+  --shadow-xs:     0 2px 8px rgba(0,0,0,.28);
+  --shadow:        0 8px 28px rgba(0,0,0,.40);
+  --shadow-md:     0 16px 44px rgba(0,0,0,.52);
+  --shadow-lg:     0 28px 72px rgba(0,0,0,.65);
+  --glow-gold:     0 0 32px rgba(201,168,76,.28);
+}
+
+/* ── Reset ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: 'Inter', 'Manrope', 'Segoe UI', Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(201,168,76,.07) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 90% 100%, rgba(30,94,255,.06) 0%, transparent 50%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  transition: background var(--t-slow), color var(--t-med);
+}
+
+.hidden { display: none !important; }
+
+/* ── Scrollbar subtile ───────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(128,140,160,.25);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(201,168,76,.4); }
+
+/* ── Sélection ───────────────────────────────────────────────── */
+::selection { background: var(--gold-subtle); color: var(--text); }
+  </style>

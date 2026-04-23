@@ -1,0 +1,176 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PART J — Module Sinistre
+═══════════════════════════════════════════════════════════════ */
+
+var _sinistres  = [];
+var _msiCurrent = null;
+
+/* ── List ─────────────────────────────────────────────────── */
+function renderSinistres() {
+  el('content').innerHTML = buildSkeletonTable(6);
+  google.script.run
+    .withSuccessHandler(paintSinistres)
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .listSinistres(S.token, {});
+}
+
+function paintSinistres(rows) {
+  _sinistres = rows || [];
+
+  var html = '<div class="card">';
+  html += '<div class="card-head">';
+  html += '<span class="fw8">Sinistres</span>';
+  html += '<div style="display:flex;gap:8px;align-items:center;">';
+  html += '<input type="text" id="si-search" placeholder="Recherche…" class="filter-input" oninput="filterSinistres()">';
+  html += '<select id="si-filter-statut" class="filter-select" onchange="filterSinistres()"><option value="">Tous statuts</option>';
+  ['Complet','Relance','Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
+  html += '</select>';
+  html += '<button class="b1" onclick="openSinistreModal(null)">+ Nouveau</button>';
+  html += '</div></div>';
+  html += '<div id="si-table-wrap"></div>';
+  html += '</div>';
+  el('content').innerHTML = html;
+  paintSinistresTable(_sinistres);
+}
+
+function filterSinistres() {
+  var search = el('si-search') ? el('si-search').value.toLowerCase() : '';
+  var statut = el('si-filter-statut') ? el('si-filter-statut').value : '';
+  paintSinistresTable(_sinistres.filter(function(r) {
+    return (!statut || r.statut === statut) &&
+           (!search || JSON.stringify(r).toLowerCase().indexOf(search) > -1);
+  }));
+}
+
+function paintSinistresTable(rows) {
+  var wrap = el('si-table-wrap');
+  if (!wrap) return;
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucun sinistre.</div>'; return; }
+
+  wrap.innerHTML = buildTable(
+    ['Référence', 'N° sinistre', 'N° contrat', 'Gestionnaire', 'Complétude', 'Statut', 'Délai', 'Modifié', 'Actions'],
+    rows,
+    function(r) {
+      return '<tr>' +
+        '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
+        '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
+        '<td class="fs-sm">' + escHtml(r.no_contrat || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.gestionnaire || '—') + '</td>' +
+        '<td>' + (r.completude ? statusChip(r.completude) : '—') + '</td>' +
+        '<td>' + statusChip(r.statut) + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.delai_formate || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + fmtDate(r.updated_at) + '</td>' +
+        '<td><div style="display:flex;gap:4px;">' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openSinistreModal(\'' + r.id + '\')">✎</button>' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'SINISTRE\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
+        '</div></td>' +
+        '</tr>';
+    }
+  );
+}
+
+/* ── Open modal ──────────────────────────────────────────── */
+function openSinistreModal(sinId) {
+  _msiCurrent = sinId ? (_sinistres.find(function(x){ return x.id === sinId; }) || null) : null;
+  var r = _msiCurrent || {};
+
+  el('msi-title').textContent     = sinId ? 'Modifier sinistre' : 'Nouveau sinistre';
+  el('msi-ref').textContent       = r.reference || '';
+  el('msi-no-sinistre').value     = r.no_sinistre  || '';
+  el('msi-no-contrat').value      = r.no_contrat   || '';
+  el('msi-gestionnaire').value    = r.gestionnaire  || '';
+  el('msi-commentaire').value     = r.commentaire   || '';
+
+  var completudeEl = el('msi-completude');
+  if (completudeEl) completudeEl.value = r.completude || '';
+
+  /* Zone traitement */
+  var traiterZone  = el('msi-traiter-zone');
+  var timelineZone = el('msi-timeline-zone');
+
+  if (sinId) {
+    traiterZone.classList.remove('hidden');
+    var rwEl = el('msi-retreatment-warning');
+    if (rwEl) rwEl.classList.toggle('hidden', r.statut !== 'Traité');
+    el('btn-msi-traiter').onclick = function() { doTraiterSinistre(sinId); };
+
+    var hist = parseHistorique(r);
+    if (hist.length) {
+      timelineZone.classList.remove('hidden');
+      paintSinistreTimeline(hist);
+    } else {
+      timelineZone.classList.add('hidden');
+    }
+  } else {
+    traiterZone.classList.add('hidden');
+    timelineZone.classList.add('hidden');
+  }
+
+  el('btn-msi-save').onclick = saveSinistreModal;
+  openModal('modal-sinistre');
+}
+
+function paintSinistreTimeline(hist) {
+  var tl = el('msi-timeline');
+  if (!tl) return;
+  tl.innerHTML = hist.map(function(h) {
+    var dotType = { CREATE:'create', TRAITE:'traite' }[h.action] || 'update';
+    var icon    = { CREATE:'+', TRAITE:'✔', MISE_A_JOUR:'✎', MISE_A_JOUR_APRES_TRAITEMENT:'⚑' }[h.action] || '•';
+    return '<div class="timeline-item">' +
+      '<div class="tl-dot ' + dotType + '">' + icon + '</div>' +
+      '<div class="tl-content">' +
+        '<div class="tl-action">' + escHtml(h.action || h.label || '') + '</div>' +
+        '<div class="tl-meta">' + escHtml(h.user_name || h.by || '') + ' — ' + fmtDateTime(h.timestamp || h.at) + '</div>' +
+        (h.commentaire ? '<div class="tl-note">' + escHtml(h.commentaire) + '</div>' : '') +
+      '</div></div>';
+  }).join('');
+}
+
+/* ── Save ─────────────────────────────────────────────────── */
+function saveSinistreModal() {
+  var btn = el('btn-msi-save');
+  var noSin = el('msi-no-sinistre').value.trim();
+  var noCon = el('msi-no-contrat').value.trim();
+
+  // Validation visuelle
+  markRequired('msi-no-sinistre', !noSin);
+  markRequired('msi-no-contrat',  !noCon);
+  if (!noSin || !noCon) { toast('Les champs marqués * sont obligatoires.', 'error'); return; }
+
+  var payload = {
+    id:          _msiCurrent ? _msiCurrent.id : '',
+    no_sinistre: noSin,
+    no_contrat:  noCon,
+    gestionnaire: el('msi-gestionnaire').value.trim(),
+    completude:  el('msi-completude') ? el('msi-completude').value : '',
+    commentaire: el('msi-commentaire').value.trim()
+  };
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-sinistre');
+      toast('Sinistre enregistré.', 'success');
+      renderSinistres();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .saveSinistre(S.token, payload);
+}
+
+/* ── Traiter ──────────────────────────────────────────────── */
+function doTraiterSinistre(sinId) {
+  var btn = el('btn-msi-traiter');
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-sinistre');
+      toast('Sinistre marqué comme Traité.', 'success');
+      renderSinistres();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .traiterSinistre(S.token, sinId);
+}
+</script>

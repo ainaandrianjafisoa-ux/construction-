@@ -1,0 +1,166 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PART L — Module Résiliation
+═══════════════════════════════════════════════════════════════ */
+
+var _resiliations = [];
+var _mreCurrent   = null;
+
+/* ── List ─────────────────────────────────────────────────── */
+function renderResiliations() {
+  el('content').innerHTML = buildSkeletonTable(5);
+  google.script.run
+    .withSuccessHandler(paintResiliations)
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .listResiliations(S.token, {});
+}
+
+function paintResiliations(rows) {
+  _resiliations = rows || [];
+
+  var html = '<div class="card">';
+  html += '<div class="card-head">';
+  html += '<span class="fw8">Résiliations</span>';
+  html += '<div style="display:flex;gap:8px;align-items:center;">';
+  html += '<input type="text" id="re-search" placeholder="Recherche…" class="filter-input" oninput="filterResiliations()">';
+  html += '<select id="re-filter-statut" class="filter-select" onchange="filterResiliations()"><option value="">Tous statuts</option>';
+  ['En cours', 'Relance', 'Traité'].forEach(function(s){ html += '<option>' + s + '</option>'; });
+  html += '</select>';
+  html += '<button class="b1" onclick="openResiliationModal(null)">+ Nouvelle</button>';
+  html += '</div></div>';
+  html += '<div id="re-table-wrap"></div>';
+  html += '</div>';
+  el('content').innerHTML = html;
+  paintResiliationsTable(_resiliations);
+}
+
+function filterResiliations() {
+  var search = el('re-search') ? el('re-search').value.toLowerCase() : '';
+  var statut = el('re-filter-statut') ? el('re-filter-statut').value : '';
+  var filtered = _resiliations.filter(function(r) {
+    return (!statut || r.statut === statut) &&
+           (!search || JSON.stringify(r).toLowerCase().indexOf(search) > -1);
+  });
+  paintResiliationsTable(filtered);
+}
+
+function paintResiliationsTable(rows) {
+  var wrap = el('re-table-wrap');
+  if (!wrap) return;
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucune résiliation.</div>'; return; }
+
+  wrap.innerHTML = buildTable(
+    ['Référence', 'N° contrat', 'Origine', 'Mail', 'Complétude', 'Résil', 'Statut', 'Délai', 'Créé par', 'Actions'],
+    rows,
+    function(r) {
+      var origClass = { 'Mail': 'email', 'Courrier': 'courrier' }[r.origine] || 'autre';
+      return '<tr>' +
+        '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
+        '<td class="fs-sm">' + escHtml(r.no_contrat || '—') + '</td>' +
+        '<td><span class="res-origin-badge ' + origClass + '">' + escHtml(r.origine || '—') + '</span></td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.mail || '—') + '</td>' +
+        '<td>' + (r.completude ? statusChip(r.completude) : '—') + '</td>' +
+        '<td class="fs-sm">' + escHtml(r.resil || '—') + '</td>' +
+        '<td>' + statusChip(r.statut) + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.delai_formate || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.created_by_name || '—') + '</td>' +
+        '<td><div style="display:flex;gap:4px;">' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openResiliationModal(\'' + r.id + '\')">✎</button>' +
+          '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'RESILIATION\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>' +
+        '</div></td>' +
+        '</tr>';
+    }
+  );
+}
+
+/* ── Open modal ──────────────────────────────────────────── */
+function openResiliationModal(resId) {
+  _mreCurrent = resId ? (_resiliations.find(function(x){ return x.id === resId; }) || null) : null;
+  var r = _mreCurrent || {};
+
+  el('mre-title').textContent  = resId ? 'Modifier résiliation' : 'Nouvelle résiliation';
+  el('mre-ref').textContent    = r.reference || '';
+  el('mre-no-contrat').value   = r.no_contrat || '';
+  el('mre-origine').value      = r.origine || '';
+  el('mre-mail').value         = r.mail || '';
+  el('mre-commentaire').value  = r.commentaire || '';
+
+  /* Zone soumission — visible pour tous les dossiers existants */
+  var sz = el('mre-soumettre-zone');
+  if (resId) {
+    sz.classList.remove('hidden');
+    el('mre-completude').value = r.completude || '';
+    el('mre-resil').value      = r.resil || '';
+    el('mre-soumettre-commentaire').value = r.commentaire || '';
+    toggleResilFields();
+    el('mre-completude').onchange = toggleResilFields;
+    el('mre-resil').onchange      = toggleResilCommentField;
+    el('btn-mre-soumettre').onclick = function() { doSoumettreResiliation(resId); };
+  } else {
+    sz.classList.add('hidden');
+  }
+
+  el('btn-mre-save').onclick = saveResiliationModal;
+  openModal('modal-resiliation');
+}
+
+function toggleResilFields() {
+  var comp = el('mre-completude').value;
+  var resilField = el('mre-resil-field');
+  if (resilField) resilField.style.display = comp === 'OK' ? '' : 'none';
+  toggleResilCommentField();
+}
+
+function toggleResilCommentField() {
+  var comp  = el('mre-completude') ? el('mre-completude').value : '';
+  var resil = el('mre-resil')      ? el('mre-resil').value      : '';
+  var cf    = el('mre-comment-field');
+  if (cf) cf.classList.toggle('hidden', !(comp === 'OK' && resil === 'Résil KO'));
+}
+
+/* ── Save ────────────────────────────────────────────────── */
+function saveResiliationModal() {
+  var btn = el('btn-mre-save');
+  var payload = {
+    id:          _mreCurrent ? _mreCurrent.id : '',
+    no_contrat:  el('mre-no-contrat').value.trim(),
+    origine:     el('mre-origine').value,
+    mail:        el('mre-mail').value.trim(),
+    commentaire: el('mre-commentaire').value.trim()
+  };
+  if (!payload.no_contrat) { toast('Le N° de contrat est obligatoire.', 'error'); return; }
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-resiliation');
+      toast('Résiliation enregistrée.', 'success');
+      renderResiliations();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .saveResiliation(S.token, payload);
+}
+
+/* ── Soumettre ───────────────────────────────────────────── */
+function doSoumettreResiliation(resId) {
+  var btn = el('btn-mre-soumettre');
+  var payload = {
+    completude:  el('mre-completude').value,
+    resil:       el('mre-resil').value,
+    commentaire: el('mre-soumettre-commentaire').value.trim()
+  };
+  if (!payload.completude) { toast('La complétude est obligatoire.', 'error'); return; }
+
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      closeModal('modal-resiliation');
+      toast('Résiliation soumise.', 'success');
+      renderResiliations();
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .soumettreResiliation(S.token, resId, payload);
+}
+</script>

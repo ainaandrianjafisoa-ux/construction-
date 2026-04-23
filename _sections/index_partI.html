@@ -1,0 +1,234 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PART I — Module Agrément : liste, modal open, helpers profil
+═══════════════════════════════════════════════════════════════ */
+
+var _agrements       = [];
+var _magCurrent      = null;
+var _magProfils      = [];
+var _magActiveProfil = 0;
+var _magReassignId   = null;
+
+/* ── Helpers ────────────────────────────────────────────────── */
+function parseProfils(r) {
+  if (Array.isArray(r.profils) && r.profils.length) return r.profils;
+  if (r.profils_json) {
+    try { return JSON.parse(r.profils_json); } catch(e) {}
+  }
+  return [];
+}
+
+function buildDefaultProfil(n) {
+  return {
+    num:                  n,
+    statut_pro:           '',
+    statut_pro_autre:     '',
+    type_client:          'Locataire',
+    taux_plafond:         '33',
+    taux_plafond_autre:   '',
+    nb_bulletins:         3,
+    salaires:             [0, 0, 0],
+    revenu_complementaire:  false,
+    montant_complementaire: 0
+  };
+}
+
+/* ── List ───────────────────────────────────────────────────── */
+function renderAgrements() {
+  el('content').innerHTML = buildSkeletonTable(6);
+  google.script.run
+    .withSuccessHandler(paintAgrements)
+    .withFailureHandler(function(e) {
+      el('content').innerHTML = '<div class="card"><div class="card-head"><span class="fw8">Agréments</span></div>' +
+        '<div style="padding:16px;color:#ef4444;font-size:.88rem;">⚠ Erreur de chargement : ' +
+        escHtml((e && e.message) || String(e)) +
+        '</div></div>';
+    })
+    .listAgrements(S.token, {});
+}
+
+function paintAgrements(rows) {
+  _agrements = rows || [];
+  var lk = S.lookups || {};
+  var html = '<div class="card">';
+  html += '<div class="card-head"><span class="fw8">Agréments</span>';
+  html += '<div style="display:flex;gap:8px;align-items:center;">';
+  html += '<input type="text" id="ag-search" placeholder="Recherche…" class="filter-input" oninput="filterAgrements()">';
+  html += '<select id="ag-filter-statut" class="filter-select" onchange="filterAgrements()"><option value="">Tous statuts</option>';
+  (lk.agrementStatuts || []).forEach(function(s) { html += '<option>' + escHtml(s) + '</option>'; });
+  html += '</select>';
+  html += '<button class="b1" onclick="openAgrementModal(null)">+ Nouveau</button>';
+  html += '</div></div>';
+  html += '<div id="ag-table-wrap"></div></div>';
+  el('content').innerHTML = html;
+  paintAgrementsTable(_agrements);
+}
+
+function filterAgrements() {
+  var search = el('ag-search')        ? el('ag-search').value.toLowerCase()       : '';
+  var statut = el('ag-filter-statut') ? el('ag-filter-statut').value              : '';
+  paintAgrementsTable(_agrements.filter(function(r) {
+    return (!statut || r.statut === statut) &&
+           (!search || JSON.stringify(r).toLowerCase().indexOf(search) > -1);
+  }));
+}
+
+function paintAgrementsTable(rows) {
+  var wrap  = el('ag-table-wrap');
+  if (!wrap) return;
+  var perms = S.permissions || {};
+
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucun agrément.</div>'; return; }
+
+  wrap.innerHTML = buildTable(
+    ['Référence', 'N° dossier', 'Compagnie', 'Type', 'Loyer', 'Plafond', 'Solvabilité', 'Statut', 'Ambassadeur', 'Gestionnaire', 'Actions'],
+    rows,
+    function(r) {
+      var plafond  = r.plafond_final ? fmtEuro(r.plafond_final) : '—';
+      var solvChip = r.resultat_solvabilite
+        ? (r.resultat_solvabilite === 'Solvable'
+            ? '<span class="chip cs">✔ Solvable</span>'
+            : '<span class="chip cd">✘ Non solvable</span>')
+        : '—';
+      if (String(r.solvabilite_override) === 'TRUE') {
+        solvChip += ' <span class="chip cw" title="Dérogation">⚑</span>';
+      }
+
+      var actions = '<button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openAgrementModal(\'' + r.id + '\')">✎</button>';
+      if (perms.canReassigner) {
+        actions += ' <button class="b2 fs-xs" style="min-height:30px;padding:0 10px;" onclick="openReassignModal(\'' + r.id + '\')">↻</button>';
+      }
+      actions += ' <button class="b3 fs-xs" style="min-height:30px;padding:0 10px;" title="Historique" onclick="openEntityHistory(\'AGREMENT\',\'' + r.id + '\',\'' + escHtml(r.reference||'') + '\')">🕐</button>';
+
+      return '<tr>' +
+        '<td class="fw7 t-gold">'    + escHtml(r.reference    || '—') + '</td>' +
+        '<td class="fs-sm">'         + escHtml(r.no_dossier   || '—') + '</td>' +
+        '<td>'                       + escHtml(r.compagnie    || '—') + '</td>' +
+        '<td class="fs-sm">'         + escHtml(r.type_dossier || '—') + '</td>' +
+        '<td class="fw7">'           + (r.loyer ? fmtEuro(r.loyer) : '—') + '</td>' +
+        '<td class="fw7 t-gold">'    + plafond                        + '</td>' +
+        '<td>'                       + solvChip                       + '</td>' +
+        '<td>'                       + statusChip(r.statut)           + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.ambassadeur_assigne_name || r.ambassadeur_assigne || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.gestionnaire_plus_name  || r.gestionnaire_plus  || '—') + '</td>' +
+        '<td><div style="display:flex;gap:4px;">' + actions + '</div></td>' +
+        '</tr>';
+    }
+  );
+}
+
+/* ── Open modal ─────────────────────────────────────────────── */
+function openAgrementModal(agrId) {
+  _magCurrent      = agrId ? (_agrements.find(function(x){ return x.id === agrId; }) || null) : null;
+  _magProfils      = _magCurrent ? (parseProfils(_magCurrent) || []) : [];
+  _magActiveProfil = 0;
+
+  var r     = _magCurrent || {};
+  var lk    = S.lookups   || {};
+  var perms = S.permissions || {};
+
+  el('mag-title').textContent = agrId ? 'Modifier agrément' : 'Nouveau dossier agrément';
+  el('mag-ref').textContent   = r.reference || '';
+  /* Effacer l'erreur précédente */
+  var _errEl = el('mag-save-error');
+  if (_errEl) { _errEl.textContent = ''; _errEl.classList.add('hidden'); }
+
+  populateSelect(el('mag-compagnie'),    lk.compagnies    || ['AXA','ALLIANZ'], r.compagnie,    '— Compagnie —');
+  populateSelect(el('mag-type-dossier'), lk.typesDossier  || [],                r.type_dossier, '— Type —');
+  populateSelect(el('mag-priority'),     lk.priorities    || [],                r.priorite,     '— Priorité —');
+
+  var ambassadeurs = (lk.users || []).filter(function(u){ return u.role === 'ambassador'; });
+  populateSelect(el('mag-ambassadeur'), ambassadeurs, r.ambassadeur_assigne, '— Auto —');
+
+  el('mag-gestionnaire-plus').value = r.gestionnaire_plus || '';
+  el('mag-no-dossier').value        = r.no_dossier        || '';
+  el('mag-loyer').value             = r.loyer             || '';
+  el('mag-commentaire').value       = r.commentaire       || '';
+
+  /* Nombre profils */
+  var nbProfils = Math.max(1, _magProfils.length || Number(r.nombre_profils) || 1);
+  el('mag-nb-profils').value = String(nbProfils);
+
+  /* Init profils */
+  if (_magProfils.length === 0) _magProfils = [buildDefaultProfil(1)];
+  while (_magProfils.length < nbProfils) _magProfils.push(buildDefaultProfil(_magProfils.length + 1));
+  _magProfils = _magProfils.slice(0, nbProfils);
+  /* Migration backward-compat : add missing fields to existing profils */
+  _magProfils.forEach(function(p) {
+    if (!p.type_client)    p.type_client    = 'Locataire';
+    if (!p.taux_plafond)   p.taux_plafond   = '33';
+    if (p.taux_plafond_autre === undefined) p.taux_plafond_autre = '';
+    if (!p.statut_pro_autre) p.statut_pro_autre = '';
+  });
+
+  /* Statut / fin — tous les rôles */
+  el('mag-fin-zone').classList.remove('hidden');
+  populateSelect(el('mag-statut-fin'), lk.statutsFinTraitement || [], r.statut_fin_traitement, '— Choisir —');
+  populateSelect(el('mag-statut'),     lk.agrementStatuts      || [], r.statut,                '— Choisir —');
+  /* Motif de validation (quand statut = Validé) */
+  var motifZone = el('mag-motif-zone');
+  var motifSel  = el('mag-motif-validation');
+  var isValide  = r.statut === 'Validé';
+  if (motifZone) motifZone.classList.toggle('hidden', !isValide);
+  if (motifSel)  motifSel.value = r.motif_validation || '';
+
+  /* Override solvabilité — visible pour tous les rôles sur un dossier existant */
+  if (agrId) {
+    el('mag-override-zone').classList.remove('hidden');
+    el('mag-override-resultat').value = r.resultat_solvabilite    || 'Solvable';
+    el('mag-override-comment').value  = r.solvabilite_commentaire || '';
+  } else {
+    el('mag-override-zone').classList.add('hidden');
+  }
+
+  /* Pré-afficher la bande solvabilité stockée dès l'ouverture */
+  var solvBandEl = el('mag-solv-band');
+  if (solvBandEl && agrId && r.resultat_solvabilite) {
+    el('mag-solv-summary').classList.remove('hidden');
+    solvBandEl.classList.remove('hidden');
+    var isSolvable = r.resultat_solvabilite === 'Solvable';
+    solvBandEl.className = 'solv-band ' + (isSolvable ? 'ok' : 'nok');
+    solvBandEl.innerHTML = (isSolvable ? '✔ Solvable' : '✘ Non solvable') +
+      (r.loyer ? ' — Loyer : ' + fmtEuro(Number(r.loyer) || 0) +
+       ' / Plafond : ' + fmtEuro(Number(r.plafond_final) || 0) : '');
+  }
+
+  el('mag-nb-profils').onchange  = onNbProfilsChange;
+  el('btn-mag-save').onclick     = saveMagAgrement;
+  el('btn-mag-override').onclick = doOverrideSolvabilite;
+
+  renderProfilTabs();
+  renderProfilForms();
+  updateMagSolvSummary();
+  openModal('modal-agrement');
+}
+
+/* ── Profil tabs ────────────────────────────────────────────── */
+function onNbProfilsChange() {
+  var n = Number(el('mag-nb-profils').value) || 1;
+  while (_magProfils.length < n) _magProfils.push(buildDefaultProfil(_magProfils.length + 1));
+  _magProfils = _magProfils.slice(0, n);
+  if (_magActiveProfil >= _magProfils.length) _magActiveProfil = _magProfils.length - 1;
+  renderProfilTabs();
+  renderProfilForms();
+  updateMagSolvSummary();
+}
+
+function renderProfilTabs() {
+  var tabs = el('mag-profil-tabs');
+  if (!tabs) return;
+  tabs.innerHTML = '';
+  _magProfils.forEach(function(p, i) {
+    var btn = document.createElement('button');
+    btn.className   = 'profil-tab' + (i === _magActiveProfil ? ' active' : '');
+    btn.textContent = 'Profil ' + (i + 1);
+    btn.onclick = function() {
+      saveMagProfilFields(_magActiveProfil);
+      _magActiveProfil = i;
+      renderProfilTabs();
+      renderProfilForms();
+    };
+    tabs.appendChild(btn);
+  });
+}
+</script>

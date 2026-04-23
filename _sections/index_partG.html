@@ -1,0 +1,439 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PART G — Dashboard v3
+   Scope rôle · Filtres équipe/ambassadeur · Période personnalisée
+═══════════════════════════════════════════════════════════════ */
+
+/* État global du tableau de bord */
+var _dashPeriod        = 30;   // 0 = tout, sinon nb de jours
+var _dashDateStart     = '';   // YYYY-MM-DD ou ''
+var _dashDateEnd       = '';   // YYYY-MM-DD ou ''
+var _dashFilterTeam    = '';   // team id ou ''
+var _dashFilterAmbass  = '';   // agent id ou ''
+
+function renderDashboard() {
+  var data = S.dashboard;
+  if (!data) {
+    el('content').innerHTML = '<div class="empty">Chargement…</div>';
+    loadDashboard();
+    return;
+  }
+  paintDashboard(data);
+}
+
+function loadDashboard() {
+  google.script.run
+    .withSuccessHandler(function(data) {
+      S.dashboard = data;
+      if (S.activeView === 'dashboard') paintDashboard(data);
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .getDashboardData(S.token);
+}
+
+/* ── Filtrage local des événements ─────────────────────────── */
+function _filterEvents(events) {
+  var filtered = events || [];
+
+  /* Filtre équipe */
+  if (_dashFilterTeam) {
+    filtered = filtered.filter(function(e) { return e.team_id === _dashFilterTeam || e.team_name === _dashFilterTeam; });
+  }
+  /* Filtre ambassadeur */
+  if (_dashFilterAmbass) {
+    filtered = filtered.filter(function(e) { return e.agent_id === _dashFilterAmbass; });
+  }
+  /* Filtre période */
+  if (_dashDateStart) {
+    filtered = filtered.filter(function(e) { return e.date && e.date >= _dashDateStart; });
+  }
+  if (_dashDateEnd) {
+    filtered = filtered.filter(function(e) { return e.date && e.date <= _dashDateEnd; });
+  }
+  if (!_dashDateStart && !_dashDateEnd && _dashPeriod > 0) {
+    var cutoff = new Date(Date.now() - _dashPeriod * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    filtered = filtered.filter(function(e) { return e.date && e.date >= cutoff; });
+  }
+  return filtered;
+}
+
+/* ── Construction des lignes agent ─────────────────────────── */
+function _buildAgentRows(events) {
+  var byAgent = {};
+  events.forEach(function(e) {
+    if (!byAgent[e.agent_id]) {
+      byAgent[e.agent_id] = {
+        name: e.agent_name || e.agent_id || '—',
+        team: e.team_name  || '—',
+        agrement: 0, sinistre: 0, facture: 0, resiliation: 0, total: 0
+      };
+    }
+    var a = byAgent[e.agent_id];
+    if (a[e.module] !== undefined) a[e.module]++;
+    a.total++;
+  });
+  return Object.keys(byAgent)
+    .map(function(k) { return byAgent[k]; })
+    .sort(function(a, b) { return b.total - a.total; });
+}
+
+function _avg(rows) {
+  if (!rows.length) return 0;
+  return (rows.reduce(function(s, r) { return s + r.total; }, 0) / rows.length).toFixed(1);
+}
+
+/* ── Sparkline ─────────────────────────────────────────────── */
+function _buildSparkline(trend) {
+  if (!trend || !trend.length) return '';
+  var max = Math.max.apply(null, trend.map(function(d) { return d.count; })) || 1;
+  return trend.map(function(d) {
+    var h = Math.max(d.count > 0 ? 3 : 0, Math.round(d.count / max * 56));
+    var label = d.date.slice(5) + ' : ' + d.count + ' traitement' + (d.count > 1 ? 's' : '');
+    return '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:60px;" title="' + label + '">' +
+      '<div style="background:var(--gold);border-radius:2px 2px 0 0;height:' + h + 'px;min-height:' + (d.count > 0 ? 2 : 0) + 'px;opacity:.85;transition:height .3s;"></div>' +
+      '</div>';
+  }).join('');
+}
+
+/* ── Barre solvabilité ─────────────────────────────────────── */
+function _buildSolvBar(stats) {
+  if (!stats || !stats.total) {
+    return '<div class="t-muted fs-sm" style="padding:8px 0;">Aucune donnée de solvabilité.</div>';
+  }
+  var pctSolv    = Math.round(stats.solvable     / stats.total * 100);
+  var pctNonSolv = Math.round(stats.non_solvable / stats.total * 100);
+  return '<div style="display:flex;gap:4px;height:18px;border-radius:6px;overflow:hidden;margin-bottom:8px;">' +
+    '<div style="width:' + pctSolv    + '%;background:#22c55e;" title="Solvable ' + pctSolv + '%"></div>' +
+    '<div style="width:' + pctNonSolv + '%;background:#ef4444;" title="Non solvable ' + pctNonSolv + '%"></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:16px;font-size:.8rem;">' +
+    '<span><span style="color:#22c55e;font-weight:700;">■</span> Solvable : ' + stats.solvable + ' (' + pctSolv + ' %)</span>' +
+    '<span><span style="color:#ef4444;font-weight:700;">■</span> Non solvable : ' + stats.non_solvable + ' (' + pctNonSolv + ' %)</span>' +
+    '<span class="t-muted">/ ' + stats.total + ' analysés</span>' +
+    '</div>';
+}
+
+/* ── Tableau traitements/agent (re-peint sans rechargement) ── */
+function paintAgentTable() {
+  var data = S.dashboard;
+  var wrap = el('dash-agent-table');
+  if (!wrap || !data) return;
+
+  var events = _filterEvents(data.treatmentEvents || []);
+  var rows   = _buildAgentRows(events);
+  var avg    = _avg(rows);
+
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="empty" style="padding:16px;">Aucun traitement sur cette période.</div>';
+    return;
+  }
+
+  var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+  html += '<span class="fs-sm t-muted">' + events.length + ' traitements · <strong>' + rows.length + '</strong> agents · moy. <strong>' + avg + '</strong> / agent</span>';
+  html += '</div>';
+
+  html += buildTable(
+    ['Agent', 'Équipe', 'Agréments', 'Sinistres', 'Factures', 'Résiliations', 'Total', 'Moy./jr'],
+    rows,
+    function(r) {
+      var days   = (_dashPeriod > 0 && !_dashDateStart) ? _dashPeriod : 30;
+      var perDay = (r.total / days).toFixed(2);
+      var pct    = rows[0].total > 0 ? Math.round(r.total / rows[0].total * 100) : 0;
+      return '<tr>' +
+        '<td class="fw7">' + escHtml(r.name) + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.team) + '</td>' +
+        '<td class="t-center">' + (r.agrement    || '—') + '</td>' +
+        '<td class="t-center">' + (r.sinistre    || '—') + '</td>' +
+        '<td class="t-center">' + (r.facture     || '—') + '</td>' +
+        '<td class="t-center">' + (r.resiliation || '—') + '</td>' +
+        '<td class="fw7 t-gold">' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+          r.total +
+          '<div style="flex:1;height:4px;background:var(--line);border-radius:2px;min-width:40px;"><div style="width:' + pct + '%;height:100%;background:var(--gold);border-radius:2px;"></div></div>' +
+          '</div>' +
+        '</td>' +
+        '<td class="fs-sm t-muted">' + perDay + '</td>' +
+        '</tr>';
+    }
+  );
+  wrap.innerHTML = html;
+}
+
+/* ── Changement de période (boutons préréglés) ─────────────── */
+function onDashPeriodChange(days, btn) {
+  _dashPeriod    = days;
+  _dashDateStart = '';
+  _dashDateEnd   = '';
+  /* Sync date inputs si présents */
+  var ds = el('dash-date-start');
+  var de = el('dash-date-end');
+  if (ds) ds.value = '';
+  if (de) de.value = '';
+  /* Mettre en évidence le bouton actif */
+  document.querySelectorAll('.dash-period-btn').forEach(function(b) {
+    b.classList.remove('b1'); b.classList.add('b3');
+  });
+  if (btn) { btn.classList.remove('b3'); btn.classList.add('b1'); }
+  paintAgentTable();
+}
+
+/* ── Période personnalisée (date inputs) ────────────────────── */
+function onDashCustomPeriod() {
+  var ds = el('dash-date-start');
+  var de = el('dash-date-end');
+  _dashDateStart = ds ? ds.value : '';
+  _dashDateEnd   = de ? de.value : '';
+  if (_dashDateStart || _dashDateEnd) {
+    _dashPeriod = 0; // désactiver le filtre "nb jours"
+    document.querySelectorAll('.dash-period-btn').forEach(function(b) {
+      b.classList.remove('b1'); b.classList.add('b3');
+    });
+  }
+  paintAgentTable();
+}
+
+/* ── Filtres équipe / ambassadeur ───────────────────────────── */
+function onDashFilterTeam() {
+  var sel = el('dash-filter-team');
+  _dashFilterTeam   = sel ? sel.value : '';
+  _dashFilterAmbass = ''; // reset ambassadeur quand on change d'équipe
+  /* Re-filtrer la liste ambassadeurs */
+  _updateAmbassFilterOptions();
+  paintAgentTable();
+}
+
+function onDashFilterAmbass() {
+  var sel = el('dash-filter-ambass');
+  _dashFilterAmbass = sel ? sel.value : '';
+  paintAgentTable();
+}
+
+function _updateAmbassFilterOptions() {
+  var sel  = el('dash-filter-ambass');
+  var data = S.dashboard;
+  if (!sel || !data) return;
+  var ambassadors = (data.filterAmbassadors || []);
+  if (_dashFilterTeam) {
+    ambassadors = ambassadors.filter(function(a) { return a.team_id === _dashFilterTeam; });
+  }
+  sel.innerHTML = '<option value="">Tous les ambassadeurs</option>';
+  ambassadors.forEach(function(a) {
+    var opt = document.createElement('option');
+    opt.value       = a.id;
+    opt.textContent = a.name;
+    sel.appendChild(opt);
+  });
+}
+
+/* ── Peinture principale ────────────────────────────────────── */
+function paintDashboard(data) {
+  var html           = '';
+  var kpiAnimTargets = [];
+  var role           = data.role || S.role || '';
+
+  /* ── Barre de filtres ── */
+  html += '<div class="card" style="padding:12px 16px;margin-bottom:0;">';
+  html += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">';
+
+  /* Boutons période */
+  html += '<span class="fs-xs fw7 t-muted" style="text-transform:uppercase;letter-spacing:.05em;">Période :</span>';
+  html += '<button class="dash-period-btn b3 fs-xs" onclick="onDashPeriodChange(7,this)">7 jours</button>';
+  html += '<button class="dash-period-btn b1 fs-xs" onclick="onDashPeriodChange(30,this)">30 jours</button>';
+  html += '<button class="dash-period-btn b3 fs-xs" onclick="onDashPeriodChange(0,this)">Tout</button>';
+
+  /* Sélecteur de dates personnalisées */
+  html += '<span class="fs-xs t-muted" style="margin-left:8px;">Du</span>';
+  html += '<input type="date" id="dash-date-start" class="filter-input" style="width:130px;padding:4px 8px;font-size:.82rem;" oninput="onDashCustomPeriod()">';
+  html += '<span class="fs-xs t-muted">Au</span>';
+  html += '<input type="date" id="dash-date-end" class="filter-input" style="width:130px;padding:4px 8px;font-size:.82rem;" oninput="onDashCustomPeriod()">';
+  html += '<button class="b3 fs-xs" onclick="onDashPeriodChange(30,document.querySelector(\'.dash-period-btn\'));" style="margin-left:4px;">Réinitialiser</button>';
+
+  /* Filtre équipe (admin uniquement) */
+  if (role === 'super_admin' && (data.filterTeams || []).length) {
+    html += '<span class="fs-xs t-muted" style="margin-left:8px;">Équipe :</span>';
+    html += '<select id="dash-filter-team" class="filter-select" onchange="onDashFilterTeam()">';
+    html += '<option value="">Toutes les équipes</option>';
+    (data.filterTeams || []).forEach(function(t) {
+      html += '<option value="' + escHtml(t.id) + '">' + escHtml(t.name) + '</option>';
+    });
+    html += '</select>';
+  }
+
+  /* Filtre ambassadeur (admin + TL) */
+  if ((role === 'super_admin' || role === 'team_leader') && (data.filterAmbassadors || []).length) {
+    html += '<span class="fs-xs t-muted">Ambassadeur :</span>';
+    html += '<select id="dash-filter-ambass" class="filter-select" onchange="onDashFilterAmbass()">';
+    html += '<option value="">Tous</option>';
+    (data.filterAmbassadors || []).forEach(function(a) {
+      html += '<option value="' + escHtml(a.id) + '">' + escHtml(a.name) + '</option>';
+    });
+    html += '</select>';
+  }
+
+  html += '</div></div>'; /* fin barre filtres */
+
+  /* ── KPI cards ── */
+  html += '<div class="kpis">';
+  (data.kpis || []).forEach(function(k, idx) {
+    var numVal = Number(k.value);
+    var isInt  = !isNaN(numVal) && /^\d+$/.test(String(k.value));
+    var toneClass = { primary: 'cp', success: 'cs', warning: 'cw', danger: 'cd', neutral: '' }[k.tone] || '';
+    html += '<div class="kpi">';
+    html += '<div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">' + escHtml(k.label) + '</div>';
+    if (isInt) {
+      html += '<div class="v" id="kpi-v-' + idx + '">0</div>';
+      kpiAnimTargets.push({ id: 'kpi-v-' + idx, val: numVal });
+    } else {
+      html += '<div class="v" style="font-size:1.5rem;">' + escHtml(String(k.value)) + '</div>';
+    }
+    if (toneClass) html += '<span class="chip ' + toneClass + '" style="margin-top:4px;font-size:.7rem;">' + (k.tone === 'danger' ? '▲ Attention' : k.tone === 'success' ? '✔ OK' : '') + '</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  /* ── Tendance 30 jours ── */
+  if (data.trend30j && data.trend30j.length) {
+    var maxT   = Math.max.apply(null, data.trend30j.map(function(d){ return d.count; })) || 0;
+    var totalT = data.trend30j.reduce(function(s, d){ return s + d.count; }, 0);
+    html += '<div class="card">';
+    html += '<div class="card-head">';
+    html += '<span class="fw8">Activité — 30 derniers jours</span>';
+    html += '<div style="display:flex;gap:8px;">';
+    html += '<span class="chip t-muted">' + totalT + ' traitements</span>';
+    if (maxT) html += '<span class="chip cw">Pic : ' + maxT + '</span>';
+    html += '</div></div>';
+    html += '<div style="display:flex;align-items:flex-end;gap:2px;height:60px;padding:0 4px;">';
+    html += _buildSparkline(data.trend30j);
+    html += '</div>';
+    html += '<div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-soft);margin-top:4px;padding:0 4px;">';
+    html += '<span>' + (data.trend30j[0] ? data.trend30j[0].date.slice(5) : '') + '</span>';
+    html += '<span>Aujourd\'hui</span>';
+    html += '</div></div>';
+  }
+
+  /* ── Traitements par agent ── */
+  html += '<div class="card">';
+  html += '<div class="card-head"><span class="fw8">Traitements par agent</span></div>';
+  html += '<div id="dash-agent-table"></div>';
+  html += '</div>';
+
+  /* ── Solvabilité ── */
+  if (data.solvabilite) {
+    html += '<div class="card">';
+    html += '<div class="card-head"><span class="fw8">Taux de solvabilité</span></div>';
+    html += _buildSolvBar(data.solvabilite);
+    html += '</div>';
+  }
+
+  /* ── Stats modules ── */
+  if (data.moduleStats) {
+    html += '<div class="card">';
+    html += '<div class="card-head"><span class="fw8">Modules</span></div>';
+    html += '<div class="module-cards">';
+
+    var ms = data.moduleStats.sinistre;
+    html += '<div class="module-card" onclick="navigate(\'sinistres\')">';
+    html += '<h4>Sinistres</h4>';
+    html += '<div class="stat-row"><span>Total</span><strong>' + (ms.total||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Complets</span><strong>' + (ms.complets||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Relances</span><strong>' + (ms.relances||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Traités</span><strong class="t-gold">' + (ms.traites||0) + '</strong></div>';
+    html += '</div>';
+
+    var mf = data.moduleStats.facture;
+    html += '<div class="module-card" onclick="navigate(\'factures\')">';
+    html += '<h4>Factures</h4>';
+    html += '<div class="stat-row"><span>Total</span><strong>' + (mf.total||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>En cours</span><strong>' + (mf.en_cours||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Remontées</span><strong class="t-danger">' + (mf.remontees||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Vérifiées</span><strong>' + (mf.verifiees||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Traitées</span><strong class="t-gold">' + (mf.traites||0) + '</strong></div>';
+    html += '</div>';
+
+    var mr = data.moduleStats.resiliation;
+    html += '<div class="module-card" onclick="navigate(\'resiliations\')">';
+    html += '<h4>Résiliations</h4>';
+    html += '<div class="stat-row"><span>Total</span><strong>' + (mr.total||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>En cours</span><strong>' + (mr.en_cours||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Relances</span><strong>' + (mr.relances||0) + '</strong></div>';
+    html += '<div class="stat-row"><span>Traités</span><strong class="t-gold">' + (mr.traites||0) + '</strong></div>';
+    html += '</div>';
+
+    html += '</div></div>';
+  }
+
+  /* ── Répartition + performance ── */
+  html += '<div class="split">';
+
+  if (data.statusBreakdown && data.statusBreakdown.length) {
+    html += '<div class="card">';
+    html += '<div class="card-head"><span class="fw8">Répartition agréments</span></div>';
+    var maxVal  = Math.max.apply(null, data.statusBreakdown.map(function(r){ return r.value; }));
+    var totalSB = data.statusBreakdown.reduce(function(s, r){ return s + r.value; }, 0);
+    data.statusBreakdown.forEach(function(r) {
+      var pct      = maxVal   > 0 ? Math.round(r.value / maxVal   * 100) : 0;
+      var pctTotal = totalSB  > 0 ? Math.round(r.value / totalSB  * 100) : 0;
+      html += '<div style="margin-bottom:10px;">';
+      html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
+      html += '<span class="fs-sm">' + escHtml(r.label) + '</span>';
+      html += '<span class="fs-sm fw7">' + r.value + ' <span class="t-muted">(' + pctTotal + ' %)</span></span>';
+      html += '</div>';
+      html += '<div class="stat-bar"><div class="stat-bar-fill" style="width:' + pct + '%"></div></div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  if (data.performance && data.performance.length) {
+    html += '<div class="card">';
+    html += '<div class="card-head"><span class="fw8">Performance équipes / agents</span></div>';
+    html += buildTable(
+      Object.keys(data.performance[0]),
+      data.performance,
+      function(r) {
+        return '<tr>' + Object.keys(r).map(function(k) {
+          return '<td>' + escHtml(String(r[k] !== undefined ? r[k] : '—')) + '</td>';
+        }).join('') + '</tr>';
+      }
+    );
+    html += '</div>';
+  }
+
+  html += '</div>'; /* split */
+
+  /* ── Présence ambassadeurs ── */
+  if (data.ambassadorPresence && data.ambassadorPresence.length) {
+    html += '<div class="card">';
+    html += '<div class="card-head">';
+    html += '<span class="fw8">Présence ambassadeurs aujourd\'hui</span>';
+    if (data.presenceSummary) {
+      html += '<span class="chip cs">' + (data.presenceSummary.online_now || 0) + ' en ligne</span>';
+    }
+    html += '</div>';
+    html += buildTable(
+      ['Ambassadeur', 'Statut', 'Connexions', 'Déconnexions', 'Temps total'],
+      data.ambassadorPresence,
+      function(r) {
+        return '<tr>' +
+          '<td><span class="status-dot ' + (r.is_online ? 'online' : 'offline') + '"></span>' + escHtml(r.full_name || r.user_id) + '</td>' +
+          '<td>' + (r.is_online ? '<span class="online-badge on">En ligne</span>' : '<span class="online-badge off">Hors ligne</span>') + '</td>' +
+          '<td>' + (r.connections    || 0) + '</td>' +
+          '<td>' + (r.disconnections || 0) + '</td>' +
+          '<td>' + fmtDuration(r.total_online_seconds) + '</td>' +
+          '</tr>';
+      }
+    );
+    html += '</div>';
+  }
+
+  el('content').innerHTML = html;
+
+  /* Animer les KPIs */
+  kpiAnimTargets.forEach(function(t) {
+    animateCountUp(el(t.id), t.val, 800);
+  });
+
+  /* Peupler le tableau agent */
+  paintAgentTable();
+}
+</script>
