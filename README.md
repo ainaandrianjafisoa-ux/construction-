@@ -1,8 +1,8 @@
 # Syndic Ledger High-End
 
-Application interne de gestion opérationnelle développée avec **Google Apps Script**, **Google Sheets** et une interface web HTML/CSS/JavaScript.
+Application interne de gestion opérationnelle développée avec **Google Apps Script**, **Google Sheets** et une interface web **HTML / CSS / JavaScript**.
 
-Le projet permet de centraliser plusieurs modules métier dans un seul outil : gestion des agréments, sinistres, factures, résiliations, utilisateurs, équipes, présences, connexions, historique et planning des ambassadeurs.
+Le projet centralise plusieurs modules métier dans un seul outil : agréments, sinistres, factures, résiliations, utilisateurs, équipes, présences, planning, connexions, historique et pilotage de l’activité.
 
 ---
 
@@ -17,42 +17,52 @@ Le projet permet de centraliser plusieurs modules métier dans un seul outil : g
 - [Déploiement](#déploiement)
 - [Fonctions utiles Apps Script](#fonctions-utiles-apps-script)
 - [Présence et planning](#présence-et-planning)
+- [Journal des connexions](#journal-des-connexions)
+- [Dashboard et pilotage](#dashboard-et-pilotage)
 - [Historique et audit](#historique-et-audit)
 - [Design et interface](#design-et-interface)
 - [Points d’attention](#points-dattention)
 - [Roadmap possible](#roadmap-possible)
+- [Technologies utilisées](#technologies-utilisées)
 
 ---
 
 ## Objectif du projet
 
-**Syndic Ledger High-End** est un outil de gestion destiné à suivre et traiter différents dossiers métier depuis une interface unique.
+**Syndic Ledger High-End** est un outil web interne destiné à suivre, traiter et piloter différents dossiers métier depuis une interface unique.
 
-L’application utilise une feuille Google Sheets comme base de données et une interface web Apps Script comme front-end.
+L’application utilise :
+
+- **Google Sheets** comme base de données ;
+- **Google Apps Script** comme backend ;
+- **HTML / CSS / JavaScript** comme interface front-end.
 
 Objectifs principaux :
 
 - centraliser les dossiers par module ;
 - suivre l’activité des utilisateurs ;
-- gérer les présences et temps de connexion ;
+- gérer les présences et les temps de connexion ;
 - planifier les shifts des ambassadeurs ;
+- suivre le journal des connexions avec KPI et export PDF ;
 - conserver un historique complet des actions ;
-- offrir une interface moderne, fluide et simple à utiliser.
+- proposer une interface moderne, fluide et responsive.
 
 ---
 
 ## Fonctionnalités principales
 
 - Connexion par identifiant et mot de passe.
-- Gestion des rôles : Super Admin, Team Leader et Ambassadeur.
+- Gestion des rôles : **Super Admin**, **Team Leader**, **Ambassadeur**.
 - Gestion des utilisateurs et des équipes.
-- Tableaux de bord par module.
-- Création, modification et suivi des dossiers.
+- Modules métier : agréments, sinistres, factures, résiliations.
+- Dashboard global avec KPI et suivi détaillé des traitements.
+- Filtres spécifiques dans la carte **Traitements détaillés** : ambassadeur et module.
+- Recherche globale avec affichage des résultats au premier plan.
 - Suivi des sessions utilisateurs.
 - Suivi des présences journalières.
 - Planning des shifts par utilisateur.
-- Historique des actions avec pagination et filtre.
-- Journal des connexions.
+- Journal des connexions avec KPI, filtres de période, tableaux et export PDF.
+- Historique des actions avec pagination et filtre par action.
 - Interface responsive avec thème clair / sombre.
 - Animations sur les boutons pour confirmer la prise en compte des actions.
 
@@ -78,9 +88,9 @@ Module de suivi des dossiers d’agrément avec :
 
 Module de gestion des sinistres avec workflow :
 
-- Nouvelle déclaration ;
-- Complément ;
-- En attente ;
+- **Nouvelle déclaration** ;
+- **Complément** ;
+- **En attente** ;
 - statut complet / relance / traité ;
 - gestion des commentaires ;
 - suivi des relances ;
@@ -117,23 +127,40 @@ Module de suivi de présence avec :
 - nombre d’utilisateurs en ligne ;
 - nombre de connexions ;
 - nombre de déconnexions ;
-- temps total de connexion ;
+- temps total de connexion en heures ;
 - heure d’arrivée ;
 - heure de sortie ;
 - shift planifié ;
-- timeline horaire de 06h à 23h ;
-- timeline réelle des sessions de connexion.
+- timeline horaire de **06h à 23h** ;
+- timeline réelle des sessions de connexion ;
+- événements de connexion / déconnexion dans la journée.
 
 ### 6. Planning
 
 Module permettant aux responsables de planifier les shifts :
 
-- Super Admin : planification de tous les ambassadeurs ;
-- Team Leader : planification des ambassadeurs assignés à son équipe ;
-- affichage sous forme de timeline ;
+- **Super Admin** : planification de tous les ambassadeurs ;
+- **Team Leader** : planification des ambassadeurs assignés à son équipe ;
+- saisie de date, utilisateur, heure de début et heure de fin ;
+- affichage sous forme de timeline de **06h à 23h** ;
 - reprise automatique du shift dans l’onglet Présence.
 
-### 7. Historique
+### 7. Connexions
+
+Module de consultation et pilotage du journal des connexions avec :
+
+- KPI visuels sur la période sélectionnée ;
+- filtres rapides : aujourd’hui, hier, 7 derniers jours, mois en cours ;
+- période personnalisée ;
+- filtre utilisateur ;
+- filtre statut de session ;
+- graphique simple par jour ;
+- tableau des sessions ;
+- tableau des tentatives de connexion ;
+- distinction connexions réussies / échecs ;
+- export PDF du journal de connexion.
+
+### 8. Historique
 
 Module d’audit avec :
 
@@ -141,16 +168,6 @@ Module d’audit avec :
 - filtre par type d’action ;
 - pagination de 15 lignes ;
 - informations utilisateur, rôle, entité et résumé.
-
-### 8. Connexions
-
-Module de consultation des logs de connexion :
-
-- login ;
-- succès / échec ;
-- date et heure ;
-- session ;
-- message associé.
 
 ---
 
@@ -165,7 +182,8 @@ Le Super Admin peut :
 - gérer les paramètres ;
 - voir tous les modules ;
 - consulter tout l’historique ;
-- planifier tous les ambassadeurs.
+- planifier tous les ambassadeurs ;
+- exporter le journal des connexions.
 
 ### Team Leader
 
@@ -175,7 +193,8 @@ Le Team Leader peut :
 - gérer les ambassadeurs assignés ;
 - consulter les dossiers de son périmètre ;
 - planifier les ambassadeurs de son équipe ;
-- suivre les présences de son équipe.
+- suivre les présences de son équipe ;
+- consulter les connexions de son périmètre.
 
 ### Ambassadeur
 
@@ -183,7 +202,8 @@ L’Ambassadeur peut :
 
 - consulter les dossiers qui lui sont affectés ;
 - traiter les dossiers selon ses droits ;
-- apparaître dans les suivis de présence et planning.
+- apparaître dans les suivis de présence et planning ;
+- être suivi dans les sessions et journaux de connexion.
 
 ---
 
@@ -191,19 +211,18 @@ L’Ambassadeur peut :
 
 L’application repose sur plusieurs feuilles Google Sheets utilisées comme tables de données.
 
-Principales feuilles :
-
 | Feuille | Description |
 |---|---|
 | `USERS` | Utilisateurs de l’application |
 | `TEAMS` | Équipes et rattachements |
 | `AGREMENTS` | Dossiers d’agrément |
+| `AGREMENT_TYPE_TEAM_MAP` | Cohérence type de dossier / équipe |
 | `SINISTRES` | Dossiers sinistres |
 | `FACTURES` | Dossiers factures |
 | `RESILIATIONS` | Dossiers résiliation |
-| `SESSIONS` | Sessions utilisateurs |
-| `PRESENCE_DAILY` | Présence journalière |
-| `LOGIN_LOG` | Journal des connexions |
+| `SESSIONS` | Sessions utilisateurs ouvertes ou fermées |
+| `PRESENCE_DAILY` | Présence journalière cumulée |
+| `LOGIN_LOG` | Journal des tentatives de connexion |
 | `AUDIT_LOG` | Historique global des actions |
 | `ENTITY_VERSIONS` | Versions détaillées des entités |
 | `SETTINGS` | Paramètres personnalisables |
@@ -275,6 +294,12 @@ Qui a accès : Toute personne disposant du lien
 
 Après chaque modification importante du code, créer une nouvelle version de déploiement.
 
+Après redéploiement, faire un rechargement complet du navigateur :
+
+```text
+Ctrl + F5
+```
+
 ---
 
 ## Fonctions utiles Apps Script
@@ -302,6 +327,14 @@ repairPlanningSheet();
 ```
 
 À utiliser si la feuille `PLANNING_SHIFTS` n’existe pas ou si les horaires sont mal formatés.
+
+### Export PDF du journal des connexions
+
+```js
+exportConnexionPdf(token, filters);
+```
+
+Fonction appelée depuis le front pour générer un PDF Drive du journal de connexion selon les filtres courants.
 
 ### Créer ou réparer les feuilles sans supprimer les données
 
@@ -342,7 +375,64 @@ Chaque ambassadeur affiche :
 - son shift planifié ;
 - sa première connexion de la journée ;
 - sa dernière déconnexion ;
-- ses sessions reconstituées sur la timeline.
+- ses sessions reconstituées sur la timeline ;
+- les événements de connexion et déconnexion.
+
+Les horaires de planning doivent être conservés en format texte :
+
+```text
+HH:mm
+```
+
+Cela évite la conversion automatique de Google Sheets en date technique du type `1899-12-30T09:00:00`.
+
+---
+
+## Journal des connexions
+
+L’onglet Connexions s’appuie sur :
+
+- `SESSIONS` pour les sessions ;
+- `LOGIN_LOG` pour les tentatives de connexion ;
+- `USERS` pour enrichir les informations utilisateur.
+
+L’interface affiche :
+
+- utilisateurs visibles ;
+- utilisateurs en ligne ;
+- connexions ;
+- déconnexions ;
+- échecs de connexion ;
+- temps total de connexion ;
+- durée moyenne ;
+- nombre de sessions.
+
+Filtres disponibles :
+
+- période rapide ;
+- période personnalisée ;
+- utilisateur ;
+- statut de session.
+
+Un bouton permet de générer un PDF du journal des connexions dans Google Drive. L’action est enregistrée dans l’historique avec le type :
+
+```text
+EXPORT_CONNEXION_PDF
+```
+
+---
+
+## Dashboard et pilotage
+
+Le dashboard centralise les indicateurs clés de l’activité.
+
+La carte **Traitements détaillés** dispose de filtres locaux qui n’impactent pas le reste du dashboard :
+
+- filtre par ambassadeur ;
+- filtre par module ;
+- bouton de réinitialisation.
+
+La recherche globale affiche ses résultats au premier plan afin d’éviter qu’ils soient masqués par les cartes ou les tableaux de l’interface.
 
 ---
 
@@ -376,6 +466,7 @@ Le front utilise un thème premium de type **Aether Glass Morphism** avec :
 - timelines visuelles ;
 - modales ;
 - toasts de confirmation ;
+- résultats de recherche au premier plan ;
 - layout responsive.
 
 L’objectif est de garder une interface professionnelle, moderne et lisible.
@@ -387,8 +478,11 @@ L’objectif est de garder une interface professionnelle, moderne et lisible.
 - Ne pas lancer `generateAllHeaders()` sur une base contenant déjà des données.
 - Toujours redéployer l’application après modification de `Code.gs` ou `index.html`.
 - Après redéploiement, faire un rechargement complet du navigateur avec `Ctrl + F5`.
-- Les horaires de planning doivent rester au format texte `HH:mm` pour éviter la conversion Google Sheets en date technique `1899-12-30`.
+- Les horaires de planning doivent rester au format texte `HH:mm`.
+- L’export PDF des connexions utilise Google Drive et peut demander une autorisation au premier usage.
 - Les droits d’affichage dépendent du rôle utilisateur.
+- Les Team Leaders voient uniquement leur périmètre.
+- Les Super Admins voient tout le périmètre.
 
 ---
 
@@ -396,7 +490,8 @@ L’objectif est de garder une interface professionnelle, moderne et lisible.
 
 Améliorations possibles pour les prochaines versions :
 
-- export Excel / PDF des présences ;
+- export PDF des présences ;
+- export Excel des présences et plannings ;
 - filtre planning par équipe ;
 - vue semaine / mois du planning ;
 - gestion des absences ;
@@ -404,8 +499,8 @@ Améliorations possibles pour les prochaines versions :
 - notifications internes ;
 - statistiques détaillées par équipe ;
 - système de commentaires par dossier ;
-- amélioration du dashboard global ;
-- sauvegarde automatique des paramètres d’affichage.
+- sauvegarde automatique des paramètres d’affichage ;
+- amélioration des graphiques du journal de connexion.
 
 ---
 
@@ -422,6 +517,8 @@ Améliorations possibles pour les prochaines versions :
   - `CacheService`
   - `LockService`
   - `Utilities`
+  - `HtmlService`
+  - `DriveApp`
 
 ---
 
