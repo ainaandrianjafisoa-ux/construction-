@@ -1876,6 +1876,315 @@ function listAuditLogs(token, filters) {
     });
 }
 
+
+/** Normalise les filtres période de l'onglet Connexions. */
+function normalizeConnexionPeriod_(filters) {
+  filters = filters || {};
+  const today = todayKey_();
+  let from = String(filters.date_from || today).trim().slice(0, 10);
+  let to   = String(filters.date_to   || from).trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) from = today;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(to))   to   = from;
+
+  let fromMs = parseDateMs_(from + 'T00:00:00');
+  let toMs   = parseDateMs_(to   + 'T23:59:59');
+  if (toMs < fromMs) {
+    const tmp = from; from = to; to = tmp;
+    fromMs = parseDateMs_(from + 'T00:00:00');
+    toMs   = parseDateMs_(to   + 'T23:59:59');
+  }
+  return { from: from, to: to, startMs: fromMs, endMs: toMs };
+}
+
+function connexionLogVisible_(session, row, visibleIds) {
+  if (session.role === ROLES.SUPER_ADMIN) return true;
+  return visibleIds.indexOf(row.user_id) > -1;
+}
+
+function connexionSessionVisible_(session, row, visibleIds) {
+  if (session.role === ROLES.SUPER_ADMIN) return true;
+  return visibleIds.indexOf(row.user_id) > -1;
+}
+
+function sessionOverlapsPeriod_(row, bounds) {
+  const startMs = parseDateMs_(row.started_at);
+  if (!startMs) return false;
+  const endMs = parseDateMs_(row.closed_at) || parseDateMs_(row.last_seen_at) || parseDateMs_(nowIso_());
+  return startMs <= bounds.endMs && endMs >= bounds.startMs;
+}
+
+function sessionSecondsInPeriod_(row, bounds) {
+  const startMs = parseDateMs_(row.started_at);
+  if (!startMs) return 0;
+  const endMs = parseDateMs_(row.closed_at) || parseDateMs_(row.last_seen_at) || parseDateMs_(nowIso_());
+  const a = Math.max(startMs, bounds.startMs);
+  const b = Math.min(endMs, bounds.endMs);
+  return Math.max(0, Math.round((b - a) / 1000));
+}
+
+function dateKeyFromMs_(ms) {
+  if (!ms) return '';
+  return Utilities.formatDate(new Date(ms), APP_CONFIG.TIMEZONE, 'yyyy-MM-dd');
+}
+
+function buildConnexionDays_(bounds) {
+  const out = [];
+  const start = new Date(bounds.from + 'T00:00:00');
+  const end   = new Date(bounds.to   + 'T00:00:00');
+  for (let d = new Date(start); d.getTime() <= end.getTime(); d.setDate(d.getDate() + 1)) {
+    const key = Utilities.formatDate(d, APP_CONFIG.TIMEZONE, 'yyyy-MM-dd');
+    out.push({
+      date_key: key,
+      label: Utilities.formatDate(d, APP_CONFIG.TIMEZONE, 'dd/MM'),
+      connections: 0,
+      disconnections: 0,
+      failed: 0,
+      online_seconds: 0
+    });
+  }
+  return out;
+}
+
+function safeUserLabel_(user, fallback) {
+  if (!user) return fallback || '';
+  return user.full_name || user.login || user.id || fallback || '';
+}
+
+/**
+ * Dashboard visuel de l'onglet Connexions : KPI, période, courbe simple, sessions et tentatives.
+ * Filtres supportés : date_from, date_to, user_id, status.
+ */
+function getConnexionDashboard(token, filters) {
+  const session = requireSession_(token);
+  filters = filters || {};
+  const bounds = normalizeConnexionPeriod_(filters);
+  const statusFilter = String(filters.status || '').trim().toUpperCase();
+  const userFilter = String(filters.user_id || '').trim();
+
+  const users = readTable_('USERS');
+  const usersById = indexBy_(users, 'id');
+  const visibleUsers = scopeUsers_(session, users);
+  const visibleIds = visibleUsers.map(function(u) { return u.id; });
+
+  if (userFilter && visibleIds.indexOf(userFilter) === -1 && session.role !== ROLES.SUPER_ADMIN) {
+    throw new Error('Utilisateur hors périmètre.');
+  }
+
+  const scopedUsers = visibleUsers
+    .filter(function(u) { return !userFilter || u.id === userFilter; })
+    .map(function(u) {
+      return {
+        id: u.id,
+        login: u.login,
+        full_name: u.full_name || u.login || u.id,
+        role: u.role,
+        team_id: u.team_id || ''
+      };
+    })
+    .sort(function(a, b) { return String(a.full_name).localeCompare(String(b.full_name)); });
+
+  let sessions = readTable_('SESSIONS')
+    .filter(function(r) { return connexionSessionVisible_(session, r, visibleIds); })
+    .filter(function(r) { return !userFilter || r.user_id === userFilter; })
+    .filter(function(r) { return sessionOverlapsPeriod_(r, bounds); });
+
+  if (statusFilter === 'ACTIVE') {
+    sessions = sessions.filter(function(r) { return String(r.status || '').toUpperCase() === 'ACTIVE'; });
+  } else if (statusFilter === 'CLOSED') {
+    sessions = sessions.filter(function(r) { return String(r.status || '').toUpperCase() !== 'ACTIVE'; });
+  }
+
+  let loginLogs = readTable_('LOGIN_LOG')
+    .filter(function(r) { return connexionLogVisible_(session, r, visibleIds); })
+    .filter(function(r) { return !userFilter || r.user_id === userFilter; })
+    .filter(function(r) {
+      const t = parseDateMs_(r.timestamp);
+      return t >= bounds.startMs && t <= bounds.endMs;
+    });
+
+  const successLogs = loginLogs.filter(function(r) { return isTrue_(r.success); });
+  const failedLogs  = loginLogs.filter(function(r) { return !isTrue_(r.success); });
+  const activeSessionsNow = readTable_('SESSIONS')
+    .filter(function(r) { return String(r.status || '').toUpperCase() === 'ACTIVE'; })
+    .filter(function(r) { return connexionSessionVisible_(session, r, visibleIds); })
+    .filter(function(r) { return !userFilter || r.user_id === userFilter; });
+
+  const connectedUserMap = {};
+  successLogs.forEach(function(r) { if (r.user_id) connectedUserMap[r.user_id] = true; });
+  sessions.forEach(function(r) { if (r.user_id) connectedUserMap[r.user_id] = true; });
+
+  const totalOnlineSeconds = sessions.reduce(function(sum, r) {
+    return sum + sessionSecondsInPeriod_(r, bounds);
+  }, 0);
+  const closedInPeriod = sessions.filter(function(r) {
+    const t = parseDateMs_(r.closed_at);
+    return t >= bounds.startMs && t <= bounds.endMs;
+  });
+
+  const days = buildConnexionDays_(bounds);
+  const dayByKey = indexBy_(days, 'date_key');
+  successLogs.forEach(function(r) {
+    const key = dateKeyFromMs_(parseDateMs_(r.timestamp));
+    if (dayByKey[key]) dayByKey[key].connections += 1;
+  });
+  failedLogs.forEach(function(r) {
+    const key = dateKeyFromMs_(parseDateMs_(r.timestamp));
+    if (dayByKey[key]) dayByKey[key].failed += 1;
+  });
+  closedInPeriod.forEach(function(r) {
+    const key = dateKeyFromMs_(parseDateMs_(r.closed_at));
+    if (dayByKey[key]) dayByKey[key].disconnections += 1;
+  });
+  sessions.forEach(function(r) {
+    const key = dateKeyFromMs_(Math.max(parseDateMs_(r.started_at), bounds.startMs));
+    if (dayByKey[key]) dayByKey[key].online_seconds += sessionSecondsInPeriod_(r, bounds);
+  });
+
+  const sessionRows = sessions
+    .sort(sortDescBy_('started_at'))
+    .slice(0, Number(filters.limit || 250))
+    .map(function(r) {
+      const u = usersById[r.user_id];
+      const seconds = sessionSecondsInPeriod_(r, bounds);
+      return {
+        session_id: r.session_id,
+        user_id: r.user_id,
+        user_name: safeUserLabel_(u, r.login || r.user_id || ''),
+        login: r.login || (u && u.login) || '',
+        role: r.role || (u && u.role) || '',
+        team_id: r.team_id || (u && u.team_id) || '',
+        connected_at: r.started_at || '',
+        last_seen_at: r.last_seen_at || '',
+        disconnected_at: r.closed_at || '',
+        status: r.status || '',
+        disconnect_reason: r.disconnect_reason || '',
+        duration_seconds: seconds,
+        user_agent: r.user_agent || ''
+      };
+    });
+
+  const logRows = loginLogs
+    .sort(sortDescBy_('timestamp'))
+    .slice(0, Number(filters.log_limit || 200))
+    .map(function(r) {
+      const u = usersById[r.user_id];
+      return {
+        id: r.id,
+        user_id: r.user_id,
+        user_name: safeUserLabel_(u, r.login || r.user_id || ''),
+        login: r.login || '',
+        success: isTrue_(r.success) ? 'TRUE' : 'FALSE',
+        timestamp: r.timestamp || '',
+        message: r.message || '',
+        session_id: r.session_id || '',
+        user_agent: r.user_agent || ''
+      };
+    });
+
+  return {
+    filters: {
+      date_from: bounds.from,
+      date_to: bounds.to,
+      user_id: userFilter,
+      status: statusFilter
+    },
+    users: scopedUsers,
+    kpis: {
+      total_users: scopedUsers.length,
+      active_users: Object.keys(connectedUserMap).length,
+      online_now: activeSessionsNow.length,
+      connections: successLogs.length || sessions.length,
+      failed_connections: failedLogs.length,
+      disconnections: closedInPeriod.length,
+      total_online_seconds: totalOnlineSeconds,
+      avg_session_seconds: sessions.length ? Math.round(totalOnlineSeconds / sessions.length) : 0,
+      sessions: sessions.length
+    },
+    days: days,
+    sessions: sessionRows,
+    logs: logRows
+  };
+}
+
+function htmlEscape_(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function secondsToHuman_(seconds) {
+  const s = Number(seconds || 0);
+  if (!s) return '0min';
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h ? (h + 'h ' + m + 'min') : (m + 'min');
+}
+
+function buildConnexionPdfHtml_(data, actor) {
+  const k = data.kpis || {};
+  const f = data.filters || {};
+  const generatedAt = Utilities.formatDate(new Date(), APP_CONFIG.TIMEZONE, 'dd/MM/yyyy HH:mm');
+  const period = htmlEscape_(f.date_from || '') + ' → ' + htmlEscape_(f.date_to || '');
+  const rows = (data.sessions || []).slice(0, 500);
+  let html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
+    'body{font-family:Arial,sans-serif;color:#182033;margin:28px;font-size:12px}' +
+    'h1{font-size:22px;margin:0 0 4px;color:#16324F}.sub{color:#667085;margin-bottom:18px}' +
+    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0 20px}' +
+    '.kpi{border:1px solid #d9dee8;border-radius:10px;padding:10px;background:#f7f8fb}.kpi small{display:block;color:#667085;text-transform:uppercase;font-size:9px;letter-spacing:.05em}.kpi strong{font-size:18px;color:#16324F}' +
+    'table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border-bottom:1px solid #e3e7ef;padding:7px 6px;text-align:left;vertical-align:top}th{background:#16324F;color:#fff;font-size:10px;text-transform:uppercase}.footer{margin-top:18px;color:#667085;font-size:10px}' +
+    '</style></head><body>';
+  html += '<h1>Journal de connexion</h1>';
+  html += '<div class="sub">Période : ' + period + ' · Généré le ' + htmlEscape_(generatedAt) + ' par ' + htmlEscape_(actor && actor.full_name || actor && actor.login || '') + '</div>';
+  html += '<div class="kpis">' +
+    '<div class="kpi"><small>Utilisateurs</small><strong>' + Number(k.total_users || 0) + '</strong></div>' +
+    '<div class="kpi"><small>En ligne</small><strong>' + Number(k.online_now || 0) + '</strong></div>' +
+    '<div class="kpi"><small>Connexions</small><strong>' + Number(k.connections || 0) + '</strong></div>' +
+    '<div class="kpi"><small>Déconnexions</small><strong>' + Number(k.disconnections || 0) + '</strong></div>' +
+    '<div class="kpi"><small>Échecs</small><strong>' + Number(k.failed_connections || 0) + '</strong></div>' +
+    '<div class="kpi"><small>Sessions</small><strong>' + Number(k.sessions || 0) + '</strong></div>' +
+    '<div class="kpi"><small>Temps total</small><strong>' + htmlEscape_(secondsToHuman_(k.total_online_seconds)) + '</strong></div>' +
+    '<div class="kpi"><small>Durée moyenne</small><strong>' + htmlEscape_(secondsToHuman_(k.avg_session_seconds)) + '</strong></div>' +
+    '</div>';
+  html += '<h2 style="font-size:15px;margin-top:18px;">Sessions visibles</h2>';
+  html += '<table><thead><tr><th>Utilisateur</th><th>Rôle</th><th>Connexion</th><th>Déconnexion</th><th>Durée</th><th>Statut</th></tr></thead><tbody>';
+  if (!rows.length) {
+    html += '<tr><td colspan="6">Aucune session sur cette période.</td></tr>';
+  } else {
+    rows.forEach(function(r) {
+      html += '<tr>' +
+        '<td>' + htmlEscape_(r.user_name || r.login || '—') + '</td>' +
+        '<td>' + htmlEscape_(r.role || '—') + '</td>' +
+        '<td>' + htmlEscape_(r.connected_at || '—') + '</td>' +
+        '<td>' + htmlEscape_(r.disconnected_at || 'Actif') + '</td>' +
+        '<td>' + htmlEscape_(secondsToHuman_(r.duration_seconds)) + '</td>' +
+        '<td>' + htmlEscape_(r.status || '—') + '</td>' +
+      '</tr>';
+    });
+  }
+  html += '</tbody></table>';
+  html += '<div class="footer">Export automatique depuis ' + htmlEscape_(APP_CONFIG.APP_NAME) + '.</div>';
+  html += '</body></html>';
+  return html;
+}
+
+/** Crée un PDF Drive du journal de connexion avec les filtres courants. */
+function exportConnexionPdf(token, filters) {
+  const session = requireSession_(token);
+  const data = getConnexionDashboard(token, filters || {});
+  const html = buildConnexionPdfHtml_(data, session.user);
+  const f = data.filters || {};
+  const filename = 'Journal-connexions-' + (f.date_from || todayKey_()) + '-' + (f.date_to || todayKey_()) + '.pdf';
+  const blob = Utilities.newBlob(html, 'text/html', filename.replace(/\.pdf$/, '.html'))
+    .getAs(MimeType.PDF)
+    .setName(filename);
+  const file = DriveApp.createFile(blob);
+  addAuditLog_(session, 'EXPORT_CONNEXION_PDF', 'CONNEXIONS', file.getId(), 'Export PDF journal connexions ' + (f.date_from || '') + ' → ' + (f.date_to || ''), null, { file_id: file.getId(), url: file.getUrl() });
+  return { ok: true, name: file.getName(), url: file.getUrl(), id: file.getId() };
+}
+
 /** Liste les sessions de connexion visibles par le rôle. */
 function listSessions(token, filters) {
   const session    = requireSession_(token);
