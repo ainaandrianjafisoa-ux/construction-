@@ -4,7 +4,7 @@
   <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Syndic Ledger High-End</title>
+  <title>Suivi Rambaud</title>
   <style>
 /* ═══════════════════════════════════════════════════════════════
    AETHER GLASS MORPHISM — Variables & base
@@ -1362,6 +1362,54 @@ button.loading-inline {
 }
 .planning-form .field { margin:0; }
 .pager { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; margin-top:14px; }
+
+
+/* ── Correctif superposition recherche globale ───────────────── */
+.top {
+  position: relative;
+  z-index: 9000;
+  overflow: visible !important;
+}
+#global-search-wrap {
+  position: relative;
+  z-index: 9100 !important;
+}
+#global-search-results {
+  z-index: 99999 !important;
+  isolation: isolate;
+  transform: translateZ(0);
+}
+.main,
+.content {
+  overflow: visible !important;
+}
+.gs-result:last-child { border-bottom: 0 !important; }
+
+/* ── Filtres locaux “Traitements détaillés” ─────────────────── */
+.dash-local-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--glass);
+  backdrop-filter: var(--blur-sm);
+  -webkit-backdrop-filter: var(--blur-sm);
+}
+.dash-local-filters .filter-select {
+  min-width: 170px;
+}
+.btn-clicked {
+  animation: btnAck .28s var(--ease);
+}
+@keyframes btnAck {
+  0% { transform: scale(1); }
+  45% { transform: scale(.96); box-shadow: 0 0 0 4px var(--gold-subtle); }
+  100% { transform: scale(1); }
+}
 @media (max-width: 980px) {
   .planning-form { grid-template-columns:1fr 1fr; }
   .planning-form .field:first-child, .planning-form .field:nth-child(4) { grid-column:1/-1; }
@@ -1485,7 +1533,7 @@ button.loading-inline {
         </div>
         <!-- Search results dropdown -->
         <div id="global-search-results" class="hidden"
-          style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:90;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow-md);backdrop-filter:var(--blur);max-height:340px;overflow-y:auto;"></div>
+          style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:99999;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow-md);backdrop-filter:var(--blur);max-height:340px;overflow-y:auto;"></div>
       </div>
       <div class="row" style="gap:8px;flex-shrink:0;">
         <button class="theme-toggle" id="btn-theme" title="Basculer thème">☀</button>
@@ -2983,6 +3031,12 @@ function populateSelect(sel, items, selectedVal, placeholder) {
 function reload() {
   if (S.activeView) navigate(S.activeView);
 }
+
+function animateBtnFeedback(btn) {
+  if (!btn) return;
+  btn.classList.add('btn-clicked');
+  setTimeout(function(){ btn.classList.remove('btn-clicked'); }, 280);
+}
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
@@ -2996,6 +3050,8 @@ var _dashDateStart     = '';   // YYYY-MM-DD ou ''
 var _dashDateEnd       = '';   // YYYY-MM-DD ou ''
 var _dashFilterTeam    = '';   // team id ou ''
 var _dashFilterAmbass  = '';   // agent id ou ''
+var _dashTreatmentFilterAmbass = ''; // filtre local “Traitements détaillés”
+var _dashTreatmentFilterModule = ''; // filtre local “Traitements détaillés”
 
 function renderDashboard() {
   var data = S.dashboard;
@@ -3282,6 +3338,71 @@ function _moduleKeysDash() {
   return ['agrement', 'sinistre', 'facture', 'resiliation'];
 }
 
+
+function _filterTreatmentDetailEvents(events) {
+  var filtered = _filterEvents(events || []);
+  if (_dashTreatmentFilterAmbass) {
+    filtered = filtered.filter(function(e) { return String(e.agent_id || '') === String(_dashTreatmentFilterAmbass); });
+  }
+  if (_dashTreatmentFilterModule) {
+    filtered = filtered.filter(function(e) { return String(e.module || '').toLowerCase() === String(_dashTreatmentFilterModule).toLowerCase(); });
+  }
+  return filtered;
+}
+
+function onDashTreatmentFilterAmbass() {
+  var sel = el('dash-treatment-filter-ambass');
+  _dashTreatmentFilterAmbass = sel ? sel.value : '';
+  paintTreatmentBreakdownTable();
+}
+
+function onDashTreatmentFilterModule() {
+  var sel = el('dash-treatment-filter-module');
+  _dashTreatmentFilterModule = sel ? sel.value : '';
+  paintTreatmentBreakdownTable();
+}
+
+function resetDashTreatmentFilters(btn) {
+  _dashTreatmentFilterAmbass = '';
+  _dashTreatmentFilterModule = '';
+  if (btn) animateBtnFeedback(btn);
+  paintTreatmentBreakdownTable();
+}
+
+function _buildDashTreatmentLocalFilters() {
+  var data = S.dashboard || {};
+  var ambassadors = _getDashboardAmbassadorBase();
+
+  var allowedAmbassadorIds = ambassadors.map(function(a) { return String(a.id || ''); });
+  if (_dashTreatmentFilterAmbass && allowedAmbassadorIds.indexOf(String(_dashTreatmentFilterAmbass)) === -1) {
+    _dashTreatmentFilterAmbass = '';
+  }
+
+  var modules = _moduleKeysDash();
+  if (_dashTreatmentFilterModule && modules.indexOf(String(_dashTreatmentFilterModule)) === -1) {
+    _dashTreatmentFilterModule = '';
+  }
+
+  var html = '<div class="dash-local-filters">';
+  html += '<span class="fs-xs fw7 t-muted" style="text-transform:uppercase;letter-spacing:.05em;">Filtres détaillés :</span>';
+  html += '<select id="dash-treatment-filter-ambass" class="filter-select" onchange="onDashTreatmentFilterAmbass()">';
+  html += '<option value="">Tous les ambassadeurs</option>';
+  ambassadors.forEach(function(a) {
+    html += '<option value="' + escHtml(a.id) + '" ' + (String(a.id) === String(_dashTreatmentFilterAmbass) ? 'selected' : '') + '>' + escHtml(a.name || a.id) + '</option>';
+  });
+  html += '</select>';
+  html += '<select id="dash-treatment-filter-module" class="filter-select" onchange="onDashTreatmentFilterModule()">';
+  html += '<option value="">Tous les modules</option>';
+  modules.forEach(function(m) {
+    html += '<option value="' + escHtml(m) + '" ' + (String(m) === String(_dashTreatmentFilterModule) ? 'selected' : '') + '>' + escHtml(_moduleLabelDash(m)) + '</option>';
+  });
+  html += '</select>';
+  html += '<button class="b3 fs-xs" onclick="resetDashTreatmentFilters(this)">Réinitialiser</button>';
+  html += '<span class="fs-xs t-muted">Ces filtres concernent uniquement la carte “Traitements détaillés”.</span>';
+  html += '</div>';
+  return html;
+}
+
 function _getDashboardAmbassadorBase() {
   var data = S.dashboard || {};
   var teamsById = {};
@@ -3475,23 +3596,37 @@ function paintTreatmentBreakdownTable() {
   var wrap = el('dash-treatment-breakdown');
   if (!wrap || !data) return;
 
-  var events = _filterEvents(data.treatmentEvents || []);
+  var baseEvents = _filterEvents(data.treatmentEvents || []);
+  var events = _filterTreatmentDetailEvents(data.treatmentEvents || []);
   var rows = _buildTreatmentBreakdownRows(events);
+
+  if (_dashTreatmentFilterAmbass) {
+    rows = rows.filter(function(r) { return String(r.agent_id || '') === String(_dashTreatmentFilterAmbass); });
+  }
+  if (_dashTreatmentFilterModule) {
+    rows = rows.filter(function(r) { return String(r.module || '').toLowerCase() === String(_dashTreatmentFilterModule).toLowerCase(); });
+  }
+
   var totalAvg = events.length
     ? fmtDuration(Math.round(events.reduce(function(sum, e) { return sum + Number(e.delay_seconds || 0); }, 0) / events.length))
     : '—';
 
+  var html = _buildDashTreatmentLocalFilters();
+
   if (!rows.length) {
-    wrap.innerHTML = '<div class="empty" style="padding:16px;">Aucun ambassadeur à afficher.</div>';
+    html += '<div class="empty" style="padding:16px;">Aucune donnée sur cette sélection.</div>';
+    wrap.innerHTML = html;
     return;
   }
 
-  var html = '';
   html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px;">';
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
   html += '<span class="chip cg">' + events.length + ' clôture(s)</span>';
   html += '<span class="chip cp">' + rows.filter(function(r) { return r.total_count > 0; }).length + ' couple(s) avec activité</span>';
   html += '<span class="chip">Délai moy. global : ' + escHtml(totalAvg) + '</span>';
+  if (_dashTreatmentFilterAmbass || _dashTreatmentFilterModule) {
+    html += '<span class="chip cw">Filtré · base : ' + baseEvents.length + ' clôture(s)</span>';
+  }
   html += '</div>';
   html += '<span class="fs-xs t-muted">Création = clic sur “Nouveau” → clôture · Mise à jour = ouverture du dossier → clôture</span>';
   html += '</div>';
@@ -3646,6 +3781,7 @@ function onDashFilterTeam() {
   var sel = el('dash-filter-team');
   _dashFilterTeam   = sel ? sel.value : '';
   _dashFilterAmbass = ''; // reset ambassadeur quand on change d'équipe
+  _dashTreatmentFilterAmbass = ''; // reset filtre local si le périmètre change
   /* Re-filtrer la liste ambassadeurs */
   _updateAmbassFilterOptions();
   repaintDashboardFilteredTables();
@@ -3654,6 +3790,7 @@ function onDashFilterTeam() {
 function onDashFilterAmbass() {
   var sel = el('dash-filter-ambass');
   _dashFilterAmbass = sel ? sel.value : '';
+  _dashTreatmentFilterAmbass = ''; // le filtre local se recale sur le périmètre global
   repaintDashboardFilteredTables();
 }
 
@@ -5859,6 +5996,8 @@ var _planningData = null;
 var _histPage = 1;
 var _histAction = '';
 var _histPageSize = 15;
+var _connData = null;
+var _connFilters = null;
 
 function todayKey() {
   var d = new Date();
@@ -6415,51 +6554,264 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-/* ═══ CONNEXIONS ════════════════════════════════════════════ */
+/* ═══ CONNEXIONS — KPI, période, sessions & export PDF ══════ */
+
+function dateAddDaysKey(baseKey, days) {
+  var d = baseKey ? new Date(baseKey + 'T00:00:00') : new Date();
+  if (isNaN(d)) d = new Date();
+  d.setDate(d.getDate() + Number(days || 0));
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function firstDayOfMonthKey() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
+}
+
+function defaultConnexionFilters() {
+  var today = todayKey();
+  return {
+    preset: 'today',
+    date_from: today,
+    date_to: today,
+    user_id: '',
+    status: ''
+  };
+}
+
+function getConnexionFiltersFromDom() {
+  if (!_connFilters) _connFilters = defaultConnexionFilters();
+  var preset = el('conn-preset') ? el('conn-preset').value : (_connFilters.preset || 'today');
+  var from = el('conn-from') ? el('conn-from').value : _connFilters.date_from;
+  var to = el('conn-to') ? el('conn-to').value : _connFilters.date_to;
+  var user = el('conn-user') ? el('conn-user').value : (_connFilters.user_id || '');
+  var status = el('conn-status') ? el('conn-status').value : (_connFilters.status || '');
+  return {
+    preset: preset,
+    date_from: from || todayKey(),
+    date_to: to || from || todayKey(),
+    user_id: user || '',
+    status: status || ''
+  };
+}
+
+function setConnexionPreset(value) {
+  var today = todayKey();
+  if (!_connFilters) _connFilters = defaultConnexionFilters();
+  _connFilters.preset = value || 'today';
+
+  if (value === 'today') {
+    _connFilters.date_from = today;
+    _connFilters.date_to = today;
+  } else if (value === 'yesterday') {
+    _connFilters.date_from = dateAddDaysKey(today, -1);
+    _connFilters.date_to = dateAddDaysKey(today, -1);
+  } else if (value === '7d') {
+    _connFilters.date_from = dateAddDaysKey(today, -6);
+    _connFilters.date_to = today;
+  } else if (value === 'month') {
+    _connFilters.date_from = firstDayOfMonthKey();
+    _connFilters.date_to = today;
+  } else {
+    _connFilters.date_from = el('conn-from') ? el('conn-from').value : _connFilters.date_from;
+    _connFilters.date_to = el('conn-to') ? el('conn-to').value : _connFilters.date_to;
+  }
+
+  if (el('conn-from')) el('conn-from').value = _connFilters.date_from;
+  if (el('conn-to')) el('conn-to').value = _connFilters.date_to;
+}
+
+function onConnexionPresetChange(value) {
+  setConnexionPreset(value);
+  refreshConnexions();
+}
+
+function refreshConnexions(btn) {
+  if (btn) setBtnLoading(btn, true);
+  _connFilters = getConnexionFiltersFromDom();
+  google.script.run
+    .withSuccessHandler(function(data) {
+      if (btn) setBtnLoading(btn, false);
+      paintConnexions(data);
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .getConnexionDashboard(S.token, _connFilters);
+}
+
 function renderConnexions() {
+  if (!_connFilters) _connFilters = defaultConnexionFilters();
   el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintConnexions)
     .withFailureHandler(function(e) { gasFailureHandler(e); })
-    .listSessions(S.token, { limit: 150 });
+    .getConnexionDashboard(S.token, _connFilters);
 }
 
-function paintConnexions(rows) {
-  rows = rows || [];
+function kpiConn(label, value, hint, tone) {
+  return '<div class="kpi" style="min-height:112px;">' +
+    '<div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">' + escHtml(label) + '</div>' +
+    '<div class="v-sm ' + (tone || '') + '">' + escHtml(value) + '</div>' +
+    (hint ? '<div class="fs-xs t-muted" style="margin-top:8px;">' + escHtml(hint) + '</div>' : '') +
+    '</div>';
+}
+
+function buildConnexionChart(days) {
+  days = days || [];
+  if (!days.length) return '<div class="empty">Aucune donnée graphique.</div>';
+  var max = 1;
+  days.forEach(function(d) {
+    max = Math.max(max, Number(d.connections || 0), Number(d.disconnections || 0), Number(d.failed || 0));
+  });
+
+  var html = '<div style="display:grid;gap:10px;">';
+  html += '<div class="row" style="justify-content:flex-end;gap:8px;">' +
+    '<span class="chip cs">Connexions</span>' +
+    '<span class="chip cp">Déconnexions</span>' +
+    '<span class="chip cd">Échecs</span>' +
+    '</div>';
+  html += '<div style="display:grid;grid-template-columns:repeat(' + Math.max(days.length, 1) + ', minmax(46px,1fr));gap:8px;align-items:end;min-height:170px;">';
+  days.forEach(function(d) {
+    var h1 = Math.max(5, Math.round((Number(d.connections || 0) / max) * 120));
+    var h2 = Math.max(5, Math.round((Number(d.disconnections || 0) / max) * 120));
+    var h3 = Math.max(5, Math.round((Number(d.failed || 0) / max) * 120));
+    html += '<div style="display:grid;gap:6px;align-items:end;text-align:center;">';
+    html += '<div style="display:flex;gap:4px;align-items:end;justify-content:center;height:126px;">';
+    html += '<span title="Connexions : ' + Number(d.connections || 0) + '" style="width:10px;height:' + h1 + 'px;border-radius:999px;background:var(--success);opacity:.9;"></span>';
+    html += '<span title="Déconnexions : ' + Number(d.disconnections || 0) + '" style="width:10px;height:' + h2 + 'px;border-radius:999px;background:var(--primary);opacity:.85;"></span>';
+    html += '<span title="Échecs : ' + Number(d.failed || 0) + '" style="width:10px;height:' + h3 + 'px;border-radius:999px;background:var(--danger);opacity:.85;"></span>';
+    html += '</div>';
+    html += '<div class="fs-xs t-muted">' + escHtml(d.label || d.date_key || '') + '</div>';
+    html += '</div>';
+  });
+  html += '</div></div>';
+  return html;
+}
+
+function buildConnexionFilters(data) {
+  data = data || {};
+  var filters = data.filters || _connFilters || defaultConnexionFilters();
+  var users = data.users || [];
   var html = '<div class="card">';
   html += '<div class="card-head">';
-  html += '<span class="fw8">Journaux de connexion</span>';
-  html += '<span class="chip t-muted">' + rows.length + ' entrées</span>';
+  html += '<div><span class="fw8">Journal de connexion</span><div class="t-muted fs-sm" style="margin-top:3px;">Vue KPI, période, sessions et tentatives de connexion.</div></div>';
+  html += '<div class="row">';
+  html += '<button class="b2 save-btn" id="btn-conn-pdf" onclick="exportConnexionPdfAction(this)"><span class="label">Exporter PDF</span><span class="spinner hidden"><i></i></span></button>';
+  html += '<button class="b1 save-btn" id="btn-conn-refresh" onclick="refreshConnexions(this)"><span class="label">Actualiser</span><span class="spinner hidden"><i></i></span></button>';
+  html += '</div></div>';
+
+  html += '<div class="filters" style="margin-top:4px;">';
+  html += '<select class="filter-select" id="conn-preset" onchange="onConnexionPresetChange(this.value)">' +
+    '<option value="today" ' + (filters.preset === 'today' ? 'selected' : '') + '>Aujourd’hui</option>' +
+    '<option value="yesterday" ' + (filters.preset === 'yesterday' ? 'selected' : '') + '>Hier</option>' +
+    '<option value="7d" ' + (filters.preset === '7d' ? 'selected' : '') + '>7 derniers jours</option>' +
+    '<option value="month" ' + (filters.preset === 'month' ? 'selected' : '') + '>Mois en cours</option>' +
+    '<option value="custom" ' + (filters.preset === 'custom' ? 'selected' : '') + '>Période personnalisée</option>' +
+    '</select>';
+  html += '<input class="filter-input" id="conn-from" type="date" value="' + escHtml(filters.date_from || todayKey()) + '" onchange="_connFilters=getConnexionFiltersFromDom();_connFilters.preset=\'custom\';if(el(\'conn-preset\'))el(\'conn-preset\').value=\'custom\';refreshConnexions();">';
+  html += '<input class="filter-input" id="conn-to" type="date" value="' + escHtml(filters.date_to || todayKey()) + '" onchange="_connFilters=getConnexionFiltersFromDom();_connFilters.preset=\'custom\';if(el(\'conn-preset\'))el(\'conn-preset\').value=\'custom\';refreshConnexions();">';
+  html += '<select class="filter-select" id="conn-user" onchange="refreshConnexions()"><option value="">Tous les utilisateurs</option>';
+  users.forEach(function(u) {
+    html += '<option value="' + escHtml(u.id) + '" ' + (u.id === filters.user_id ? 'selected' : '') + '>' + escHtml(u.full_name || u.login || u.id) + '</option>';
+  });
+  html += '</select>';
+  html += '<select class="filter-select" id="conn-status" onchange="refreshConnexions()">' +
+    '<option value="" ' + (!filters.status ? 'selected' : '') + '>Tous les statuts</option>' +
+    '<option value="ACTIVE" ' + (filters.status === 'ACTIVE' ? 'selected' : '') + '>Actives</option>' +
+    '<option value="CLOSED" ' + (filters.status === 'CLOSED' ? 'selected' : '') + '>Fermées</option>' +
+    '</select>';
+  html += '</div></div>';
+  return html;
+}
+
+function paintConnexions(data) {
+  data = data || {};
+  _connData = data;
+  _connFilters = Object.assign({}, _connFilters || defaultConnexionFilters(), data.filters || {});
+  var k = data.kpis || {};
+  var sessions = data.sessions || [];
+  var logs = data.logs || [];
+
+  var html = buildConnexionFilters(data);
+
+  html += '<div class="kpis">';
+  html += kpiConn('Utilisateurs', Number(k.total_users || 0), 'périmètre visible');
+  html += kpiConn('En ligne', Number(k.online_now || 0), 'sessions actives maintenant', 'cs');
+  html += kpiConn('Connexions', Number(k.connections || 0), 'sur la période', 'cp');
+  html += kpiConn('Déconnexions', Number(k.disconnections || 0), 'sessions clôturées', 'cw');
+  html += kpiConn('Échecs', Number(k.failed_connections || 0), 'tentatives refusées', 'cd');
+  html += kpiConn('Temps total', fmtDuration(k.total_online_seconds || 0), 'connexion cumulée');
+  html += kpiConn('Durée moyenne', fmtDuration(k.avg_session_seconds || 0), 'par session');
+  html += kpiConn('Sessions', Number(k.sessions || 0), 'lignes de sessions');
   html += '</div>';
 
-  if (!rows.length) {
-    html += '<div class="empty">Aucun journal.</div></div>';
-    el('content').innerHTML = html;
-    return;
-  }
+  html += '<div class="card">';
+  html += '<div class="card-head"><div><span class="fw8">Évolution sur la période</span><div class="t-muted fs-sm" style="margin-top:3px;">Connexions, déconnexions et échecs par jour.</div></div></div>';
+  html += buildConnexionChart(data.days || []);
+  html += '</div>';
 
+  html += '<div class="card">';
+  html += '<div class="card-head">';
+  html += '<div><span class="fw8">Sessions de connexion</span><div class="t-muted fs-sm" style="margin-top:3px;">Dernières sessions visibles selon les filtres.</div></div>';
+  html += '<span class="chip t-muted">' + sessions.length + ' session(s)</span>';
+  html += '</div>';
   html += buildTable(
-    ['Utilisateur', 'Rôle', 'Connexion', 'Déconnexion', 'Durée', 'IP / Agent'],
-    rows,
+    ['Utilisateur', 'Rôle', 'Connexion', 'Déconnexion', 'Durée', 'Statut', 'Navigateur'],
+    sessions,
     function(r) {
-      var duration = '';
-      if (r.connected_at && r.disconnected_at) {
-        var ms = new Date(r.disconnected_at) - new Date(r.connected_at);
-        duration = fmtDuration(Math.round(ms / 1000));
-      }
+      var active = String(r.status || '').toUpperCase() === 'ACTIVE';
       return '<tr>' +
-        '<td class="fw7">' + escHtml(r.user_name || r.user_id || '—') + '</td>' +
+        '<td class="fw7">' + escHtml(r.user_name || r.login || r.user_id || '—') + '</td>' +
         '<td class="fs-sm">' + escHtml(r.role || '—') + '</td>' +
         '<td class="fs-sm">' + fmtDateTime(r.connected_at) + '</td>' +
         '<td class="fs-sm t-muted">' + (r.disconnected_at ? fmtDateTime(r.disconnected_at) : '<span class="online-badge on" style="font-size:.72rem;">Actif</span>') + '</td>' +
-        '<td class="fs-sm">' + (duration || '—') + '</td>' +
-        '<td class="fs-xs t-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(r.user_agent || r.ip || '—') + '</td>' +
+        '<td class="fs-sm">' + fmtDuration(r.duration_seconds || 0) + '</td>' +
+        '<td><span class="chip ' + (active ? 'cs' : '') + '">' + escHtml(active ? 'Active' : (r.disconnect_reason || 'Fermée')) + '</span></td>' +
+        '<td class="fs-xs t-muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(r.user_agent || '—') + '</td>' +
         '</tr>';
     }
   );
-
   html += '</div>';
+
+  html += '<div class="card">';
+  html += '<div class="card-head">';
+  html += '<div><span class="fw8">Tentatives de connexion</span><div class="t-muted fs-sm" style="margin-top:3px;">Journal des authentifications réussies ou refusées.</div></div>';
+  html += '<span class="chip t-muted">' + logs.length + ' ligne(s)</span>';
+  html += '</div>';
+  html += buildTable(
+    ['Date', 'Utilisateur', 'Login', 'Résultat', 'Message', 'Session'],
+    logs,
+    function(r) {
+      var ok = isTrueFlag(r.success);
+      return '<tr>' +
+        '<td class="fs-sm">' + fmtDateTime(r.timestamp) + '</td>' +
+        '<td class="fw7">' + escHtml(r.user_name || r.user_id || '—') + '</td>' +
+        '<td class="fs-sm">' + escHtml(r.login || '—') + '</td>' +
+        '<td><span class="chip ' + (ok ? 'cs' : 'cd') + '">' + (ok ? 'Réussie' : 'Échec') + '</span></td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.message || '—') + '</td>' +
+        '<td class="fs-xs t-muted" style="font-family:monospace;">' + escHtml(r.session_id || '—') + '</td>' +
+        '</tr>';
+    }
+  );
+  html += '</div>';
+
   el('content').innerHTML = html;
+}
+
+function exportConnexionPdfAction(btn) {
+  _connFilters = getConnexionFiltersFromDom();
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      setBtnLoading(btn, false);
+      if (res && res.url) {
+        toast('Export PDF généré.', 'success');
+        window.open(res.url, '_blank');
+      } else {
+        toast('PDF généré, mais aucun lien retourné.', 'info');
+      }
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .exportConnexionPdf(S.token, _connFilters);
 }
 </script>
 <script>
