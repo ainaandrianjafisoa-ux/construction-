@@ -44,7 +44,7 @@ const ENUMS = {
   FACTURE_STATUTS:         ['En cours', 'Remonté', 'Vérifié', 'Traité'],
 
   // Module Résiliation
-  RESILIATION_ORIGINES:    ['Mail', 'BO'],
+  RESILIATION_ORIGINES:    ['Mail', 'BO' , 'Courrier'],
   RESILIATION_COMPLETUDE:  ['OK', 'KO'],
   RESILIATION_RESIL:       ['Résil OK', 'Résil KO'],
   RESILIATION_STATUTS:     ['En cours', 'Relance', 'Traité']
@@ -63,7 +63,7 @@ const SCHEMA = {
   AGREMENTS: [
     'id', 'reference',
     // Infos dossier
-    'type_dossier', 'no_dossier', 'priorite', 'client', 'adresse',
+    'type_dossier', 'no_dossier', 'priorite', 'client', 'adresse', 'date_reception',
     'type_client', 'compagnie',
     // Assignation
     'ambassadeur_assigne', 'gestionnaire_plus', 'equipe_id',
@@ -106,7 +106,7 @@ const SCHEMA = {
 
   // Module Facture v4 — workflow Remonté / Vérifié
   FACTURES: [
-    'id', 'reference', 'no_sinistre',
+    'id', 'reference', 'no_sinistre', 'date_reception',
     'etape_verification', 'etape_calcul', 'etape_reglement',
     'commentaire_traitement', 'commentaire_verification',
     'statut',
@@ -121,6 +121,7 @@ const SCHEMA = {
   // Module Résiliation
   RESILIATIONS: [
     'id', 'reference', 'origine', 'mail', 'no_contrat',
+    'date_reception', 'date_sortie', 'motif_resiliation',
     'completude', 'resil', 'commentaire', 'statut',
     'created_by', 'created_at', 'updated_at',
     'soumis_at', 'delai_ouverture_soumission_secondes',
@@ -144,6 +145,11 @@ const SCHEMA = {
     'id', 'date_key', 'user_id', 'login', 'full_name', 'role', 'team_id',
     'first_login_at', 'last_seen_at', 'last_disconnect_at',
     'connection_count', 'disconnection_count', 'online_seconds', 'is_online', 'updated_at'
+  ],
+  PLANNING_SHIFTS: [
+    'id', 'date_key', 'user_id', 'login', 'full_name', 'role', 'team_id',
+    'shift_start', 'shift_end', 'notes',
+    'created_by', 'created_at', 'updated_by', 'updated_at'
   ],
   LOGIN_LOG: [
     'id', 'user_id', 'login', 'success', 'timestamp', 'user_agent', 'session_id', 'message'
@@ -1169,41 +1175,474 @@ function installOrRepairTriggers() {
   };
 }
 
+function presenceDateBounds_(dateKey) {
+  const day = String(dateKey || todayKey_()).slice(0, 10);
+  const start = new Date(day + 'T00:00:00');
+  const end = new Date(day + 'T23:59:59');
+  return { day: day, startMs: start.getTime(), endMs: end.getTime() };
+}
+
+function presenceIsoToHHMM_(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return Utilities.formatDate(d, APP_CONFIG.TIMEZONE, 'HH:mm');
+}
+
+function normalizePlanningTime_(value) {
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    return Utilities.formatDate(value, APP_CONFIG.TIMEZONE, 'HH:mm');
+  }
+
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  // Cas normal attendu côté formulaire : 09:00 ou 09:00:00
+  const direct = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (direct) {
+    const h = Number(direct[1]);
+    const min = Number(direct[2]);
+    if (h < 0 || h > 23 || min < 0 || min > 59) return '';
+    return ('0' + h).slice(-2) + ':' + ('0' + min).slice(-2);
+  }
+
+  // Google Sheets peut convertir 09:00 en date technique 1899-12-30T09:00:00
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw) || /^\d{4}-\d{2}-\d{2} /.test(raw)) {
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) return Utilities.formatDate(d, APP_CONFIG.TIMEZONE, 'HH:mm');
+  }
+
+  // Google Sheets peut aussi stocker l'heure comme fraction de journée : 0.375 = 09:00
+  const n = Number(raw.replace(',', '.'));
+  if (!isNaN(n) && n >= 0 && n < 1) {
+    const total = Math.round(n * 24 * 60);
+    const h = Math.floor(total / 60) % 24;
+    const min = total % 60;
+    return ('0' + h).slice(-2) + ':' + ('0' + min).slice(-2);
+  }
+
+  return '';
+}
+
+function timeToMinutes_(value) {
+  const t = normalizePlanningTime_(value);
+  if (!t) return 0;
+  const p = t.split(':');
+  return Number(p[0]) * 60 + Number(p[1]);
+}
+
+function normalizePlanningDateKey_(value) {
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    return Utilities.formatDate(value, APP_CONFIG.TIMEZONE, 'yyyy-MM-dd');
+  }
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) return Utilities.formatDate(d, APP_CONFIG.TIMEZONE, 'yyyy-MM-dd');
+  return raw.slice(0, 10);
+}
+
+function normalizePlanningShiftRow_(row) {
+  const r = Object.assign({}, row || {});
+  r.date_key    = normalizePlanningDateKey_(r.date_key);
+  r.shift_start = normalizePlanningTime_(r.shift_start);
+  r.shift_end   = normalizePlanningTime_(r.shift_end);
+  return r;
+}
+
+function applyPlanningSheetFormats_() {
+  const ss = getDatabase_();
+  const sheet = ss.getSheetByName('PLANNING_SHIFTS');
+  if (!sheet) return;
+  const headers = getSheetHeaders_(sheet);
+  ['date_key', 'shift_start', 'shift_end'].forEach(function(name) {
+    const idx = headers.indexOf(name);
+    if (idx !== -1) {
+      sheet.getRange(1, idx + 1, Math.max(1, sheet.getMaxRows()), 1).setNumberFormat('@');
+    }
+  });
+}
+
+function ensurePresencePlanningSheets_() {
+  ensureSheets_();
+  applyPlanningSheetFormats_();
+  return true;
+}
+
+function repairPlanningSheet() {
+  ensurePresencePlanningSheets_();
+  const ss = getDatabase_();
+  const sheet = ss.getSheetByName('PLANNING_SHIFTS');
+  let fixed = 0;
+
+  if (sheet && sheet.getLastRow() > 1) {
+    const values  = sheet.getDataRange().getValues();
+    const headers = values[0].map(function(h) { return String(h || '').trim(); });
+    const dateCol = headers.indexOf('date_key');
+    const startCol = headers.indexOf('shift_start');
+    const endCol = headers.indexOf('shift_end');
+
+    for (let i = 1; i < values.length; i++) {
+      let changed = false;
+      if (dateCol !== -1) {
+        const newDate = normalizePlanningDateKey_(values[i][dateCol]);
+        if (String(values[i][dateCol] || '') !== newDate) { values[i][dateCol] = newDate; changed = true; }
+      }
+      if (startCol !== -1) {
+        const newStart = normalizePlanningTime_(values[i][startCol]);
+        if (String(values[i][startCol] || '') !== newStart) { values[i][startCol] = newStart; changed = true; }
+      }
+      if (endCol !== -1) {
+        const newEnd = normalizePlanningTime_(values[i][endCol]);
+        if (String(values[i][endCol] || '') !== newEnd) { values[i][endCol] = newEnd; changed = true; }
+      }
+      if (changed) fixed++;
+    }
+
+    if (fixed) {
+      sheet.getRange(1, 1, values.length, headers.length).setValues(values);
+      applyPlanningSheetFormats_();
+    }
+  }
+
+  return {
+    ok: true,
+    sheet: 'PLANNING_SHIFTS',
+    rows: sheet ? Math.max(0, sheet.getLastRow() - 1) : 0,
+    fixedRows: fixed,
+    spreadsheetId: ss.getId(),
+    spreadsheetUrl: ss.getUrl()
+  };
+}
+
+function getPlanningShiftMap_(dateKey) {
+  ensurePresencePlanningSheets_();
+  const day = normalizePlanningDateKey_(dateKey || todayKey_());
+  const map = {};
+  readTable_('PLANNING_SHIFTS')
+    .map(function(r) { return normalizePlanningShiftRow_(r); })
+    .filter(function(r) { return r.date_key === day; })
+    .forEach(function(r) {
+      const prev = map[r.user_id];
+      if (!prev || String(r.updated_at || r.created_at || '') > String(prev.updated_at || prev.created_at || '')) {
+        map[r.user_id] = r;
+      }
+    });
+  return map;
+}
+
+function buildPresenceSessionSegments_(userId, dateKey) {
+  const bounds = presenceDateBounds_(dateKey);
+  const nowMs = parseDateMs_(nowIso_());
+
+  return readTable_('SESSIONS')
+    .filter(function(s) {
+      if (s.user_id !== userId) return false;
+      const startMs = parseDateMs_(s.started_at);
+      const rawEndMs = parseDateMs_(s.closed_at || s.last_seen_at) || nowMs;
+      const endMs = Math.max(rawEndMs, startMs || rawEndMs);
+      return startMs && startMs <= bounds.endMs && endMs >= bounds.startMs;
+    })
+    .map(function(s) {
+      const startMs = Math.max(parseDateMs_(s.started_at), bounds.startMs);
+      const rawEndMs = parseDateMs_(s.closed_at || s.last_seen_at) || nowMs;
+      const endMs = Math.min(Math.max(rawEndMs, startMs), bounds.endMs);
+      const startIso = Utilities.formatDate(new Date(startMs), APP_CONFIG.TIMEZONE, "yyyy-MM-dd'T'HH:mm:ss");
+      const endIso = Utilities.formatDate(new Date(endMs), APP_CONFIG.TIMEZONE, "yyyy-MM-dd'T'HH:mm:ss");
+      return {
+        session_id: s.session_id || '',
+        start_at: startIso,
+        end_at: endIso,
+        start_hhmm: presenceIsoToHHMM_(startIso),
+        end_hhmm: presenceIsoToHHMM_(endIso),
+        status: s.status || '',
+        disconnect_reason: s.disconnect_reason || '',
+        seconds: Math.max(0, Math.round((endMs - startMs) / 1000))
+      };
+    })
+    .sort(function(a, b) { return String(a.start_at).localeCompare(String(b.start_at)); });
+}
+
+function normalizeRoleKey_(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\s-]+/g, '_')
+    .trim();
+}
+
+function isAmbassadorUser_(user) {
+  const role = normalizeRoleKey_(user && user.role);
+  return role === ROLES.AMBASSADOR || role === 'ambassadeur' || role === 'ambassador';
+}
+
+function isActiveUserForPlanning_(user) {
+  const status = String((user && user.status) || 'Actif')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim();
+  return !status || status === 'actif' || status === 'active' || status === 'true' || status === '1';
+}
+
+function isPlanningUserVisibleForSession_(session, user) {
+  if (!session || !user || !isAmbassadorUser_(user) || !isActiveUserForPlanning_(user)) return false;
+  if (session.role === ROLES.SUPER_ADMIN) return true;
+  if (session.role === ROLES.TEAM_LEADER) {
+    const sameTeam = String(user.team_id || '') && String(user.team_id || '') === String(session.user.team_id || '');
+    const assignedToTl = String(user.team_leader_id || '') && String(user.team_leader_id || '') === String(session.user.id || '');
+    return sameTeam || assignedToTl;
+  }
+  return String(user.id || '') === String(session.user.id || '');
+}
+
+function canPlanUser_(session, user) {
+  if (!session || !user) return false;
+  return isPlanningUserVisibleForSession_(session, user);
+}
+
+function getVisiblePlanningUsers_(session) {
+  return readTable_('USERS')
+    .filter(function(u) { return isPlanningUserVisibleForSession_(session, u); })
+    .sort(function(a, b) { return String(a.full_name || a.login || '').localeCompare(String(b.full_name || b.login || ''), 'fr'); });
+}
+
 function listPresence(token, dateKey) {
   const session    = requireSession_(token);
-  const day        = dateKey || todayKey_();
-  const visibleIds = scopeUsers_(session, readTable_('USERS')).map(function(u) { return u.id; });
-  const teamById   = indexBy_(readTable_('TEAMS'), 'id');
+  const day        = normalizePlanningDateKey_(dateKey || todayKey_());
+  const users      = getVisiblePlanningUsers_(session);
+  const teamsById  = indexBy_(readTable_('TEAMS'), 'id');
+  const presenceByUser = indexBy_(readTable_('PRESENCE_DAILY').filter(function(row) {
+    return row.date_key === day;
+  }), 'user_id');
   const activeSessions = readTable_('SESSIONS').filter(function(s) { return s.status === 'ACTIVE'; });
+  const shiftByUser = getPlanningShiftMap_(day);
 
-  return readTable_('PRESENCE_DAILY')
-    .filter(function(row) {
-      return row.date_key === day && visibleIds.indexOf(row.user_id) > -1;
-    })
-    .map(function(row) {
-      row.team_name = teamById[row.team_id] ? teamById[row.team_id].name : '';
-      row.currently_online = activeSessions.some(function(s) {
-        return s.user_id === row.user_id && s.status === 'ACTIVE';
-      }) ? 'TRUE' : row.is_online;
-      row.online_hhmm = secondsToHHMM_(Number(row.online_seconds || 0));
-      return row;
-    })
-    .sort(function(a, b) {
-      return String(a.full_name || '').localeCompare(String(b.full_name || ''), 'fr');
-    });
+  return users.map(function(user) {
+    const record   = presenceByUser[user.id] || {};
+    const shift    = shiftByUser[user.id] || {};
+    const segments = buildPresenceSessionSegments_(user.id, day);
+    const computedOnlineSeconds = segments.reduce(function(n, seg) { return n + Number(seg.seconds || 0); }, 0);
+    const firstLogin = record.first_login_at || (segments[0] ? segments[0].start_at : '');
+    const lastClosedSegs = segments.filter(function(seg) { return String(seg.status || '').toUpperCase() !== 'ACTIVE'; });
+    const lastDisconnect = record.last_disconnect_at || (lastClosedSegs.length ? lastClosedSegs[lastClosedSegs.length - 1].end_at : '');
+    const currentlyOnline = activeSessions.some(function(s) { return s.user_id === user.id && s.status === 'ACTIVE'; });
+    const connectionCount = Math.max(Number(record.connection_count || 0), segments.length);
+    const closedCount = segments.filter(function(seg) { return String(seg.status || '').toUpperCase() !== 'ACTIVE'; }).length;
+    const disconnectionCount = Math.max(Number(record.disconnection_count || 0), closedCount);
+    const totalSeconds = computedOnlineSeconds || Number(record.online_seconds || 0);
+
+    return {
+      id: record.id || '',
+      date_key: day,
+      user_id: user.id,
+      login: user.login || '',
+      full_name: user.full_name || user.login || user.id,
+      role: user.role || '',
+      team_id: user.team_id || '',
+      team_name: teamsById[user.team_id] ? teamsById[user.team_id].name : '',
+      first_login_at: firstLogin,
+      last_seen_at: record.last_seen_at || (segments.length ? segments[segments.length - 1].end_at : ''),
+      last_disconnect_at: lastDisconnect,
+      arrival_hhmm: presenceIsoToHHMM_(firstLogin),
+      departure_hhmm: presenceIsoToHHMM_(lastDisconnect),
+      connection_count: connectionCount,
+      disconnection_count: disconnectionCount,
+      online_seconds: totalSeconds,
+      online_hhmm: secondsToHHMM_(totalSeconds),
+      is_online: currentlyOnline ? 'TRUE' : 'FALSE',
+      currently_online: currentlyOnline ? 'TRUE' : 'FALSE',
+      planning_id: shift.id || '',
+      shift_start: shift.shift_start || '',
+      shift_end: shift.shift_end || '',
+      shift_label: (shift.shift_start && shift.shift_end) ? (shift.shift_start + ' – ' + shift.shift_end) : 'Non planifié',
+      shift_notes: shift.notes || '',
+      session_segments: segments,
+      presence_events: segments.reduce(function(acc, seg) {
+        acc.push({ type: 'login', at: seg.start_at, hhmm: seg.start_hhmm, label: 'Connexion ' + seg.start_hhmm });
+        if (String(seg.status || '').toUpperCase() !== 'ACTIVE') {
+          acc.push({ type: 'logout', at: seg.end_at, hhmm: seg.end_hhmm, label: 'Déconnexion ' + seg.end_hhmm });
+        }
+        return acc;
+      }, [])
+    };
+  });
 }
 
 function getPresenceSummary(token, dateKey) {
   const rows = listPresence(token, dateKey);
   return {
-    date_key:              dateKey || todayKey_(),
+    date_key:              normalizePlanningDateKey_(dateKey || todayKey_()),
     total_users:           rows.length,
-    online_now:            rows.filter(function(r) { return String(r.currently_online) === 'TRUE'; }).length,
+    online_now:            rows.filter(function(r) { return isTrue_(r.currently_online); }).length,
     total_connections:     rows.reduce(function(n, r) { return n + Number(r.connection_count     || 0); }, 0),
     total_disconnections:  rows.reduce(function(n, r) { return n + Number(r.disconnection_count  || 0); }, 0),
     total_online_seconds:  rows.reduce(function(n, r) { return n + Number(r.online_seconds       || 0); }, 0),
     rows: rows
   };
+}
+
+function listPlanningShifts(token, filters) {
+  const session   = requireSession_(token);
+  if (session.role !== ROLES.SUPER_ADMIN && session.role !== ROLES.TEAM_LEADER) {
+    throw new Error('Accès planning non autorisé.');
+  }
+  const f         = filters || {};
+  const day       = normalizePlanningDateKey_(f.date_key || todayKey_());
+  const users     = getVisiblePlanningUsers_(session);
+  const teamsById = indexBy_(readTable_('TEAMS'), 'id');
+  const shiftByUser = getPlanningShiftMap_(day);
+
+  return {
+    date_key: day,
+    users: users.map(function(u) {
+      const s = shiftByUser[u.id] || {};
+      return {
+        user_id: u.id,
+        login: u.login || '',
+        full_name: u.full_name || u.login || u.id,
+        role: u.role || '',
+        team_id: u.team_id || '',
+        team_name: teamsById[u.team_id] ? teamsById[u.team_id].name : '',
+        planning_id: s.id || '',
+        shift_start: s.shift_start || '',
+        shift_end: s.shift_end || '',
+        shift_label: (s.shift_start && s.shift_end) ? (s.shift_start + ' – ' + s.shift_end) : 'Non planifié',
+        notes: s.notes || ''
+      };
+    })
+  };
+}
+
+function savePlanningShift(token, payload) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const session = requireSession_(token);
+    const data    = payload || {};
+    const day     = normalizePlanningDateKey_(data.date_key || todayKey_());
+    const userId  = String(data.user_id || '').trim();
+    const start   = normalizePlanningTime_(data.shift_start);
+    const end     = normalizePlanningTime_(data.shift_end);
+    const notes   = String(data.notes || '').trim();
+
+    if (!userId) throw new Error('Ambassadeur obligatoire.');
+    if (!start || !end) throw new Error('Heure de début et heure de fin obligatoires au format HH:mm.');
+    if (timeToMinutes_(end) <= timeToMinutes_(start)) throw new Error('L’heure de fin doit être après l’heure de début.');
+
+    ensurePresencePlanningSheets_();
+
+    const user = readTable_('USERS').find(function(u) {
+      return String(u.id || '') === userId || String(u.login || '') === userId;
+    });
+    if (!user) throw new Error('Ambassadeur introuvable dans la feuille USERS.');
+    if (!canPlanUser_(session, user)) throw new Error('Vous ne pouvez pas planifier cet utilisateur.');
+
+    const existing = readTable_('PLANNING_SHIFTS').find(function(r) {
+      return String(r.user_id || '') === String(user.id || '') && normalizePlanningDateKey_(r.date_key) === day;
+    });
+    const now = nowIso_();
+    const row = Object.assign({}, existing || {}, {
+      id: existing ? existing.id : nextId_('PLN'),
+      date_key: day,
+      user_id: user.id,
+      login: user.login || '',
+      full_name: user.full_name || user.login || user.id,
+      role: user.role || ROLES.AMBASSADOR,
+      team_id: user.team_id || '',
+      shift_start: start,
+      shift_end: end,
+      notes: notes,
+      created_by: existing ? existing.created_by : session.user.id,
+      created_at: existing ? existing.created_at : now,
+      updated_by: session.user.id,
+      updated_at: now
+    });
+
+    upsertRow_('PLANNING_SHIFTS', 'id', row);
+    applyPlanningSheetFormats_();
+    addAuditLog_(session, existing ? 'UPDATE_PLANNING_SHIFT' : 'CREATE_PLANNING_SHIFT', 'PLANNING', row.id,
+      'Planning ' + row.full_name + ' le ' + day + ' : ' + start + ' – ' + end,
+      existing || null, row);
+
+    return { ok: true, row: row, planning: listPlanningShifts(token, { date_key: day }) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function deletePlanningShift(token, planningId) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const session = requireSession_(token);
+    const id = String(planningId || '').trim();
+    if (!id) throw new Error('Planning introuvable.');
+    ensurePresencePlanningSheets_();
+    const row = readTable_('PLANNING_SHIFTS').find(function(r) { return String(r.id || '') === id; });
+    if (!row) return { ok: true };
+    const user = readTable_('USERS').find(function(u) { return String(u.id || '') === String(row.user_id || ''); });
+    if (!canPlanUser_(session, user)) throw new Error('Vous ne pouvez pas supprimer ce planning.');
+
+    const ss = getDatabase_();
+    const sheet = ss.getSheetByName('PLANNING_SHIFTS');
+    const values = sheet.getDataRange().getValues();
+    const headers = values[0].map(function(h) { return String(h || '').trim(); });
+    const idCol = headers.indexOf('id');
+    if (idCol === -1) throw new Error('Colonne id introuvable dans PLANNING_SHIFTS.');
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][idCol] || '') === id) {
+        sheet.deleteRow(i + 1);
+        addAuditLog_(session, 'DELETE_PLANNING_SHIFT', 'PLANNING', id,
+          'Suppression planning ' + (row.full_name || row.user_id) + ' le ' + row.date_key,
+          row, null);
+        break;
+      }
+    }
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function listAuditLogsPaged(token, filters) {
+  const session    = requireSession_(token);
+  const f          = filters || {};
+  const page       = Math.max(1, Number(f.page || 1));
+  const pageSize   = Math.max(1, Math.min(100, Number(f.pageSize || 15)));
+  const action     = String(f.action || '').trim();
+  const usersById  = indexBy_(readTable_('USERS'), 'id');
+  const visibleIds = scopeUsers_(session, readTable_('USERS')).map(function(u) { return u.id; });
+
+  let rows = readTable_('AUDIT_LOG')
+    .filter(function(r) {
+      return session.role === ROLES.SUPER_ADMIN || visibleIds.indexOf(r.user_id) > -1;
+    })
+    .sort(sortDescBy_('timestamp'));
+
+  const actions = rows.map(function(r) { return r.action_type || ''; })
+    .filter(function(v, idx, arr) { return v && arr.indexOf(v) === idx; })
+    .sort(function(a, b) { return a.localeCompare(b, 'fr'); });
+
+  if (action) rows = rows.filter(function(r) { return String(r.action_type || '') === action; });
+
+  const total = rows.length;
+  const startIndex = (page - 1) * pageSize;
+  const paged = rows.slice(startIndex, startIndex + pageSize).map(function(r) {
+    const u = usersById[r.user_id];
+    return {
+      id:          r.id,
+      timestamp:   r.timestamp,
+      user_id:     r.user_id,
+      user_name:   u ? (u.full_name || u.login) : (r.login || r.user_id || ''),
+      action:      r.action_type,
+      entity_type: r.entity_type,
+      entity_id:   r.entity_id,
+      description: r.summary
+    };
+  });
+
+  return { rows: paged, total: total, page: page, pageSize: pageSize, actions: actions };
 }
 // ============================================================
 // SECTION 7 — SESSIONS & AUTHENTIFICATION
@@ -1475,9 +1914,10 @@ function buildMenu_(role) {
     { key: 'sinistres',    label: 'Sinistre'     },
     { key: 'factures',     label: 'Facture'      },
     { key: 'resiliations', label: 'Résiliation'  },
-    { key: 'presence',     label: 'Pointage'     },
-    { key: 'history',      label: 'Historique'   },
-    { key: 'connections',  label: 'Connexions'   }
+    { key: 'presence',     label: 'Présence'     },
+    { key: 'planning',     label: 'Planning'     },
+    { key: 'historique',   label: 'Historique'   },
+    { key: 'connexions',   label: 'Connexions'   }
   ];
 
   if (role === ROLES.SUPER_ADMIN) {
@@ -1491,7 +1931,7 @@ function buildMenu_(role) {
   if (role === ROLES.TEAM_LEADER) {
     return [
       { key: 'users',              label: 'Mon équipe'       },
-      { key: 'factures_remontees', label: 'Dossiers remontés'},
+      { key: 'factures-remontees', label: 'Dossiers remontés'},
       { key: 'parametres',         label: 'Paramètres'       }
     ].concat(common);
   }
@@ -1504,6 +1944,7 @@ function buildPermissions_(role) {
     canManageTeams:       role === ROLES.SUPER_ADMIN,
     canViewCoherences:    role === ROLES.SUPER_ADMIN,
     canManageSettings:    role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
+    canPlanUsers:         role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
     canVerifierFactures:  role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
     canReassigner:        role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
     canValidateAgrement:  role === ROLES.SUPER_ADMIN || role === ROLES.TEAM_LEADER,
@@ -2052,17 +2493,27 @@ function listAgrements(token, filters) {
   const teamsById = indexBy_(readTable_('TEAMS'), 'id');
 
   return scopeAgrements_(session, readTable_('AGREMENTS'))
-    .filter(function(r) { return !f.statut       || r.statut       === f.statut;       })
+    .map(function(r) {
+      var row;
+      try {
+        row = hydrateAgrementRow_(Object.assign({}, r), usersById, teamsById);
+      } catch (e) {
+        Logger.log('hydrateAgrementRow_ err ' + (r && r.id ? r.id : 'unknown') + ': ' + e.message);
+        row = Object.assign({}, r);
+      }
+
+      row.created_by_name = usersById[row.created_by] ? usersById[row.created_by].full_name : '';
+      row.updated_by_name = usersById[row.updated_by] ? usersById[row.updated_by].full_name : '';
+      row.ambassadeur_assigne_name = row.ambassadeur_assigne_name || (usersById[row.ambassadeur_assigne] ? usersById[row.ambassadeur_assigne].full_name : '');
+      row.gestionnaire_plus_name   = row.gestionnaire_plus_name   || (usersById[row.gestionnaire_plus] ? usersById[row.gestionnaire_plus].full_name : '');
+      row.equipe_name              = row.equipe_name              || (teamsById[row.equipe_id] ? teamsById[row.equipe_id].name : '');
+      row.dernier_traitement_formate = formatDelai_(row.dernier_traitement_secondes);
+      row.profils = Array.isArray(row.profils) ? row.profils : safeParseJson_(row.profils_json, []);
+      return row;
+    })
+    .filter(function(r) { return !f.statut       || r.statut === f.statut; })
     .filter(function(r) { return !f.type_dossier || normalizeDossierType_(r.type_dossier) === normalizeDossierType_(f.type_dossier); })
     .filter(function(r) { return !f.search       || JSON.stringify(r).toLowerCase().indexOf(String(f.search).toLowerCase()) > -1; })
-    .map(function(r) {
-      try {
-        const hydrated = hydrateAgrementRow_(Object.assign({}, r), usersById, teamsById);
-        hydrated.dernier_traitement_formate = formatDelai_(hydrated.dernier_traitement_secondes);
-        return hydrated;
-      }
-      catch(e) { Logger.log('hydrateAgrementRow_ err ' + r.id + ': ' + e.message); return r; }
-    })
     .sort(sortDescBy_('updated_at'));
 }
 
@@ -2167,6 +2618,7 @@ function saveAgrement(token, payload) {
     priorite:            String(data.priorite   || (existing && existing.priorite)   || 'Normale').trim(),
     client:              String(data.client     || (existing && existing.client)     || '').trim(),
     adresse:             String(data.adresse    || (existing && existing.adresse)    || '').trim(),
+    date_reception:      String(data.date_reception || (existing && existing.date_reception) || '').trim(),
     type_client:         typeClient,
     compagnie:           String(data.compagnie  || (existing && existing.compagnie)  || '').trim(),
     // Assignation
@@ -2609,6 +3061,7 @@ function saveFacture(token, payload) {
     id:        existing ? existing.id        : nextId_('FAC'),
     reference: existing ? existing.reference : nextReference_('FAC'),
     no_sinistre: noSinistre,
+    date_reception: String(data.date_reception || (existing && existing.date_reception) || '').trim(),
     etape_verification: data.etape_verification !== undefined
       ? toBool_(data.etape_verification)
       : (existing ? (existing.etape_verification || 'FALSE') : 'FALSE'),
@@ -2812,6 +3265,9 @@ function saveResiliation(token, payload) {
     origine:    origine,
     mail:       String(data.mail        || (existing && existing.mail)       || '').trim(),
     no_contrat: noContrat,
+    date_reception:    String(data.date_reception    || (existing && existing.date_reception)    || '').trim(),
+    date_sortie:       String(data.date_sortie       || (existing && existing.date_sortie)       || '').trim(),
+    motif_resiliation: String(data.motif_resiliation || (existing && existing.motif_resiliation) || '').trim(),
     completude: String(data.completude  || (existing && existing.completude) || '').trim(),
     resil:      String(data.resil       || (existing && existing.resil)      || '').trim(),
     commentaire: String(data.commentaire|| (existing && existing.commentaire)|| '').trim(),
