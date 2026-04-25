@@ -659,6 +659,16 @@ tr:hover td { background: var(--gold-subtle); transition: background var(--t-fas
   animation: slide 1.2s infinite ease-in-out;
 }
 
+
+button.btn-ack {
+  animation: btnAckPulse .38s var(--ease);
+}
+@keyframes btnAckPulse {
+  0% { transform: scale(1); }
+  45% { transform: scale(.96); box-shadow: 0 0 0 4px var(--gold-subtle); }
+  100% { transform: scale(1); }
+}
+
 /* ── Spinner bouton ──────────────────────────────────────────── */
 .save-btn { position: relative; min-width: 130px; }
 .save-btn.loading .label { opacity: 0; }
@@ -754,6 +764,31 @@ button { overflow: hidden; }
   z-index: 0;
 }
 [data-theme="dark"] .ripple { background: rgba(255,255,255,.12); }
+
+/* Mini animation de prise en compte sur tous les boutons */
+button.btn-ack {
+  animation: btnAck .42s var(--ease);
+}
+button.loading-inline {
+  pointer-events: none;
+  opacity: .78;
+}
+.btn-mini-spinner {
+  display:inline-block;
+  width:14px;
+  height:14px;
+  border-radius:999px;
+  border:2px solid currentColor;
+  border-right-color: transparent;
+  vertical-align:-2px;
+  margin-left:7px;
+  animation: spin .7s linear infinite;
+}
+@keyframes btnAck {
+  0% { transform: scale(1); }
+  35% { transform: scale(.96); }
+  100% { transform: scale(1); }
+}
 
 /* ── Filter inputs (barre de recherche) ──────────────────────── */
 .filter-input, .filter-select {
@@ -1230,6 +1265,114 @@ button { overflow: hidden; }
 @keyframes shimmer       { from{background-position:-200% 0} to{background-position:200% 0} }
 @keyframes rippleAnim    { to { transform:scale(1); opacity:0; } }
   </style>
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   Présence + Planning — timeline premium, sans toucher au thème
+═══════════════════════════════════════════════════════════════ */
+.presence-list, .planning-list { display:grid; gap:14px; }
+.pres-card, .planning-row-card {
+  border:1px solid var(--line);
+  border-radius:var(--radius-md);
+  background:var(--glass);
+  backdrop-filter:var(--blur-sm);
+  -webkit-backdrop-filter:var(--blur-sm);
+  padding:16px;
+  box-shadow:var(--shadow-xs);
+}
+.pres-head, .planning-row-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px; }
+.pres-meta { display:flex; gap:7px; flex-wrap:wrap; margin-top:8px; }
+.timeline-shell { display:grid; gap:9px; margin-top:12px; }
+.timeline-label { font-size:.74rem; color:var(--muted); font-weight:800; letter-spacing:.06em; text-transform:uppercase; display:flex; justify-content:space-between; gap:10px; }
+.timeline-ruler { position:relative; height:20px; margin-left:2px; margin-right:2px; }
+.timeline-ruler .tick { position:absolute; top:0; transform:translateX(-50%); font-size:.68rem; color:var(--muted); }
+.timeline-ruler .tick::before { content:''; position:absolute; top:16px; left:50%; width:1px; height:8px; background:var(--line); }
+.timeline-track {
+  position:relative;
+  height:34px;
+  border-radius:999px;
+  background:rgba(128,140,160,.10);
+  border:1px solid var(--line);
+  overflow:hidden;
+}
+.timeline-track.presence { height:38px; }
+.timeline-block {
+  position:absolute;
+  top:5px;
+  height:22px;
+  border-radius:999px;
+  background:linear-gradient(90deg, var(--navy), var(--gold));
+  color:#fff;
+  font-size:.72rem;
+  font-weight:800;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  padding:0 8px;
+  box-shadow:0 6px 16px rgba(22,50,79,.18);
+}
+.timeline-block.shift-empty {
+  background:rgba(128,140,160,.12);
+  color:var(--muted);
+  border:1px dashed var(--line);
+  box-shadow:none;
+}
+.timeline-segment {
+  position:absolute;
+  top:7px;
+  height:22px;
+  border-radius:999px;
+  background:var(--success-bg);
+  border:1px solid rgba(26,138,90,.26);
+  box-shadow:0 4px 14px rgba(26,138,90,.10);
+}
+.timeline-segment.active { background:rgba(201,168,76,.18); border-color:rgba(201,168,76,.35); }
+.timeline-event {
+  position:absolute;
+  top:3px;
+  width:10px;
+  height:30px;
+  transform:translateX(-50%);
+  z-index:3;
+}
+.timeline-event::before {
+  content:'';
+  position:absolute;
+  top:10px;
+  left:1px;
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:var(--primary);
+  box-shadow:0 0 0 3px var(--primary-glow);
+}
+.timeline-event.logout::before { background:var(--danger); box-shadow:0 0 0 3px var(--danger-bg); }
+.timeline-event::after { content:''; position:absolute; top:18px; left:5px; bottom:0; width:1px; background:var(--line); }
+.pres-events { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.pres-events .chip { font-size:.7rem; }
+.planning-form {
+  display:grid;
+  grid-template-columns:minmax(220px,1.4fr) 150px 150px minmax(180px,1fr) auto;
+  gap:10px;
+  align-items:end;
+  margin-bottom:16px;
+}
+.planning-form .field { margin:0; }
+.pager { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; margin-top:14px; }
+@media (max-width: 980px) {
+  .planning-form { grid-template-columns:1fr 1fr; }
+  .planning-form .field:first-child, .planning-form .field:nth-child(4) { grid-column:1/-1; }
+}
+@media (max-width: 640px) {
+  .pres-head, .planning-row-head { flex-direction:column; }
+  .planning-form { grid-template-columns:1fr; }
+  .planning-form .field:first-child, .planning-form .field:nth-child(4) { grid-column:auto; }
+}
+</style>
+
 </head>
 <body>
 
@@ -1387,6 +1530,12 @@ button { overflow: hidden; }
       </div>
       <div class="g2" style="margin-top:12px;">
         <div class="field">
+          <label>Date de réception de la demande</label>
+          <input type="date" id="mag-date-reception">
+        </div>
+      </div>
+      <div class="g2" style="margin-top:12px;">
+        <div class="field">
           <label>Type dossier</label>
           <select id="mag-type-dossier">
             <option value="">— Sélectionner —</option>
@@ -1538,6 +1687,12 @@ button { overflow: hidden; }
       </div>
       <div class="g2" style="margin-top:12px;">
         <div class="field">
+          <label>Date de réception de la demande</label>
+          <input type="date" id="msi-date-reception">
+        </div>
+      </div>
+      <div class="g2" style="margin-top:12px;">
+        <div class="field">
           <label>Gestionnaire</label>
           <input type="text" id="msi-gestionnaire" placeholder="Nom du gestionnaire">
         </div>
@@ -1667,6 +1822,10 @@ button { overflow: hidden; }
         <input type="text" id="mfa-no-sinistre" placeholder="N° sinistre associé">
       </div>
       <div class="field" style="margin-top:12px;">
+        <label>Date de réception de la demande</label>
+        <input type="date" id="mfa-date-reception">
+      </div>
+      <div class="field" style="margin-top:12px;">
         <label>Commentaire traitement</label>
         <textarea id="mfa-commentaire" placeholder="Observations, raison de remontée…" rows="3"></textarea>
       </div>
@@ -1732,14 +1891,29 @@ button { overflow: hidden; }
           <select id="mre-origine">
             <option value="">— Sélectionner —</option>
             <option value="Mail">Mail</option>
+            <option value="BO">BO</option>
             <option value="Courrier">Courrier</option>
             <option value="Autre">Autre</option>
           </select>
         </div>
       </div>
+      <div class="g2" style="margin-top:12px;">
+        <div class="field">
+          <label>Date de réception de la demande</label>
+          <input type="date" id="mre-date-reception">
+        </div>
+        <div class="field">
+          <label>Date de sortie</label>
+          <input type="date" id="mre-date-sortie">
+        </div>
+      </div>
       <div class="field" style="margin-top:12px;">
         <label>Mail</label>
         <input type="email" id="mre-mail" placeholder="email@exemple.com">
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Motif de la résiliation</label>
+        <textarea id="mre-motif-resiliation" placeholder="Motif libre de la résiliation…" rows="3"></textarea>
       </div>
       <div class="field" style="margin-top:12px;">
         <label>Commentaire</label>
@@ -1966,6 +2140,10 @@ document.addEventListener('click', function(e) {
   ripple.className = 'ripple';
   ripple.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + x + 'px;top:' + y + 'px;';
   btn.appendChild(ripple);
+  btn.classList.remove('btn-ack');
+  void btn.offsetWidth;
+  btn.classList.add('btn-ack');
+  setTimeout(function() { btn.classList.remove('btn-ack'); }, 430);
   setTimeout(function() { if (ripple.parentNode) ripple.remove(); }, 600);
 }, true);
 
@@ -2391,9 +2569,19 @@ function setBtnLoading(btn, on) {
   if (!btn) return;
   const sp = btn.querySelector('.spinner');
   const lb = btn.querySelector('.label');
-  btn.disabled = on;
+  btn.disabled = !!on;
+  btn.classList.toggle('loading-inline', !!on);
   if (sp) sp.classList.toggle('hidden', !on);
   if (lb) lb.style.opacity = on ? '0' : '';
+  if (!sp && !lb) {
+    if (on) {
+      if (!btn.dataset.originalText) btn.dataset.originalText = btn.innerHTML;
+      btn.innerHTML = btn.dataset.originalText + '<span class="btn-mini-spinner" aria-hidden="true"></span>';
+    } else if (btn.dataset.originalText) {
+      btn.innerHTML = btn.dataset.originalText;
+      delete btn.dataset.originalText;
+    }
+  }
 }
 
 /* ── Heartbeat — intervalle basé sur la config serveur ──────── */
@@ -2530,6 +2718,12 @@ var VIEWS = {
     roles: R_MGMT,
     sep:   true
   },
+  planning: {
+    label: 'Planning',
+    icon:  '▣',
+    roles: R_MGMT,
+    perm:  'canPlanUsers'
+  },
   historique: {
     label: 'Historique',
     icon:  '⊙',
@@ -2625,6 +2819,7 @@ function navigate(view) {
     case 'resiliations':       renderResiliations();      break;
     case 'factures-remontees': renderFacturesRemontees(); break;
     case 'presence':           renderPresence();          break;
+    case 'planning':           renderPlanning();          break;
     case 'historique':         renderHistorique();        break;
     case 'connexions':         renderConnexions();        break;
     case 'users':              renderUsers();             break;
@@ -4133,7 +4328,7 @@ function paintAgrementsTable(rows) {
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucun agrément.</div>'; return; }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° dossier', 'Compagnie', 'Type', 'Loyer', 'Plafond', 'Solvabilité', 'Statut', 'Ambassadeur', 'Créé le', 'Der. màj', 'Gestionnaire', 'Actions'],
+    ['Référence', 'N° dossier', 'Date réception', 'Compagnie', 'Type', 'Loyer', 'Plafond', 'Solvabilité', 'Statut', 'Ambassadeur', 'Créé le', 'Der. màj', 'Gestionnaire', 'Actions'],
     rows,
     function(r) {
       var plafond  = r.plafond_final ? fmtEuro(r.plafond_final) : '—';
@@ -4156,6 +4351,7 @@ function paintAgrementsTable(rows) {
       return '<tr>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
         '<td class="fs-sm">' + escHtml(r.no_dossier || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDate(r.date_reception)) + '</td>' +
         '<td>' + escHtml(r.compagnie || '—') + '</td>' +
         '<td class="fs-sm">' + escHtml(r.type_dossier || '—') + '</td>' +
         '<td class="fw7">' + (r.loyer ? fmtEuro(r.loyer) : '—') + '</td>' +
@@ -4200,6 +4396,7 @@ function openAgrementModal(agrId) {
 
   el('mag-gestionnaire-plus').value = r.gestionnaire_plus || '';
   el('mag-no-dossier').value        = r.no_dossier        || '';
+  if (el('mag-date-reception')) el('mag-date-reception').value = r.date_reception || '';
   el('mag-loyer').value             = r.loyer             || '';
   el('mag-commentaire').value       = r.commentaire       || '';
 
@@ -4558,6 +4755,7 @@ function saveMagAgrement() {
   var payload = {
     id:                  _magCurrent ? _magCurrent.id : '',
     no_dossier:          el('mag-no-dossier').value.trim(),
+    date_reception:      el('mag-date-reception') ? el('mag-date-reception').value : '',
     compagnie:           el('mag-compagnie').value,
     type_dossier:        el('mag-type-dossier').value,
     priorite:            el('mag-priority').value,
@@ -4913,13 +5111,14 @@ function paintSinistresTable(rows) {
   }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° sinistre', 'N° contrat', 'Situation', 'Origine transfert', 'Gestionnaire', 'Ambassadeur', 'Créé le', 'Complétude', 'Statut', 'Der. màj', 'Actions'],
+    ['Référence', 'N° sinistre', 'N° contrat', 'Date réception', 'Situation', 'Origine transfert', 'Gestionnaire', 'Ambassadeur', 'Créé le', 'Complétude', 'Statut', 'Der. màj', 'Actions'],
     rows,
     function(r) {
       return '<tr>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
         '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
         '<td class="fs-sm">' + escHtml(r.no_contrat || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDate(r.date_reception)) + '</td>' +
         '<td>' + statusChip(r.situation || '—') + '</td>' +
         '<td>' + buildSinistreOriginCell(r) + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.gestionnaire || '—') + '</td>' +
@@ -4952,6 +5151,7 @@ function openSinistreModal(sinId) {
   el('msi-ref').textContent       = r.reference || '';
   el('msi-no-sinistre').value     = r.no_sinistre  || '';
   el('msi-no-contrat').value      = r.no_contrat   || '';
+  if (el('msi-date-reception')) el('msi-date-reception').value = r.date_reception || '';
   el('msi-gestionnaire').value    = r.gestionnaire || '';
   el('msi-commentaire').value     = r.commentaire  || '';
 
@@ -5034,6 +5234,7 @@ function saveSinistreModal() {
     id:           _msiCurrent ? _msiCurrent.id : '',
     no_sinistre:  noSin,
     no_contrat:   noCon,
+    date_reception: el('msi-date-reception') ? el('msi-date-reception').value : '',
     gestionnaire: el('msi-gestionnaire').value.trim(),
     completude:   el('msi-completude') ? el('msi-completude').value : '',
     situation:    el('msi-situation') ? el('msi-situation').value : '',
@@ -5169,7 +5370,7 @@ function paintFacturesTable(rows) {
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucune facture.</div>'; return; }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° sinistre', 'Étapes', 'Statut', 'Vérifié TL', 'Ambassadeur', 'Créé le', 'Der. màj', 'Actions'],
+    ['Référence', 'N° sinistre', 'Date réception', 'Étapes', 'Statut', 'Vérifié TL', 'Ambassadeur', 'Créé le', 'Der. màj', 'Actions'],
     rows,
     function(r) {
       var done  = FACTURE_STEPS.filter(function(s){ return String(r[s.key]) === 'TRUE'; }).length;
@@ -5188,6 +5389,7 @@ function paintFacturesTable(rows) {
       return '<tr' + (r.statut === 'Vérifié' ? ' style="background:rgba(201,168,76,.04);"' : '') + '>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
         '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDate(r.date_reception)) + '</td>' +
         '<td>' + progressHtml + '</td>' +
         '<td>' + statutCell + '</td>' +
         '<td>' + verifCell + '</td>' +
@@ -5216,6 +5418,7 @@ function openFactureModal(facId) {
   var mfaMeta = el('mfa-meta');
   if (mfaMeta) mfaMeta.innerHTML = facId ? buildFactureMetaChips(r) : '';
   el('mfa-no-sinistre').value    = r.no_sinistre || '';
+  if (el('mfa-date-reception')) el('mfa-date-reception').value = r.date_reception || '';
   el('mfa-commentaire').value    = r.commentaire_traitement || '';
 
   var traiterZone = el('mfa-traiter-zone');
@@ -5314,6 +5517,7 @@ function saveFactureModal() {
   var payload = Object.assign({
     id:                     _mfaCurrent ? _mfaCurrent.id : '',
     no_sinistre:            noSin,
+    date_reception:         el('mfa-date-reception') ? el('mfa-date-reception').value : '',
     commentaire_traitement: el('mfa-commentaire').value.trim(),
     traitement_session_started_at: _mfaTraitementStartAt,
     traitement_session_type: _mfaCurrent ? 'UPDATE' : 'CREATE'
@@ -5391,12 +5595,13 @@ function paintFacturesRemontees(rows) {
   }
 
   html += buildTable(
-    ['Référence', 'N° sinistre', 'Ambassadeur', 'Créé le', 'Date remontée', 'Der. màj', 'Actions'],
+    ['Référence', 'N° sinistre', 'Date réception', 'Ambassadeur', 'Créé le', 'Date remontée', 'Der. màj', 'Actions'],
     rows,
     function(r) {
       return '<tr>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
         '<td class="fs-sm fw7">' + escHtml(r.no_sinistre || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDate(r.date_reception)) + '</td>' +
         '<td class="fs-sm">' + (r.created_by_name ? '<div class="fw7">' + escHtml(r.created_by_name) + '</div>' : '<span class="t-muted">—</span>') + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(fmtDateTime(r.created_at)) + '</td>' +
         '<td class="fs-sm t-muted">' + escHtml(fmtDateTime(r.remonte_at || r.updated_at)) + '</td>' +
@@ -5513,15 +5718,18 @@ function paintResiliationsTable(rows) {
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Aucune résiliation.</div>'; return; }
 
   wrap.innerHTML = buildTable(
-    ['Référence', 'N° contrat', 'Origine', 'Mail', 'Complétude', 'Résil', 'Statut', 'Délai', 'Ambassadeur', 'Créé le', 'Der. màj', 'Actions'],
+    ['Référence', 'N° contrat', 'Date réception', 'Date sortie', 'Origine', 'Mail', 'Motif résiliation', 'Complétude', 'Résil', 'Statut', 'Délai', 'Ambassadeur', 'Créé le', 'Der. màj', 'Actions'],
     rows,
     function(r) {
       var origClass = { 'Mail': 'email', 'Courrier': 'courrier' }[r.origine] || 'autre';
       return '<tr>' +
         '<td class="fw7 t-gold">' + escHtml(r.reference || '—') + '</td>' +
         '<td class="fs-sm">' + escHtml(r.no_contrat || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDate(r.date_reception)) + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(fmtDate(r.date_sortie)) + '</td>' +
         '<td><span class="res-origin-badge ' + origClass + '">' + escHtml(r.origine || '—') + '</span></td>' +
         '<td class="fs-sm t-muted">' + escHtml(r.mail || '—') + '</td>' +
+        '<td class="fs-sm t-muted">' + escHtml(r.motif_resiliation || '—') + '</td>' +
         '<td>' + (r.completude ? statusChip(r.completude) : '—') + '</td>' +
         '<td class="fs-sm">' + escHtml(r.resil || '—') + '</td>' +
         '<td>' + statusChip(r.statut) + '</td>' +
@@ -5551,6 +5759,9 @@ function openResiliationModal(resId) {
   if (mreMeta) mreMeta.innerHTML = resId ? buildResiliationMetaChips(r) : '';
   el('mre-no-contrat').value   = r.no_contrat || '';
   el('mre-origine').value      = r.origine || '';
+  if (el('mre-date-reception')) el('mre-date-reception').value = r.date_reception || '';
+  if (el('mre-date-sortie')) el('mre-date-sortie').value = r.date_sortie || '';
+  if (el('mre-motif-resiliation')) el('mre-motif-resiliation').value = r.motif_resiliation || '';
   el('mre-mail').value         = r.mail || '';
   el('mre-commentaire').value  = r.commentaire || '';
 
@@ -5591,11 +5802,14 @@ function toggleResilCommentField() {
 function saveResiliationModal() {
   var btn = el('btn-mre-save');
   var payload = {
-    id:          _mreCurrent ? _mreCurrent.id : '',
-    no_contrat:  el('mre-no-contrat').value.trim(),
-    origine:     el('mre-origine').value,
-    mail:        el('mre-mail').value.trim(),
-    commentaire: el('mre-commentaire').value.trim(),
+    id:                _mreCurrent ? _mreCurrent.id : '',
+    no_contrat:        el('mre-no-contrat').value.trim(),
+    origine:           el('mre-origine').value,
+    date_reception:    el('mre-date-reception') ? el('mre-date-reception').value : '',
+    date_sortie:       el('mre-date-sortie') ? el('mre-date-sortie').value : '',
+    mail:              el('mre-mail').value.trim(),
+    motif_resiliation: el('mre-motif-resiliation') ? el('mre-motif-resiliation').value.trim() : '',
+    commentaire:       el('mre-commentaire').value.trim(),
     traitement_session_started_at: _mreTraitementStartAt,
     traitement_session_type: _mreCurrent ? 'UPDATE' : 'CREATE'
   };
@@ -5637,17 +5851,14 @@ function doSoumettreResiliation(resId) {
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   PART M — Présence & Export
+   PART M — Présence, Planning & Export
 ═══════════════════════════════════════════════════════════════ */
 
-function renderPresence() {
-  el('content').innerHTML = buildSkeletonTable(5);
-  var today = todayKey();
-  google.script.run
-    .withSuccessHandler(function(data) { paintPresence(data, today); })
-    .withFailureHandler(function(e) { gasFailureHandler(e); })
-    .getPresenceSummary(S.token, today);
-}
+var _presenceRows = [];
+var _planningData = null;
+var _histPage = 1;
+var _histAction = '';
+var _histPageSize = 15;
 
 function todayKey() {
   var d = new Date();
@@ -5656,83 +5867,232 @@ function todayKey() {
     String(d.getDate()).padStart(2, '0');
 }
 
-function paintPresence(data, dateKey) {
-  data = data || {};
-  var rows = data.rows || [];
+function isTruthy(v) {
+  return v === true || String(v || '').toUpperCase() === 'TRUE' || String(v || '').toLowerCase() === 'oui' || String(v || '') === '1';
+}
 
-  var html = '<div class="card">';
-  html += '<div class="card-head">';
-  html += '<div>';
-  html += '<span class="fw8">Présence</span>';
-  html += '<div class="t-muted fs-sm" style="margin-top:3px;">Date : ' + escHtml(dateKey) + '</div>';
-  html += '</div>';
-  html += '<div style="display:flex;gap:8px;align-items:center;">';
-  html += '<input type="date" id="pres-date" value="' + escHtml(dateKey) + '" style="min-height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 10px;font:inherit;font-size:.86rem;background:var(--glass);color:var(--text);outline:none;" onchange="loadPresenceDate(this.value)">';
-  html += '<button class="b2 fs-sm" style="min-height:36px;padding:0 14px;" onclick="exportPresence()">⬇ Export CSV</button>';
-  html += '</div></div>';
+function isoToHHMM(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
 
-  /* Résumé KPIs */
-  html += '<div class="kpis" style="margin-bottom:14px;">';
-  html += '<div class="kpi"><div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Utilisateurs</div><div class="v-sm">' + (data.total_users || 0) + '</div></div>';
-  html += '<div class="kpi"><div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">En ligne</div><div class="v-sm">' + (data.online_now || 0) + '</div></div>';
-  html += '<div class="kpi"><div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Connexions</div><div class="v-sm">' + (data.total_connections || 0) + '</div></div>';
-  html += '<div class="kpi"><div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Déconnexions</div><div class="v-sm">' + (data.total_disconnections || 0) + '</div></div>';
-  html += '<div class="kpi"><div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Temps total</div><div class="v-sm">' + fmtDuration(data.total_online_seconds || 0) + '</div></div>';
-  html += '</div>';
+function normalizeTimeLabelUI(value) {
+  var raw = String(value || '').trim();
+  if (!raw) return '';
 
-  /* Table présence */
-  html += buildTable(
-    ['Utilisateur', 'Rôle', 'Statut', 'Connexions', 'Déconnexions', 'Temps en ligne'],
-    rows,
-    function(r) {
-      var isOnline = r.is_online;
-      return '<tr>' +
-        '<td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="width:28px;height:28px;font-size:.72rem;">' + initials(r.full_name || r.user_id) + '</div>' + escHtml(r.full_name || r.user_id) + '</div></td>' +
-        '<td class="fs-sm">' + escHtml(r.role || '—') + '</td>' +
-        '<td>' + (isOnline
-          ? '<span class="online-badge on">En ligne</span>'
-          : '<span class="online-badge off">Hors ligne</span>') + '</td>' +
-        '<td>' + (r.connections || 0) + '</td>' +
-        '<td>' + (r.disconnections || 0) + '</td>' +
-        '<td class="fw7">' + fmtDuration(r.total_online_seconds) + '</td>' +
-        '</tr>';
+  var direct = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (direct) return String(direct[1]).padStart(2, '0') + ':' + direct[2];
+
+  // Correction affichage : Google Sheets transforme parfois 09:00 en 1899-12-30T09:00:00
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw) || /^\d{4}-\d{2}-\d{2} /.test(raw)) {
+    var d = new Date(raw);
+    if (!isNaN(d.getTime())) {
+      return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
-  );
+  }
 
+  var n = Number(raw.replace(',', '.'));
+  if (!isNaN(n) && n >= 0 && n < 1) {
+    var total = Math.round(n * 24 * 60);
+    return String(Math.floor(total / 60) % 24).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+  }
+
+  return '';
+}
+
+function timeToMinutesUI(value) {
+  var clean = normalizeTimeLabelUI(value);
+  var m = clean.match(/^(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function cleanShiftLabelUI(start, end, label) {
+  var s = normalizeTimeLabelUI(start);
+  var e = normalizeTimeLabelUI(end);
+  if (s && e) return s + ' – ' + e;
+  var raw = String(label || '').trim();
+  if (!raw || raw === 'Non planifié') return 'Non planifié';
+  var parts = raw.split(/\s*[–-]\s*/);
+  if (parts.length >= 2) {
+    var ps = normalizeTimeLabelUI(parts[0]);
+    var pe = normalizeTimeLabelUI(parts[1]);
+    if (ps && pe) return ps + ' – ' + pe;
+  }
+  return raw;
+}
+
+function isoToMinutesUI(iso) {
+  if (!iso) return null;
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+var TIMELINE_START_HOUR = 6;
+var TIMELINE_END_HOUR = 23;
+var TL_START_MIN = TIMELINE_START_HOUR * 60;
+var TL_END_MIN = TIMELINE_END_HOUR * 60;
+
+function timelineRangeLabelUI() {
+  return String(TIMELINE_START_HOUR).padStart(2, '0') + 'h → ' + String(TIMELINE_END_HOUR).padStart(2, '0') + 'h';
+}
+function timelinePctUI(mins) {
+  if (mins === null || mins === undefined || isNaN(mins)) return 0;
+  var safe = Math.max(TL_START_MIN, Math.min(TL_END_MIN, Number(mins)));
+  return ((safe - TL_START_MIN) / (TL_END_MIN - TL_START_MIN)) * 100;
+}
+
+function timelineRulerHtml() {
+  var html = '<div class="timeline-ruler">';
+  for (var h = TIMELINE_START_HOUR; h <= TIMELINE_END_HOUR; h++) {
+    html += '<span class="tick" style="left:' + timelinePctUI(h * 60) + '%">' + h + 'h</span>';
+  }
+  return html + '</div>';
+}
+
+function timelineBlockHtml(start, end, label, extraClass) {
+  start = normalizeTimeLabelUI(start);
+  end   = normalizeTimeLabelUI(end);
+  var cleanLabel = cleanShiftLabelUI(start, end, label);
+  var s = timeToMinutesUI(start);
+  var e = timeToMinutesUI(end);
+  if (s === null || e === null || e <= s) {
+    return '<div class="timeline-block shift-empty" style="left:0;width:100%;">Non planifié</div>';
+  }
+  var left = timelinePctUI(s);
+  var right = timelinePctUI(e);
+  var width = Math.max(1, right - left);
+  return '<div class="timeline-block ' + (extraClass || '') + '" style="left:' + left + '%;width:' + width + '%;" title="' + escHtml(cleanLabel) + '">' + escHtml(cleanLabel) + '</div>';
+}
+
+function presenceTimelineHtml(row) {
+  var segs = row.session_segments || [];
+  if (!segs.length) {
+    return '<div class="timeline-track presence"><div class="timeline-block shift-empty" style="left:0;width:100%;">Aucune session enregistrée</div></div>';
+  }
+  var html = '<div class="timeline-track presence">';
+  segs.forEach(function(seg) {
+    var s = isoToMinutesUI(seg.start_at);
+    var e = isoToMinutesUI(seg.end_at);
+    if (s === null || e === null || e <= s) return;
+    var left = timelinePctUI(s);
+    var right = timelinePctUI(e);
+    var width = Math.max(1, right - left);
+    var active = String(seg.status || '').toUpperCase() === 'ACTIVE';
+    html += '<div class="timeline-segment ' + (active ? 'active' : '') + '" style="left:' + left + '%;width:' + width + '%;" title="' + escHtml(seg.start_hhmm + ' – ' + seg.end_hhmm) + '"></div>';
+    html += '<span class="timeline-event login" style="left:' + left + '%" title="Connexion ' + escHtml(seg.start_hhmm || '') + '"></span>';
+    if (!active) html += '<span class="timeline-event logout" style="left:' + right + '%" title="Déconnexion ' + escHtml(seg.end_hhmm || '') + '"></span>';
+  });
   html += '</div>';
-  el('content').innerHTML = html;
+  return html;
+}
+
+function presenceEventsHtml(row) {
+  var events = row.presence_events || [];
+  if (!events.length) return '<div class="pres-events"><span class="chip">Aucun mouvement</span></div>';
+  return '<div class="pres-events">' + events.map(function(ev) {
+    var cls = ev.type === 'login' ? 'cs' : 'cd';
+    var icon = ev.type === 'login' ? '↗' : '↘';
+    return '<span class="chip ' + cls + '">' + icon + ' ' + escHtml(ev.hhmm || '—') + '</span>';
+  }).join('') + '</div>';
+}
+
+function renderPresence() {
+  el('content').innerHTML = buildSkeletonTable(6);
+  var today = todayKey();
+  google.script.run
+    .withSuccessHandler(function(data) { paintPresence(data, today); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .getPresenceSummary(S.token, today);
 }
 
 function loadPresenceDate(dateKey) {
-  el('content').innerHTML = buildSkeletonTable(4);
+  el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(function(data) { paintPresence(data, dateKey); })
     .withFailureHandler(function(e) { gasFailureHandler(e); })
     .getPresenceSummary(S.token, dateKey);
 }
 
+function paintPresence(data, dateKey) {
+  data = data || {};
+  var rows = data.rows || [];
+  _presenceRows = rows;
+
+  var html = '<div class="card">';
+  html += '<div class="card-head">';
+  html += '<div><span class="fw8">Présence des ambassadeurs</span>';
+  html += '<div class="t-muted fs-sm" style="margin-top:3px;">Shifts planifiés + sessions de connexion reconstituées sur la journée — affichage 06h-23h.</div></div>';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+  html += '<input type="date" id="pres-date" value="' + escHtml(dateKey) + '" class="filter-input" onchange="loadPresenceDate(this.value)">';
+  html += '<button class="b2 fs-sm" style="min-height:36px;padding:0 14px;" onclick="exportPresence()">⬇ Export CSV</button>';
+  html += '</div></div>';
+
+  html += '<div class="kpis" style="margin-bottom:16px;">';
+  html += '<div class="kpi"><div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Nb utilisateurs</div><div class="v-sm">' + (data.total_users || 0) + '</div></div>';
+  html += '<div class="kpi"><div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Nb en ligne</div><div class="v-sm">' + (data.online_now || 0) + '</div></div>';
+  html += '<div class="kpi"><div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Connexions</div><div class="v-sm">' + (data.total_connections || 0) + '</div></div>';
+  html += '<div class="kpi"><div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Déconnexions</div><div class="v-sm">' + (data.total_disconnections || 0) + '</div></div>';
+  html += '<div class="kpi"><div class="fs-xs t-muted fw7" style="text-transform:uppercase;letter-spacing:.05em;">Temps total</div><div class="v-sm">' + fmtDuration(data.total_online_seconds || 0) + '</div></div>';
+  html += '</div>';
+
+  html += '<div class="presence-list">';
+  if (!rows.length) {
+    html += '<div class="empty">Aucun ambassadeur visible pour cette date.</div>';
+  } else {
+    rows.forEach(function(r) {
+      var online = isTruthy(r.currently_online || r.is_online);
+      html += '<div class="pres-card">';
+      html += '<div class="pres-head">';
+      html += '<div style="display:flex;gap:10px;align-items:flex-start;min-width:0;">';
+      html += '<div class="avatar">' + initials(r.full_name || r.login || r.user_id) + '</div>';
+      html += '<div style="min-width:0;"><div class="fw8" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(r.full_name || r.login || r.user_id) + '</div>';
+      html += '<div class="t-muted fs-sm">' + escHtml(r.team_name || 'Sans équipe') + '</div></div></div>';
+      html += '<div>' + (online ? '<span class="online-badge on">En ligne</span>' : '<span class="online-badge off">Hors ligne</span>') + '</div>';
+      html += '</div>';
+      html += '<div class="pres-meta">';
+      html += '<span class="chip cg">Shift : ' + escHtml(cleanShiftLabelUI(r.shift_start, r.shift_end, r.shift_label)) + '</span>';
+      html += '<span class="chip cp">Arrivée : ' + escHtml(r.arrival_hhmm || '—') + '</span>';
+      html += '<span class="chip">Sortie : ' + escHtml(r.departure_hhmm || '—') + '</span>';
+      html += '<span class="chip cs">Connexions : ' + Number(r.connection_count || 0) + '</span>';
+      html += '<span class="chip cd">Déconnexions : ' + Number(r.disconnection_count || 0) + '</span>';
+      html += '<span class="chip cw">Temps : ' + fmtDuration(r.online_seconds || 0) + '</span>';
+      html += '</div>';
+      html += '<div class="timeline-shell">';
+      html += timelineRulerHtml();
+      html += '<div><div class="timeline-label"><span>Shift planifié</span><span>' + timelineRangeLabelUI() + '</span></div><div class="timeline-track">' + timelineBlockHtml(r.shift_start, r.shift_end, r.shift_label, '') + '</div></div>';
+      html += '<div><div class="timeline-label"><span>Présence réelle</span><span>connexions / déconnexions</span></div>' + presenceTimelineHtml(r) + presenceEventsHtml(r) + '</div>';
+      html += '</div>';
+      html += '</div>';
+    });
+  }
+  html += '</div></div>';
+  el('content').innerHTML = html;
+}
+
 function exportPresence() {
   var dateEl = el('pres-date');
   var dateKey = dateEl ? dateEl.value : todayKey();
-  google.script.run
-    .withSuccessHandler(function(data) {
-      var rows = (data && data.rows) ? data.rows : [];
-      if (!rows.length) { toast('Aucune donnée à exporter.', 'info'); return; }
-      var csv = 'Utilisateur,Rôle,Statut,Connexions,Déconnexions,Temps en ligne (s)\n';
-      rows.forEach(function(r) {
-        csv += [
-          '"' + (r.full_name || r.user_id || '') + '"',
-          '"' + (r.role || '') + '"',
-          r.is_online ? 'En ligne' : 'Hors ligne',
-          r.connections || 0,
-          r.disconnections || 0,
-          r.total_online_seconds || 0
-        ].join(',') + '\n';
-      });
-      downloadCsv('presence_' + dateKey + '.csv', csv);
-    })
-    .withFailureHandler(function(e) { gasFailureHandler(e); })
-    .getPresenceSummary(S.token, dateKey);
+  var rows = _presenceRows || [];
+  if (!rows.length) { toast('Aucune donnée à exporter.', 'info'); return; }
+  var csv = 'Utilisateur,Equipe,Shift,Arrivée,Sortie,Connexions,Déconnexions,Temps en ligne (s),Statut\n';
+  rows.forEach(function(r) {
+    csv += [
+      '"' + (r.full_name || r.login || r.user_id || '') + '"',
+      '"' + (r.team_name || '') + '"',
+      '"' + (r.shift_label || '') + '"',
+      '"' + (r.arrival_hhmm || '') + '"',
+      '"' + (r.departure_hhmm || '') + '"',
+      r.connection_count || 0,
+      r.disconnection_count || 0,
+      r.online_seconds || 0,
+      isTruthy(r.currently_online || r.is_online) ? 'En ligne' : 'Hors ligne'
+    ].join(',') + '\n';
+  });
+  downloadCsv('presence_' + dateKey + '.csv', csv);
 }
 
 function downloadCsv(filename, content) {
@@ -5744,27 +6104,141 @@ function downloadCsv(filename, content) {
   a.click();
   setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 }
-</script>
-<script>
+
+/* ═══ PLANNING ═══════════════════════════════════════════════ */
+function renderPlanning() {
+  el('content').innerHTML = buildSkeletonTable(6);
+  var today = todayKey();
+  google.script.run
+    .withSuccessHandler(function(data) { paintPlanning(data, today); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .listPlanningShifts(S.token, { date_key: today });
+}
+
+function loadPlanningDate(dateKey) {
+  el('content').innerHTML = buildSkeletonTable(6);
+  google.script.run
+    .withSuccessHandler(function(data) { paintPlanning(data, dateKey); })
+    .withFailureHandler(function(e) { gasFailureHandler(e); })
+    .listPlanningShifts(S.token, { date_key: dateKey });
+}
+
+function paintPlanning(data, dateKey) {
+  data = data || {};
+  var users = data.users || [];
+  _planningData = data;
+  var html = '<div class="card">';
+  html += '<div class="card-head">';
+  html += '<div><span class="fw8">Planning des ambassadeurs</span><div class="t-muted fs-sm" style="margin-top:3px;">Admin : tout le monde • TL : uniquement les ambassadeurs de son équipe • timeline 06h-23h.</div></div>';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><input type="date" id="planning-date" value="' + escHtml(dateKey) + '" class="filter-input" onchange="loadPlanningDate(this.value)"></div>';
+  html += '</div>';
+
+  html += '<div class="planning-form">';
+  html += '<div class="field"><label>Ambassadeur</label><select id="plan-user">' + users.map(function(u) { return '<option value="' + escHtml(u.user_id) + '">' + escHtml((u.full_name || u.login || u.user_id) + (u.team_name ? ' — ' + u.team_name : '')) + '</option>'; }).join('') + '</select></div>';
+  html += '<div class="field"><label>Début shift</label><input id="plan-start" type="time" value="09:00"></div>';
+  html += '<div class="field"><label>Fin shift</label><input id="plan-end" type="time" value="17:00"></div>';
+  html += '<div class="field"><label>Note</label><input id="plan-notes" type="text" placeholder="Optionnel"></div>';
+  html += '<button class="b1 save-btn" onclick="savePlanningFromForm(this)"><span class="label">Planifier</span><span class="spinner hidden"><i></i></span></button>';
+  html += '</div>';
+
+  html += '<div class="planning-list">';
+  if (!users.length) {
+    html += '<div class="empty">Aucun ambassadeur à planifier.</div>';
+  } else {
+    users.forEach(function(u) {
+      html += '<div class="planning-row-card">';
+      html += '<div class="planning-row-head">';
+      html += '<div style="display:flex;gap:10px;align-items:flex-start;min-width:0;"><div class="avatar">' + initials(u.full_name || u.login || u.user_id) + '</div><div style="min-width:0;"><div class="fw8">' + escHtml(u.full_name || u.login || u.user_id) + '</div><div class="t-muted fs-sm">' + escHtml(u.team_name || 'Sans équipe') + '</div></div></div>';
+      html += '<div class="chips"><span class="chip cg">' + escHtml(cleanShiftLabelUI(u.shift_start, u.shift_end, u.shift_label)) + '</span>' + (u.planning_id ? '<button class="bd fs-xs" style="min-height:30px;padding:0 10px;" onclick="deletePlanning(\'' + escHtml(u.planning_id) + '\', this)">Supprimer</button>' : '') + '</div>';
+      html += '</div>';
+      html += timelineRulerHtml();
+      html += '<div class="timeline-track">' + timelineBlockHtml(u.shift_start, u.shift_end, u.shift_label, '') + '</div>';
+      if (u.notes) html += '<div class="t-muted fs-sm" style="margin-top:8px;">Note : ' + escHtml(u.notes) + '</div>';
+      html += '</div>';
+    });
+  }
+  html += '</div></div>';
+  el('content').innerHTML = html;
+}
+
+function savePlanningFromForm(btn) {
+  var dateEl = el('planning-date');
+  var payload = {
+    date_key: dateEl ? dateEl.value : todayKey(),
+    user_id: el('plan-user') ? el('plan-user').value : '',
+    shift_start: el('plan-start') ? el('plan-start').value : '',
+    shift_end: el('plan-end') ? el('plan-end').value : '',
+    notes: el('plan-notes') ? el('plan-notes').value : ''
+  };
+  if (!payload.user_id) { toast('Sélectionne un ambassadeur à planifier.', 'error'); return; }
+  if (!payload.shift_start || !payload.shift_end) { toast('Renseigne le début et la fin du shift.', 'error'); return; }
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      setBtnLoading(btn, false);
+      if (btn) { btn.classList.remove('btn-ack'); void btn.offsetWidth; btn.classList.add('btn-ack'); }
+      toast('Planning enregistré.', 'success');
+      if (res && res.planning) paintPlanning(res.planning, payload.date_key);
+      else loadPlanningDate(payload.date_key);
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .savePlanningShift(S.token, payload);
+}
+
+function deletePlanning(planningId, btn) {
+  var dateEl = el('planning-date');
+  var dateKey = dateEl ? dateEl.value : todayKey();
+  setBtnLoading(btn, true);
+  google.script.run
+    .withSuccessHandler(function() {
+      setBtnLoading(btn, false);
+      if (btn) { btn.classList.remove('btn-ack'); void btn.offsetWidth; btn.classList.add('btn-ack'); }
+      toast('Planning supprimé.', 'success');
+      loadPlanningDate(dateKey);
+    })
+    .withFailureHandler(function(e) { gasFailureHandler(e, btn); })
+    .deletePlanningShift(S.token, planningId);
+}
+
 /* ═══════════════════════════════════════════════════════════════
    PART N — Historique & Connexions
 ═══════════════════════════════════════════════════════════════ */
 
-/* ═══ HISTORIQUE (audit log) ═══════════════════════════════ */
 function renderHistorique() {
   el('content').innerHTML = buildSkeletonTable(6);
   google.script.run
     .withSuccessHandler(paintHistorique)
     .withFailureHandler(function(e) { gasFailureHandler(e); })
-    .listAuditLogs(S.token, { limit: 200 });
+    .listAuditLogsPaged(S.token, { page: _histPage, pageSize: _histPageSize, action: _histAction });
 }
 
-function paintHistorique(rows) {
-  rows = rows || [];
+function onHistoriqueActionChange(value) {
+  _histAction = value || '';
+  _histPage = 1;
+  renderHistorique();
+}
+
+function changeHistoriquePage(nextPage) {
+  _histPage = Math.max(1, Number(nextPage || 1));
+  renderHistorique();
+}
+
+function paintHistorique(data) {
+  if (Array.isArray(data)) data = { rows: data, total: data.length, page: 1, pageSize: data.length || 15, actions: [] };
+  data = data || {};
+  var rows = data.rows || [];
+  var total = Number(data.total || rows.length || 0);
+  var page = Number(data.page || _histPage || 1);
+  var pageSize = Number(data.pageSize || _histPageSize || 15);
+  var pages = Math.max(1, Math.ceil(total / pageSize));
+  var actions = data.actions || [];
+
   var html = '<div class="card">';
   html += '<div class="card-head">';
-  html += '<span class="fw8">Historique des actions</span>';
-  html += '<span class="chip t-muted">' + rows.length + ' entrées</span>';
+  html += '<div><span class="fw8">Historique des actions</span><div class="t-muted fs-sm" style="margin-top:3px;">Pagination de 15 lignes + filtre par action.</div></div>';
+  html += '<div class="filters"><select class="filter-select" onchange="onHistoriqueActionChange(this.value)"><option value="">Toutes les actions</option>';
+  actions.forEach(function(a) { html += '<option value="' + escHtml(a) + '" ' + (a === _histAction ? 'selected' : '') + '>' + escHtml(a) + '</option>'; });
+  html += '</select><span class="chip t-muted">' + total + ' entrée(s)</span></div>';
   html += '</div>';
 
   if (!rows.length) {
@@ -5778,12 +6252,8 @@ function paintHistorique(rows) {
     rows,
     function(r) {
       var actionTone = {
-        CREATE:   'cp',
-        UPDATE:   'cw',
-        DELETE:   'cd',
-        LOGIN:    'cs',
-        LOGOUT:   '',
-        OVERRIDE: 'cg'
+        CREATE: 'cp', UPDATE: 'cw', DELETE: 'cd', LOGIN: 'cs', LOGOUT: '', OVERRIDE: 'cg',
+        CREATE_PLANNING_SHIFT: 'cs', UPDATE_PLANNING_SHIFT: 'cw', DELETE_PLANNING_SHIFT: 'cd'
       }[r.action] || '';
       return '<tr>' +
         '<td class="fs-sm t-muted">' + fmtDateTime(r.timestamp) + '</td>' +
@@ -5795,8 +6265,11 @@ function paintHistorique(rows) {
         '</tr>';
     }
   );
-
-  html += '</div>';
+  html += '<div class="pager">';
+  html += '<button class="b3 fs-sm" ' + (page <= 1 ? 'disabled' : '') + ' onclick="changeHistoriquePage(' + (page - 1) + ')">← Précédent</button>';
+  html += '<span class="chip">Page ' + page + ' / ' + pages + '</span>';
+  html += '<button class="b3 fs-sm" ' + (page >= pages ? 'disabled' : '') + ' onclick="changeHistoriquePage(' + (page + 1) + ')">Suivant →</button>';
+  html += '</div></div>';
   el('content').innerHTML = html;
 }
 
