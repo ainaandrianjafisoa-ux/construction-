@@ -1421,6 +1421,207 @@ button.loading-inline {
 }
 </style>
 
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   PART P — Ajustements d'affichage (cohérence, responsive, polish)
+   Aucune dépendance JS : pure couche visuelle additionnelle.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Variables manquantes / utilitaires ───────────────────── */
+:root {
+  --glass-strong: rgba(255,255,255,.78);
+  --focus-ring:   0 0 0 3px var(--gold-subtle);
+}
+[data-theme="dark"] {
+  --glass-strong: rgba(28,36,52,.78);
+}
+
+/* ── 2. Scrollbar plus visible en thème sombre ───────────────── */
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(160,180,210,.18); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(201,168,76,.5); }
+
+/* ── 3. Spinner — track visible en thème clair ──────────────── */
+.spinner i { border-color: rgba(128,140,160,.32); border-top-color: currentColor; }
+[data-theme="dark"] .spinner i { border-color: rgba(255,255,255,.18); }
+
+/* ── 4. Top bar — wrap propre sur tablette/mobile ────────────── */
+.top { flex-wrap: wrap; row-gap: 10px; }
+.top > div:first-of-type { min-width: 180px; flex: 1 1 auto; }
+@media (max-width: 880px) {
+  #global-search-wrap {
+    order: 4;
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+    margin: 4px 0 0 !important;
+  }
+}
+
+/* ── 5. Sidebar mobile : densité optimisée ───────────────────── */
+@media (max-width: 900px) {
+  .sidebar .brand { display: none; }
+  .sidebar { padding: 8px 10px; gap: 4px; align-items: center; }
+  .nav button { padding: 8px 12px; min-height: 38px; font-size: .84rem; }
+}
+
+/* ── 6. Tables — souplesse de min-width ──────────────────────── */
+.table-wrap table { min-width: 720px; }
+@media (max-width: 540px) {
+  .table-wrap table { min-width: 560px; }
+  th, td { padding: 9px 10px; font-size: .82rem; }
+  th { font-size: .68rem; letter-spacing: .05em; }
+}
+
+/* ── 7. Cards — padding/typographie homogènes ────────────────── */
+.card { padding: 18px 20px; }
+@media (max-width: 720px) { .card { padding: 14px; } }
+.card-head h3 { font-size: 1.02rem; font-weight: 800; color: var(--text); line-height: 1.25; }
+.card-head .sub { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+
+/* ── 8. KPI — typographie un peu plus douce ──────────────────── */
+.kpi h4, .kpi .label, .module-card h4 {
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-size: .76rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+.kpi .v    { font-size: 1.65rem; }
+.kpi .v-sm { font-size: 1.2rem; }
+@media (max-width: 720px) {
+  .kpi { padding: 14px; }
+  .kpi .v    { font-size: 1.4rem; }
+  .kpi .v-sm { font-size: 1.05rem; }
+}
+
+/* ── 9. Modales — confort vertical & mobile ──────────────────── */
+.overlay { padding: 24px 16px; }
+.modal-scroll { max-height: calc(100vh - 160px); }
+@media (min-height: 820px) and (min-width: 721px) { .overlay { place-items: center; } }
+@media (max-width: 720px) {
+  .overlay { padding: 12px 8px; }
+  .modal-scroll { max-height: calc(100vh - 140px); }
+  .modal { border-radius: 18px; }
+}
+
+/* ── 10. Boutons : focus accessible / disabled lisible ───────── */
+button:focus-visible { box-shadow: var(--focus-ring); }
+button:disabled { filter: saturate(.55); }
+
+/* ── 11. Champs : placeholder & date/time cohérents ──────────── */
+.field input::placeholder,
+.field textarea::placeholder,
+.filters input::placeholder,
+.filter-input::placeholder,
+#global-search-input::placeholder {
+  color: var(--muted);
+  opacity: .85;
+}
+input[type="date"], input[type="time"] { font-family: inherit; color-scheme: light; }
+[data-theme="dark"] input[type="date"], [data-theme="dark"] input[type="time"] { color-scheme: dark; }
+
+/* ── 12. Bouton recherche (top bar) — adapte le texte au thème ─ */
+#global-search-box button { color: var(--navy-deep) !important; }
+#global-search-box button:hover { filter: brightness(.95); }
+
+/* ── 13. Dropdown résultats recherche : ombrage premium ──────── */
+#global-search-results {
+  border-color: var(--glass-border) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.gs-result {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+.gs-result:hover { background: var(--gold-subtle); }
+
+/* ── 14. Toast close — visible en sombre ─────────────────────── */
+[data-theme="dark"] .toast-close { background: rgba(255,255,255,.06); color: var(--text-soft); }
+
+/* ── 15. Chip neutre — meilleur contraste sombre ─────────────── */
+[data-theme="dark"] .chip { background: rgba(255,255,255,.05); color: var(--text-soft); }
+
+/* ── 16. Timeline présence — densité mobile ──────────────────── */
+@media (max-width: 540px) {
+  .timeline-track, .timeline-track.presence { height: 30px; }
+  .timeline-block { font-size: .68rem; height: 20px; top: 4px; }
+  .timeline-segment { height: 20px; top: 5px; }
+  .timeline-ruler .tick { font-size: .62rem; }
+}
+
+/* ── 17. Drawer pleine largeur < 480px ───────────────────────── */
+@media (max-width: 480px) { .side-drawer { width: 100%; border-radius: 0; } }
+
+/* ── 18. Empty state — un peu plus aéré ──────────────────────── */
+.empty { padding: 36px 24px; line-height: 1.55; }
+
+/* ── 19. Boutons icônes header — taille uniforme ─────────────── */
+.theme-toggle, #btn-profile { width: 36px; height: 36px; font-size: 1rem; }
+
+/* ── 20. Pagination — sobriété ───────────────────────────────── */
+.pager button { min-height: 36px; padding: 0 12px; font-size: .82rem; }
+.pager .page-num { color: var(--muted); font-size: .82rem; padding: 0 6px; }
+
+/* ── 21. Filtres dashboard — empilement responsive ───────────── */
+@media (max-width: 720px) {
+  .dash-local-filters .filter-select { flex: 1 1 100%; min-width: 0; }
+  .dash-local-filters { padding: 10px; }
+}
+
+/* ── 22. Tableaux — meilleur header en sombre ────────────────── */
+[data-theme="dark"] th { background: rgba(255,255,255,.04); color: var(--muted); }
+[data-theme="dark"] tr:hover td { background: rgba(201,168,76,.08); }
+
+/* ── 23. Couleurs hardcodées — adapter via attribut ──────────── */
+[style*="background:#22c55e"] { background: var(--success) !important; }
+[style*="background:#ef4444"] { background: var(--danger) !important; }
+[style*="color:#22c55e"]      { color: var(--success) !important; }
+[style*="color:#ef4444"]      { color: var(--danger) !important; }
+[style*="background:rgba(239,68,68"] {
+  background: var(--danger-bg) !important;
+  border-color: rgba(196,61,61,.35) !important;
+}
+
+/* ── 24. Brand mark — uniformité dark ────────────────────────── */
+[data-theme="dark"] .brand-mark {
+  background: linear-gradient(135deg, rgba(201,168,76,.18), rgba(201,168,76,.06));
+  border-color: rgba(201,168,76,.4);
+  color: var(--gold-light);
+}
+
+/* ── 25. Profil tabs — état hover ────────────────────────────── */
+.profil-tab:hover:not(.active) { background: rgba(128,140,160,.08); color: var(--text-soft); border-color: var(--line); }
+
+/* ── 26. Toolbar : alignement mobile ─────────────────────────── */
+@media (max-width: 640px) {
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar .filters { width: 100%; }
+  .toolbar .filters input, .toolbar .filters select { flex: 1 1 140px; }
+}
+
+/* ── 27. Badges en ligne — alignement vertical ───────────────── */
+.online-badge, .badge-verified, .res-origin-badge, .ver-chip { vertical-align: middle; }
+
+/* ── 28. Card hover — ombre plus subtile en sombre ───────────── */
+[data-theme="dark"] .card:hover { box-shadow: 0 16px 44px rgba(0,0,0,.55), 0 0 0 1px rgba(201,168,76,.06); }
+
+/* ── 29. Réduction des animations selon préférence système ───── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .progress span { animation: none; width: 100%; }
+}
+
+/* ── 30. Sécurité layout — pas de débordement horizontal global  */
+html, body { overflow-x: hidden; }
+.modal, .card, .table-wrap { max-width: 100%; }
+</style>
+
 </head>
 <body>
 
@@ -1430,9 +1631,9 @@ button.loading-inline {
 <div id="boot" class="boot">
   <div class="card-boot">
     <div class="brand">
-      <div class="brand-mark">SL</div>
+      <div class="brand-mark">SR</div>
       <div>
-        <strong>Syndic Ledger</strong>
+        <strong>Suivi Rambaud</strong>
         <small>Initialisation…</small>
       </div>
     </div>
@@ -1447,9 +1648,9 @@ button.loading-inline {
 <div id="login" class="login hidden">
   <div class="card-login">
     <div class="brand">
-      <div class="brand-mark">SL</div>
+      <div class="brand-mark">SR</div>
       <div>
-        <strong>Syndic Ledger</strong>
+        <strong>Suivi Rambaud</strong>
         <small>Plateforme de gestion</small>
       </div>
     </div>
@@ -1486,9 +1687,9 @@ button.loading-inline {
   <!-- ── Sidebar ── -->
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark">SL</div>
+      <div class="brand-mark">SR</div>
       <div>
-        <strong>Syndic Ledger</strong>
+        <strong>Suivi Rambaud</strong>
         <small id="sb-scope"></small>
       </div>
     </div>

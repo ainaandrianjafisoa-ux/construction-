@@ -3,7 +3,7 @@
 // ============================================================
 
 const APP_CONFIG = {
-  APP_NAME: 'Syndic Ledger High-End',
+  APP_NAME: 'Suivi Rambaud',
   VERSION: '4.0.0',
   TIMEZONE: Session.getScriptTimeZone() || 'Indian/Antananarivo',
   HEARTBEAT_SECONDS: 45,

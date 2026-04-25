@@ -1,4 +1,4 @@
-# Syndic Ledger High-End
+# Suivi Rambaud
 
 Application interne de gestion opérationnelle développée avec **Google Apps Script**, **Google Sheets** et une interface web **HTML / CSS / JavaScript**.
 
@@ -29,7 +29,7 @@ Le projet centralise plusieurs modules métier dans un seul outil : agréments, 
 
 ## Objectif du projet
 
-**Syndic Ledger High-End** est un outil web interne destiné à suivre, traiter et piloter différents dossiers métier depuis une interface unique.
+**Suivi Rambaud** est un outil web interne destiné à suivre, traiter et piloter différents dossiers métier depuis une interface unique.
 
 L’application utilise :
 
